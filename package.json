@@ -1,0 +1,17 @@
+{
+  "name": "treinofisico",
+  "version": "1.0.0",
+  "description": "Aplicativo de Treino Físico",
+  "main": "supabaseClient.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5"
+  },
+  "scripts": {
+    "test": "node test_supabase.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
