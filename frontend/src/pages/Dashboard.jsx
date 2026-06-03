@@ -11,7 +11,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [vaiACapoeira, setVaiACapoeira] = useState(null);
-  const [coringaWorkouts, setCoringaWorkouts] = useState({});
+  const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,14 +24,10 @@ const Dashboard = () => {
     const { data: userData } = await supabase.from('usuarios').select('*').single();
     setUser(userData);
 
-    // Fetch Coringa status
-    const { data: blocksData } = await supabase.from('blocos_treino').select('letra_treino, is_coringa');
-    if (blocksData) {
-        const map = blocksData.reduce((acc, curr) => {
-            acc[curr.letra_treino] = curr.is_coringa;
-            return acc;
-        }, {});
-        setCoringaWorkouts(map);
+    // Fetch Workouts
+    const { data: workoutsData } = await supabase.from('treinos').select('*').order('letra');
+    if (workoutsData) {
+        setWorkouts(workoutsData);
     }
     setLoading(false);
   };
@@ -94,51 +90,33 @@ const Dashboard = () => {
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sessão de Hoje</h3>
 
-        <WorkoutCard
-          title="Treino A"
-          subtitle="Empurrar (Peito/Ombro/Tríceps)"
-          icon={<Dumbbell />}
-          onClick={() => startTraining('A')}
-          isCoringa={coringaWorkouts['A']}
-        />
+        {workouts.map(workout => {
+            const isTreinoC = workout.letra === 'C';
+            if (isTreinoC && vaiACapoeira) {
+                return (
+                    <div key={workout.id} className="p-4 bg-slate-100 rounded-xl border border-dashed border-slate-300 opacity-60">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-slate-400 text-lg">{workout.nome}</h4>
+                                <p className="text-xs text-slate-400">Bloqueado p/ proteção ({atividadeAlt})</p>
+                            </div>
+                            <Shield size={24} className="text-slate-300" />
+                        </div>
+                    </div>
+                );
+            }
 
-        <WorkoutCard
-          title="Treino B"
-          subtitle="Puxar (Costas/Bíceps)"
-          icon={<List />}
-          onClick={() => startTraining('B')}
-          isCoringa={coringaWorkouts['B']}
-        />
-
-        {(!vaiACapoeira || vaiACapoeira === null) && (
-          <WorkoutCard
-            title="Treino C"
-            subtitle="Pernas (Inferiores)"
-            icon={<RotateCcw />}
-            onClick={() => startTraining('C')}
-            isCoringa={coringaWorkouts['C']}
-          />
-        )}
-
-        {vaiACapoeira && (
-          <div className="p-4 bg-slate-100 rounded-xl border border-dashed border-slate-300 opacity-60">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-slate-400 text-lg">Treino C</h4>
-                <p className="text-xs text-slate-400">Bloqueado p/ proteção ({atividadeAlt})</p>
-              </div>
-              <Shield size={24} className="text-slate-300" />
-            </div>
-          </div>
-        )}
-
-        <WorkoutCard
-          title="Treino D"
-          subtitle="Sábado (Postural/Mobilidade)"
-          icon={<Bike />}
-          onClick={() => startTraining('D')}
-          isCoringa={coringaWorkouts['D']}
-        />
+            return (
+                <WorkoutCard
+                    key={workout.id}
+                    title={workout.nome}
+                    subtitle={workout.subtitulo}
+                    icon={workout.letra === 'A' ? <Dumbbell /> : workout.letra === 'B' ? <List /> : workout.letra === 'C' ? <RotateCcw /> : <Bike />}
+                    onClick={() => startTraining(workout.letra)}
+                    isCoringa={workout.is_coringa}
+                />
+            );
+        })}
       </div>
 
       {/* Menu Inferior Fixo */}

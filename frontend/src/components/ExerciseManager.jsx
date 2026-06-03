@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Plus, Trash2, Edit2, Check, X, Search } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const ExerciseManager = () => {
+  const { showToast } = useToast();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(null);
@@ -51,8 +53,9 @@ const ExerciseManager = () => {
         .update(formData)
         .eq('id', isEditing);
 
-      if (error) alert('Erro ao atualizar exercício: ' + error.message);
+      if (error) showToast('Erro ao atualizar exercício: ' + error.message, 'error');
       else {
+        showToast('Exercício atualizado com sucesso!', 'success');
         setIsEditing(null);
         resetForm();
         fetchExercises();
@@ -62,8 +65,9 @@ const ExerciseManager = () => {
         .from('exercicios')
         .insert([formData]);
 
-      if (error) alert('Erro ao criar exercício: ' + error.message);
+      if (error) showToast('Erro ao criar exercício: ' + error.message, 'error');
       else {
+        showToast('Exercício criado com sucesso!', 'success');
         resetForm();
         fetchExercises();
       }
@@ -101,8 +105,11 @@ const ExerciseManager = () => {
         .delete()
         .eq('id', id);
 
-      if (error) alert('Erro ao excluir exercício: ' + error.message);
-      else fetchExercises();
+      if (error) showToast('Erro ao excluir exercício: ' + error.message, 'error');
+      else {
+        showToast('Exercício excluído!', 'success');
+        fetchExercises();
+      }
     }
   };
 

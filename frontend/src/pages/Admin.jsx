@@ -4,9 +4,10 @@ import { ChevronLeft, Dumbbell, LayoutGrid, Settings } from 'lucide-react';
 import ExerciseManager from '../components/ExerciseManager';
 import BlockConfigurator from '../components/BlockConfigurator';
 import GeneralSettings from '../components/GeneralSettings';
+import WorkoutManager from '../components/WorkoutManager';
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('exercises');
+  const [activeTab, setActiveTab] = useState('workouts');
 
   return (
     <div className="p-6 max-w-4xl mx-auto bg-slate-50 min-h-screen">
@@ -20,6 +21,12 @@ const Admin = () => {
       </header>
 
       <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+        <TabButton
+          active={activeTab === 'workouts'}
+          onClick={() => setActiveTab('workouts')}
+          icon={<LayoutGrid size={18} />}
+          label="Treinos"
+        />
         <TabButton
           active={activeTab === 'exercises'}
           onClick={() => setActiveTab('exercises')}
@@ -41,6 +48,7 @@ const Admin = () => {
       </div>
 
       <main>
+        {activeTab === 'workouts' && <WorkoutManager />}
         {activeTab === 'exercises' && <ExerciseManager />}
         {activeTab === 'blocks' && <BlockConfigurator />}
         {activeTab === 'settings' && <GeneralSettings />}

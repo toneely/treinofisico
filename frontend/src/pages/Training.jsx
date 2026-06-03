@@ -6,8 +6,10 @@ import {
   Settings2, Info, Save
 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 
 const Training = () => {
+  const { showToast } = useToast();
   const { letra } = useParams();
   const navigate = useNavigate();
 
@@ -158,6 +160,8 @@ const Training = () => {
           exercicio_id: ex.exercicio_id,
           carga_utilizada: parseFloat(cargas[`${bIdx}_${eIdx}`] || 0),
           repeticoes_feitas: parseInt(repsFeitas[`${bIdx}_${eIdx}`] || 0),
+          series_executadas: ex.series_alvo,
+          letra_treino: letra,
           data_treino: new Date().toISOString()
         });
       });
@@ -165,9 +169,9 @@ const Training = () => {
 
     const { error } = await supabase.from('historico_cargas').insert(historyData);
 
-    if (error) alert('Erro ao salvar histórico: ' + error.message);
+    if (error) showToast('Erro ao salvar histórico: ' + error.message, 'error');
     else {
-      alert('Treino concluído e registrado!');
+      showToast('Treino concluído e registrado!', 'success');
       navigate('/');
     }
     setSavingSession(false);

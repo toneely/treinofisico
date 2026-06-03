@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { User, Shield, Save, Scale, Ruler, Activity } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const GeneralSettings = () => {
+  const { showToast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -13,12 +15,19 @@ const GeneralSettings = () => {
     foco_treino: '',
     atividade_alternativa: 'Capoeira',
     medidas: {
+      pescoco: 0,
+      torax: 0,
       braco_dir: 0,
       braco_esq: 0,
-      peitoral: 0,
+      antebraco_dir: 0,
+      antebraco_esq: 0,
       cintura: 0,
+      abdomen: 0,
+      quadril: 0,
       coxa_dir: 0,
-      coxa_esq: 0
+      coxa_esq: 0,
+      panturrilha_dir: 0,
+      panturrilha_esq: 0
     }
   });
 
@@ -44,13 +53,21 @@ const GeneralSettings = () => {
         massa_corporea_atual: data.massa_corporea_atual,
         foco_treino: data.foco_treino || '',
         atividade_alternativa: data.atividade_alternativa || 'Capoeira',
-        medidas: data.medidas || {
+        medidas: {
+          pescoco: 0,
+          torax: 0,
           braco_dir: 0,
           braco_esq: 0,
-          peitoral: 0,
+          antebraco_dir: 0,
+          antebraco_esq: 0,
           cintura: 0,
+          abdomen: 0,
+          quadril: 0,
           coxa_dir: 0,
-          coxa_esq: 0
+          coxa_esq: 0,
+          panturrilha_dir: 0,
+          panturrilha_esq: 0,
+          ...(data.medidas || {})
         }
       });
     }
@@ -111,8 +128,8 @@ const GeneralSettings = () => {
       })
       .eq('id', user.id);
 
-    if (error) alert('Erro ao salvar: ' + error.message);
-    else alert('Configurações salvas com sucesso!');
+    if (error) showToast('Erro ao salvar: ' + error.message, 'error');
+    else showToast('Configurações salvas com sucesso!', 'success');
     setSaving(false);
   };
 

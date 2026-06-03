@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Plus, Trash2, GripVertical, Save, AlertCircle, X } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const BlockConfigurator = () => {
-  const [workouts, setWorkouts] = useState(['A', 'B', 'C', 'D']);
-  const [selectedWorkout, setSelectedWorkout] = useState('A');
+  const { showToast } = useToast();
+  const [workouts, setWorkouts] = useState([]);
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [blocks, setBlocks] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,8 +14,22 @@ const BlockConfigurator = () => {
 
   useEffect(() => {
     fetchExercises();
-    fetchBlocks(selectedWorkout);
+    fetchWorkouts();
+  }, []);
+
+  useEffect(() => {
+    if (selectedWorkout) {
+        fetchBlocks(selectedWorkout);
+    }
   }, [selectedWorkout]);
+
+  const fetchWorkouts = async () => {
+    const { data } = await supabase.from('treinos').select('*').order('letra');
+    if (data && data.length > 0) {
+        setWorkouts(data);
+        if (!selectedWorkout) setSelectedWorkout(data[0].letra);
+    }
+  };
 
   const fetchExercises = async () => {
     const { data } = await supabase.from('exercicios').select('id, nome, descanso_passivo_segundos').order('nome');
@@ -104,7 +120,7 @@ const BlockConfigurator = () => {
       .eq('letra_treino', selectedWorkout);
 
     if (deleteError) {
-      alert('Erro ao limpar blocos antigos: ' + deleteError.message);
+      showToast('Erro ao limpar blocos antigos: ' + deleteError.message, 'error');
       setSaving(false);
       return;
     }
@@ -124,10 +140,10 @@ const BlockConfigurator = () => {
         .from('blocos_treino')
         .insert(toInsert);
 
-      if (insertError) alert('Erro ao salvar novos blocos: ' + insertError.message);
-      else alert('Treino ' + selectedWorkout + ' salvo com sucesso!');
+      if (insertError) showToast('Erro ao salvar novos blocos: ' + insertError.message, 'error');
+      else showToast('Treino ' + selectedWorkout + ' salvo com sucesso!', 'success');
     } else {
-        alert('Treino ' + selectedWorkout + ' limpo com sucesso!');
+        showToast('Treino ' + selectedWorkout + ' limpo com sucesso!', 'info');
     }
 
     setSaving(false);
@@ -144,13 +160,13 @@ const BlockConfigurator = () => {
         <div className="flex gap-2">
           {workouts.map(w => (
             <button
-              key={w}
-              onClick={() => setSelectedWorkout(w)}
+              key={w.letra}
+              onClick={() => setSelectedWorkout(w.letra)}
               className={`w-10 h-10 rounded-lg font-bold transition ${
-                selectedWorkout === w ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
+                selectedWorkout === w.letra ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
               }`}
             >
-              {w}
+              {w.letra}
             </button>
           ))}
         </div>
