@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  FileDown, Activity, Clock, Dumbbell, User, Scale, Ruler
+  FileDown, Activity, Clock, Dumbbell, User, Scale, Ruler,
+  History as HistoryIcon, User as UserIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { exportHistoryToPDF } from '../utils/pdfExport';
