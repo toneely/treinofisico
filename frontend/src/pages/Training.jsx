@@ -181,20 +181,26 @@ const Training = () => {
 
   const startTimer = (targetExerciseId = null) => {
     const exId = targetExerciseId || exercise.exercicio_id;
-    // Kill trigger: remove rest timer for this specific exercise when starting its next series
+
+    // Sequential cleanup: stop rest, record time, and unmount balloon
     if (exId && activeRestTimers[exId]) {
-        const time = activeRestTimers[exId].seconds;
+        const restDuration = activeRestTimers[exId].seconds;
+
+        // 1. Save rest time
         setRestTimes(prev => ({
             ...prev,
-            [exId]: [...(prev[exId] || []), time]
+            [exId]: [...(prev[exId] || []), restDuration]
         }));
+
+        // 2. Remove from active rest timers (unmount balloon)
         setActiveRestTimers(prev => {
-            const next = { ...prev };
-            delete next[exId];
-            return next;
+            const newState = { ...prev };
+            delete newState[exId];
+            return newState;
         });
     }
 
+    // 3. Reset and start execution timer
     setTimer(0);
     setTimerMode('execution');
     setIsTimerActive(true);
@@ -228,7 +234,10 @@ const Training = () => {
   };
 
   const completeRestTimer = (exId) => {
-    const time = activeRestTimers[exId];
+    const data = activeRestTimers[exId];
+    if (!data) return;
+
+    const time = data.seconds;
     setRestTimes(prev => ({
         ...prev,
         [exId]: [...(prev[exId] || []), time]
@@ -265,7 +274,8 @@ const Training = () => {
     if (currentExerciseInBlock < currentBlock.length - 1) {
         setCurrentExerciseInBlock(currentExerciseInBlock + 1);
         setCurrentSerie(1);
-        startTimer();
+        setTimer(0);
+        setIsTimerActive(false);
     } else {
         goToNextBlock();
     }
@@ -281,10 +291,9 @@ const Training = () => {
         return;
     }
 
-    const nextExercise = advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
-    if (nextExercise) {
-        startTimer(nextExercise.exercicio_id);
-    }
+    advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
+    setTimer(0);
+    setIsTimerActive(false);
   };
 
   const advanceUI = (currentBlock, isLastExerciseInBlock, isLastSerie) => {
@@ -346,11 +355,11 @@ const Training = () => {
 
   const goToNextBlock = () => {
     if (currentBlockIndex < blocos.length - 1) {
-      const nextBlock = blocos[currentBlockIndex + 1];
       setCurrentBlockIndex(currentBlockIndex + 1);
       setCurrentExerciseInBlock(0);
       setCurrentSerie(1);
-      startTimer(nextBlock[0].exercicio_id);
+      setTimer(0);
+      setIsTimerActive(false);
     } else {
       handleWorkoutEnd();
     }
@@ -379,7 +388,8 @@ const Training = () => {
     setCurrentBlockIndex(0);
     setCurrentExerciseInBlock(0);
     setCurrentSerie(firstPartialSerie);
-    startTimer();
+    setTimer(0);
+    setIsTimerActive(false);
   };
 
   const finishWorkout = async () => {
@@ -680,7 +690,8 @@ const Training = () => {
                                                 setCurrentExerciseInBlock(eIdx);
                                                 setCurrentSerie(currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1);
                                                 setOpenMenuExId(null);
-                                                startTimer();
+                                                setTimer(0);
+                                                setIsTimerActive(false);
                                             }}
                                             className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
                                         >
