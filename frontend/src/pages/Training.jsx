@@ -28,7 +28,7 @@ const Training = () => {
   const [timerMode, setTimerMode] = useState('execution'); // 'execution' or 'rest'
   const [exerciseTimes, setExerciseTimes] = useState({}); // { exercicio_id: [s1, s2...] }
   const [restTimes, setRestTimes] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: currentSeconds }
+  const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: { seconds: number, title: string } }
   const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
 
   const [cargas, setCargas] = useState({}); // { exercicio_id: value }
@@ -105,7 +105,9 @@ const Training = () => {
       interval = setInterval(() => {
         setActiveRestTimers(prev => {
             const next = { ...prev };
-            Object.keys(next).forEach(id => { next[id] += 1; });
+            Object.keys(next).forEach(id => {
+                next[id] = { ...next[id], seconds: next[id].seconds + 1 };
+            });
             return next;
         });
       }, 1000);
@@ -177,7 +179,22 @@ const Training = () => {
     setLoading(false);
   };
 
-  const startTimer = () => {
+  const startTimer = (targetExerciseId = null) => {
+    const exId = targetExerciseId || exercise.exercicio_id;
+    // Kill trigger: remove rest timer for this specific exercise when starting its next series
+    if (exId && activeRestTimers[exId]) {
+        const time = activeRestTimers[exId].seconds;
+        setRestTimes(prev => ({
+            ...prev,
+            [exId]: [...(prev[exId] || []), time]
+        }));
+        setActiveRestTimers(prev => {
+            const next = { ...prev };
+            delete next[exId];
+            return next;
+        });
+    }
+
     setTimer(0);
     setTimerMode('execution');
     setIsTimerActive(true);
@@ -200,10 +217,13 @@ const Training = () => {
 
     stopAndRecordTime();
 
-    // Start floating rest for THIS exercise
+    // Spawn trigger: Start floating rest for THIS exercise automatically
     setActiveRestTimers(prev => ({
         ...prev,
-        [exId]: 0
+        [exId]: {
+            seconds: 0,
+            title: `Descanso ${currentSerie}-${exercise.series_alvo}`
+        }
     }));
   };
 
@@ -261,29 +281,28 @@ const Training = () => {
         return;
     }
 
-    advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
-    startTimer();
+    const nextExercise = advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
+    if (nextExercise) {
+        startTimer(nextExercise.exercicio_id);
+    }
   };
 
   const advanceUI = (currentBlock, isLastExerciseInBlock, isLastSerie) => {
+    let nextEx = exercise;
     if (executionMode === 'alternated') {
       if (!isLastExerciseInBlock) {
         // Check if the next exercise is already done with its series
-        const nextEx = currentBlock[currentExerciseInBlock + 1];
-        if (currentSerie <= nextEx.series_alvo) {
+        const next = currentBlock[currentExerciseInBlock + 1];
+        if (currentSerie <= next.series_alvo) {
             setCurrentExerciseInBlock(currentExerciseInBlock + 1);
+            nextEx = next;
         } else {
-            // Next is done, maybe go to next block or stay here?
-            // User said: "continue executando a série restante do Exercício B"
-            // If we are at A and B is done, and A is not done, we stay at A?
-            // Wait, if A has 4 and B has 3.
-            // A1 -> B1 -> A2 -> B2 -> A3 -> B3 -> A4.
-            // When at A3, we go to B3. When at B3, we want to go to A4.
-            // When at A4, we finish A4 and then there is no B4.
             if (!isLastSerie) {
                 setCurrentSerie(currentSerie + 1);
+                // nextEx remains current exercise
             } else {
                 goToNextBlock();
+                return null;
             }
         }
       } else {
@@ -293,13 +312,16 @@ const Training = () => {
         if (currentSerie < firstEx.series_alvo) {
             setCurrentExerciseInBlock(0);
             setCurrentSerie(currentSerie + 1);
+            nextEx = firstEx;
         } else {
             // First exercise is done
             if (!isLastSerie) {
                 // Current exercise (B) is not done, stay here but increment serie
                 setCurrentSerie(currentSerie + 1);
+                // nextEx remains current exercise
             } else {
                 goToNextBlock();
+                return null;
             }
         }
       }
@@ -307,23 +329,28 @@ const Training = () => {
       // isolated mode
       if (!isLastSerie) {
         setCurrentSerie(currentSerie + 1);
+        // nextEx remains current exercise
       } else {
         if (!isLastExerciseInBlock) {
           setCurrentExerciseInBlock(currentExerciseInBlock + 1);
           setCurrentSerie(1);
+          nextEx = currentBlock[currentExerciseInBlock + 1];
         } else {
           goToNextBlock();
+          return null;
         }
       }
     }
+    return nextEx;
   };
 
   const goToNextBlock = () => {
     if (currentBlockIndex < blocos.length - 1) {
+      const nextBlock = blocos[currentBlockIndex + 1];
       setCurrentBlockIndex(currentBlockIndex + 1);
       setCurrentExerciseInBlock(0);
       setCurrentSerie(1);
-      startTimer();
+      startTimer(nextBlock[0].exercicio_id);
     } else {
       handleWorkoutEnd();
     }
@@ -503,22 +530,16 @@ const Training = () => {
 
         {/* Floating Timer Widgets */}
         <div className="fixed top-24 right-6 z-[200] flex flex-col gap-3">
-            {Object.entries(activeRestTimers).map(([exId, time], idx) => {
+            {Object.entries(activeRestTimers).map(([exId, data], idx) => {
                 const isPrimary = parseInt(exId) === currentBlock[0].exercicio_id;
                 return (
-                    <div key={exId} className={`p-4 rounded-3xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-500 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
+                    <div key={exId} className={`p-4 px-6 rounded-3xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-500 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
                         <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">Descanso</span>
+                            <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">{data.title}</span>
                             <span className="text-2xl font-mono font-black">
-                                {Math.floor(time / 60)}:{String(time % 60).padStart(2, '0')}
+                                {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
                             </span>
                         </div>
-                        <button
-                            onClick={() => completeRestTimer(exId)}
-                            className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20"
-                        >
-                            <CheckCircle2 size={20} />
-                        </button>
                     </div>
                 );
             })}
