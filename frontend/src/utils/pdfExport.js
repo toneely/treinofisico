@@ -9,6 +9,7 @@ export const exportHistoryToPDF = (userData, history) => {
   const secondary = "#64748B";
   const light = "#F8FAFC";
   const dark = "#1E293B";
+  const workoutHeaderBg = "#E0E7FF";
 
   // Cabeçalho
   doc.setFillColor(dark);
@@ -40,79 +41,112 @@ export const exportHistoryToPDF = (userData, history) => {
   doc.text(`Foco de Treino: ${userData?.foco_treino}`, 20, 75);
   doc.text(`Atividade Alt.: ${userData?.atividade_alternativa}`, 20, 80);
 
-  // Medidas
-  if (userData?.medidas) {
-    doc.setFontSize(12);
+  // Seção de Medidas Corporais (Condicional)
+  let currentY = 100;
+  const hasMedidas = userData?.medidas && Object.values(userData.medidas).some(v => v > 0);
+
+  if (hasMedidas) {
+    doc.setFontSize(14);
     doc.setTextColor(dark);
-    doc.text("Medidas Corporais", 120, 55);
+    doc.setFont("helvetica", "bold");
+    doc.text("MEDIDAS CORPORAIS", 20, currentY);
+    doc.line(20, currentY + 2, 75, currentY + 2);
+
+    currentY += 10;
     doc.setFontSize(9);
     doc.setTextColor(secondary);
-    let mY = 62;
-    Object.entries(userData.medidas).forEach(([key, val]) => {
-      doc.text(`${key.replace("_", " ")}: ${val} cm`, 120, mY);
-      mY += 5;
+    doc.setFont("helvetica", "normal");
+
+    const entries = Object.entries(userData.medidas).filter(([_, v]) => v > 0);
+    const midPoint = Math.ceil(entries.length / 2);
+
+    entries.forEach(([key, val], idx) => {
+        const x = idx < midPoint ? 20 : 110;
+        const y = currentY + (idx < midPoint ? idx : idx - midPoint) * 6;
+        doc.text(`${key.replace(/_/g, " ").toUpperCase()}: ${val} cm`, x, y);
     });
+
+    currentY += (midPoint * 6) + 10;
   }
 
   // Histórico de Cargas
   doc.setFontSize(14);
   doc.setTextColor(dark);
   doc.setFont("helvetica", "bold");
-  doc.text("HISTÓRICO DE CARGAS", 20, 105);
-  doc.line(20, 107, 75, 107);
+  doc.text("HISTÓRICO DE CARGAS", 20, currentY);
+  doc.line(20, currentY + 2, 80, currentY + 2);
 
-  let currentY = 115;
-  const itemsPerPage = 25;
-  let count = 0;
+  currentY += 10;
 
-  // Header da tabela
-  doc.setFillColor(light);
-  doc.rect(20, currentY, pageWidth - 40, 8, "F");
-  doc.setFontSize(9);
-  doc.setTextColor(dark);
-  doc.text("Data", 25, currentY + 5);
-  doc.text("Exercício", 55, currentY + 5);
-  doc.text("Carga (kg)", 135, currentY + 5);
-  doc.text("Reps", 165, currentY + 5);
+  // Agrupamento por Treino e Data
+  const grouped = history.reduce((acc, curr) => {
+    const date = new Date(curr.data_treino).toLocaleDateString();
+    const letra = curr.letra_treino || 'X';
+    const key = `${date}_${letra}`;
+    if (!acc[key]) acc[key] = { date, letra, items: [] };
+    acc[key].items.push(curr);
+    return acc;
+  }, {});
 
-  currentY += 12;
+  const sortedGroups = Object.values(grouped).sort((a, b) => {
+    return new Date(b.items[0].data_treino) - new Date(a.items[0].data_treino);
+  });
 
-  history.forEach((item, index) => {
-    if (currentY > 270) {
+  const drawTableHeader = (y) => {
+    doc.setFillColor(light);
+    doc.rect(20, y, pageWidth - 40, 8, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(dark);
+    doc.text("Exercício", 25, y + 5);
+    doc.text("Séries", 110, y + 5);
+    doc.text("Carga (kg)", 135, y + 5);
+    doc.text("Reps", 170, y + 5);
+    return y + 10;
+  };
+
+  sortedGroups.forEach((group) => {
+    // Verificar espaço para o cabeçalho do grupo + pelo menos um item
+    if (currentY > 260) {
       doc.addPage();
       currentY = 20;
-
-      // Header da tabela na nova página
-      doc.setFillColor(light);
-      doc.rect(20, currentY, pageWidth - 40, 8, "F");
-      doc.setFontSize(9);
-      doc.setTextColor(dark);
-      doc.text("Data", 25, currentY + 5);
-      doc.text("Exercício", 55, currentY + 5);
-      doc.text("Carga (kg)", 135, currentY + 5);
-      doc.text("Reps", 165, currentY + 5);
-      currentY += 12;
     }
 
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(secondary);
-
-    const dateStr = new Date(item.data_treino).toLocaleDateString();
-    doc.text(dateStr, 25, currentY);
-
-    doc.setTextColor(dark);
+    // Cabeçalho do Grupo (Treino)
+    doc.setFillColor(workoutHeaderBg);
+    doc.rect(20, currentY, pageWidth - 40, 10, "F");
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(item.exercicios.nome, 55, currentY);
+    doc.setTextColor(primary);
+    doc.text(`${group.date} - TREINO ${group.letra}`, 25, currentY + 6.5);
+    currentY += 12;
 
-    doc.setFont("helvetica", "normal");
-    doc.text(item.carga_utilizada.toString(), 140, currentY);
-    doc.text(item.repeticoes_feitas.toString(), 168, currentY);
+    currentY = drawTableHeader(currentY);
 
-    doc.setDrawColor(240, 240, 240);
-    doc.line(20, currentY + 2, pageWidth - 20, currentY + 2);
+    group.items.forEach((item) => {
+      if (currentY > 280) {
+        doc.addPage();
+        currentY = 20;
+        currentY = drawTableHeader(currentY);
+      }
 
-    currentY += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(dark);
+
+      doc.text(item.exercicios.nome, 25, currentY);
+      doc.setTextColor(secondary);
+      doc.text((item.series_executadas || 3).toString(), 115, currentY);
+      doc.text(item.carga_utilizada.toString(), 145, currentY);
+      doc.text(item.repeticoes_feitas.toString(), 175, currentY);
+
+      doc.setDrawColor(240, 240, 240);
+      doc.line(20, currentY + 2, pageWidth - 20, currentY + 2);
+
+      currentY += 8;
+    });
+
+    currentY += 5; // Espaço entre grupos
   });
 
   // Rodapé com paginação
@@ -124,5 +158,5 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.text(`Página ${i} de ${pageCount} - SmartTraining System V2.0`, pageWidth / 2, 290, { align: "center" });
   }
 
-  doc.save(`Historico_Treino_${userData?.nome?.replace(" ", "_")}.pdf`);
+  doc.save(`Historico_Treino_${userData?.nome?.replace(/\s+/g, "_")}.pdf`);
 };
