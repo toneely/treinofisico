@@ -15,12 +15,13 @@ const History = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
   const [extraActivities, setExtraActivities] = useState([]);
+  const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
   // CRUD States
-  const [isEditing, setIsEditing] = useState(null); // {type: 'workout'|'extra', id: string}
+  const [isEditing, setIsEditing] = useState(null); // {type: 'workout'|'extra', item: object}
   const [showAddForm, setShowAddForm] = useState(null); // 'workout' | 'extra'
   const [exercises, setExercises] = useState([]);
   const [formData, setFormData] = useState({});
@@ -29,7 +30,13 @@ const History = () => {
     fetchHistory();
     fetchUser();
     fetchExercises();
+    fetchWorkoutsMetadata();
   }, [currentDate]);
+
+  const fetchWorkoutsMetadata = async () => {
+    const { data } = await supabase.from('treinos').select('letra, is_coringa');
+    setWorkoutsMetadata(data || []);
+  };
 
   const fetchUser = async () => {
     const { data } = await supabase.from('usuarios').select('*').single();
@@ -88,7 +95,17 @@ const History = () => {
     const groupedWorkouts = workouts.reduce((acc, curr) => {
         const timeKey = new Date(curr.data_treino).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         const key = `${curr.letra_treino}_${timeKey}`;
-        if (!acc[key]) acc[key] = { type: 'workout', letra: curr.letra_treino, time: timeKey, fullDate: curr.data_treino, items: [] };
+        if (!acc[key]) {
+            const meta = workoutsMetadata.find(m => m.letra === curr.letra_treino);
+            acc[key] = {
+                type: 'workout',
+                letra: curr.letra_treino,
+                time: timeKey,
+                fullDate: curr.data_treino,
+                items: [],
+                isCoringa: meta ? meta.is_coringa : false
+            };
+        }
         acc[key].items.push(curr);
         return acc;
     }, {});
@@ -152,6 +169,35 @@ const History = () => {
     else {
         showToast('Registro adicionado!', 'success');
         setShowAddForm(null);
+        fetchHistory();
+    }
+  };
+
+  const handleUpdateRecord = async (e) => {
+    e.preventDefault();
+    let error;
+    if (isEditing.type === 'workout') {
+        const { error: err } = await supabase
+            .from('historico_cargas')
+            .update({
+                carga_utilizada: parseFloat(formData.carga),
+                repeticoes_feitas: parseInt(formData.reps),
+                series_executadas: parseInt(formData.series)
+            })
+            .eq('id', isEditing.item.id);
+        error = err;
+    } else {
+        const { error: err } = await supabase
+            .from('registro_atividades')
+            .update({ nome_atividade: formData.nome })
+            .eq('id', isEditing.item.id);
+        error = err;
+    }
+
+    if (error) showToast('Erro ao atualizar: ' + error.message, 'error');
+    else {
+        showToast('Registro atualizado!', 'success');
+        setIsEditing(null);
         fetchHistory();
     }
   };
@@ -232,7 +278,7 @@ const History = () => {
                     <div className="absolute top-0 left-0 right-0 bottom-0 flex flex-wrap content-start p-0.5 pointer-events-none overflow-hidden">
                         {activities.map((act, i) => (
                             <div key={i} className={`w-3 h-3 m-0.5 rounded-sm flex items-center justify-center text-[6px] font-black text-white shadow-sm ${
-                                act.type === 'extra' ? 'bg-purple-600' : (act.letra === 'C' ? 'bg-amber-500' : 'bg-emerald-500')
+                                act.type === 'extra' ? 'bg-purple-600' : (act.isCoringa ? 'bg-amber-500' : 'bg-emerald-500')
                             }`}>
                                 {act.type === 'extra' ? <Activity size={6} /> : act.letra}
                             </div>
@@ -291,7 +337,7 @@ const History = () => {
                 <div key={idx} className="space-y-2">
                     {act.type === 'workout' ? (
                         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                            <div className={`px-4 py-2 flex justify-between items-center ${act.letra === 'C' ? 'bg-amber-500 text-white' : 'bg-slate-800 text-white'}`}>
+                            <div className={`px-4 py-2 flex justify-between items-center ${act.isCoringa ? 'bg-amber-500 text-white' : 'bg-slate-800 text-white'}`}>
                                 <div className="flex items-center gap-2">
                                     <span className="font-black text-lg">TREINO {act.letra}</span>
                                     <span className="text-[10px] opacity-70 uppercase font-bold tracking-tighter">às {act.time}</span>
@@ -307,7 +353,10 @@ const History = () => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="text-lg font-mono font-black text-indigo-600">{item.carga_utilizada}kg</span>
-                                            <button onClick={() => handleDeleteExercise(item.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition"><X size={14}/></button>
+                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
+                                                <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
+                                                <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -322,7 +371,10 @@ const History = () => {
                                     <p className="text-[10px] opacity-70 uppercase font-bold">Atividade Alternativa • {act.time}</p>
                                 </div>
                             </div>
-                            <button onClick={() => handleDeleteExtra(act.id)} className="p-2 hover:bg-white/10 rounded-lg"><Trash2 size={18}/></button>
+                            <div className="flex gap-1">
+                                <button onClick={() => { setIsEditing({type: 'extra', item: act}); setFormData({nome: act.nome}); }} className="p-2 hover:bg-white/10 rounded-lg"><Edit2 size={18}/></button>
+                                <button onClick={() => handleDeleteExtra(act.id)} className="p-2 hover:bg-white/10 rounded-lg"><Trash2 size={18}/></button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -334,6 +386,47 @@ const History = () => {
                 </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl">
+                <h2 className="text-xl font-bold text-slate-800 mb-6">Editar Registro</h2>
+                <form onSubmit={handleUpdateRecord} className="space-y-4">
+                    {isEditing.type === 'workout' ? (
+                        <>
+                            <p className="text-sm font-bold text-slate-500">{isEditing.item.exercicios.nome}</p>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase opacity-50">Carga (kg)</label>
+                                    <input type="number" step="0.5" value={formData.carga} onChange={e => setFormData({...formData, carga: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border-none font-bold text-lg" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase opacity-50">Repetições</label>
+                                        <input type="number" value={formData.reps} onChange={e => setFormData({...formData, reps: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border-none font-bold text-lg" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase opacity-50">Séries</label>
+                                        <input type="number" value={formData.series} onChange={e => setFormData({...formData, series: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border-none font-bold text-lg" />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div>
+                            <label className="text-[10px] font-bold uppercase opacity-50">Nome da Atividade</label>
+                            <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border-none font-bold text-lg" />
+                        </div>
+                    )}
+                    <div className="flex gap-2 pt-4">
+                        <button type="button" onClick={() => setIsEditing(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold">Cancelar</button>
+                        <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200">Salvar</button>
+                    </div>
+                </form>
+            </div>
         </div>
       )}
 

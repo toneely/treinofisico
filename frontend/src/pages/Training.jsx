@@ -24,31 +24,71 @@ const Training = () => {
 
   const [timer, setTimer] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [exerciseTimes, setExerciseTimes] = useState({}); // { exercicio_id: totalSeconds }
+  const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
 
-  const [cargas, setCargas] = useState({}); // { blockIndex_exIndex: value }
+  const [cargas, setCargas] = useState({}); // { exercicio_id: value }
   const [repsFeitas, setRepsFeitas] = useState({});
   const [savingSession, setSavingSession] = useState(false);
 
+  const [originalBlocos, setOriginalBlocos] = useState([]);
   const [skippedExercises, setSkippedExercises] = useState([]);
   const [isCatchupPhase, setIsCatchupPhase] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+
+  const [metronomeActive, setMetronomeActive] = useState(false);
+  const [bpm, setBpm] = useState(60);
+  const audioContextRef = React.useRef(null);
 
   useEffect(() => {
     fetchData();
   }, [letra]);
 
   useEffect(() => {
+    let metronomeInterval = null;
+    if (metronomeActive) {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const playClick = () => {
+        if (!audioContextRef.current) return;
+        const osc = audioContextRef.current.createOscillator();
+        const envelope = audioContextRef.current.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.value = 1000;
+        envelope.gain.value = 0.1;
+        envelope.gain.exponentialRampToValueAtTime(0.001, audioContextRef.current.currentTime + 0.1);
+
+        osc.connect(envelope);
+        envelope.connect(audioContextRef.current.destination);
+
+        osc.start(audioContextRef.current.currentTime);
+        osc.stop(audioContextRef.current.currentTime + 0.1);
+      };
+
+      const intervalMs = (60 / bpm) * 1000;
+      playClick();
+      metronomeInterval = setInterval(playClick, intervalMs);
+    } else {
+      clearInterval(metronomeInterval);
+    }
+
+    return () => clearInterval(metronomeInterval);
+  }, [metronomeActive, bpm]);
+
+  useEffect(() => {
     let interval = null;
-    if (isTimerActive && timer > 0) {
+    if (isTimerActive) {
       interval = setInterval(() => {
-        setTimer((prev) => prev - 1);
+        setTimer((prev) => prev + 1);
       }, 1000);
-    } else if (timer === 0) {
-      setIsTimerActive(false);
+    } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimerActive, timer]);
+  }, [isTimerActive]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -68,6 +108,24 @@ const Training = () => {
     if (error) {
       console.error('Erro ao buscar treino:', error);
     } else {
+      // Fetch last execution times for these exercises
+      const exerciseIds = data.map(ex => ex.exercicio_id);
+      const { data: lastHistory } = await supabase
+        .from('historico_cargas')
+        .select('exercicio_id, tempo_total_segundos, data_treino')
+        .in('exercicio_id', exerciseIds)
+        .order('data_treino', { ascending: false });
+
+      const lastTimes = {};
+      if (lastHistory) {
+        lastHistory.forEach(h => {
+          if (!lastTimes[h.exercicio_id]) {
+            lastTimes[h.exercicio_id] = h.tempo_total_segundos;
+          }
+        });
+      }
+      setLastExecutionTimes(lastTimes);
+
       const grouped = data.reduce((acc, curr) => {
         if (!acc[curr.numero_bloco]) acc[curr.numero_bloco] = [];
         acc[curr.numero_bloco].push(curr);
@@ -75,15 +133,14 @@ const Training = () => {
       }, {});
       const blocksArray = Object.values(grouped);
       setBlocos(blocksArray);
+      setOriginalBlocos(blocksArray);
 
-      // Initialize cargas and reps
+      // Initialize cargas and reps using exercicio_id
       const initialCargas = {};
       const initialReps = {};
-      blocksArray.forEach((block, bIdx) => {
-        block.forEach((ex, eIdx) => {
-          initialCargas[`${bIdx}_${eIdx}`] = 0;
-          initialReps[`${bIdx}_${eIdx}`] = ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10;
-        });
+      data.forEach((ex) => {
+        initialCargas[ex.exercicio_id] = 0;
+        initialReps[ex.exercicio_id] = ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10;
       });
       setCargas(initialCargas);
       setRepsFeitas(initialReps);
@@ -91,17 +148,27 @@ const Training = () => {
     setLoading(false);
   };
 
-  const startTimer = (seconds) => {
-    setTimer(seconds);
+  const startTimer = () => {
+    setTimer(0);
     setIsTimerActive(true);
   };
 
-  const handleCargaChange = (bIdx, eIdx, val) => {
-    setCargas(prev => ({ ...prev, [`${bIdx}_${eIdx}`]: val }));
+  const stopAndRecordTime = () => {
+    const exId = blocos[currentBlockIndex][currentExerciseInBlock].exercicio_id;
+    setExerciseTimes(prev => ({
+        ...prev,
+        [exId]: (prev[exId] || 0) + timer
+    }));
+    setTimer(0);
+    setIsTimerActive(false);
   };
 
-  const handleRepsChange = (bIdx, eIdx, val) => {
-    setRepsFeitas(prev => ({ ...prev, [`${bIdx}_${eIdx}`]: val }));
+  const handleCargaChange = (exId, val) => {
+    setCargas(prev => ({ ...prev, [exId]: val }));
+  };
+
+  const handleRepsChange = (exId, val) => {
+    setRepsFeitas(prev => ({ ...prev, [exId]: val }));
   };
 
   const skipExercise = () => {
@@ -109,12 +176,18 @@ const Training = () => {
     const exercise = currentBlock[currentExerciseInBlock];
 
     if (!isCatchupPhase) {
-        setSkippedExercises(prev => [...prev, exercise]);
+        setSkippedExercises(prev => [...prev, {
+            ...exercise,
+            partialSerie: currentSerie
+        }]);
     }
+
+    if (isTimerActive) stopAndRecordTime();
 
     if (currentExerciseInBlock < currentBlock.length - 1) {
         setCurrentExerciseInBlock(currentExerciseInBlock + 1);
         setCurrentSerie(1);
+        startTimer();
     } else {
         goToNextBlock();
     }
@@ -125,17 +198,19 @@ const Training = () => {
     const isLastExerciseInBlock = currentExerciseInBlock === currentBlock.length - 1;
     const isLastSerie = currentSerie === currentBlock[0].series_alvo;
 
+    if (isTimerActive) stopAndRecordTime();
+
     if (executionMode === 'alternated') {
       if (!isLastExerciseInBlock) {
         // Go to next exercise in same block
         setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-        startTimer(currentBlock[currentExerciseInBlock].exercicios.descanso_passivo_segundos || 60);
+        startTimer();
       } else {
         if (!isLastSerie) {
           // Go back to first exercise, next serie
           setCurrentExerciseInBlock(0);
           setCurrentSerie(currentSerie + 1);
-          startTimer(currentBlock[currentExerciseInBlock].exercicios.descanso_passivo_segundos || 60);
+          startTimer();
         } else {
           // Go to next block
           goToNextBlock();
@@ -145,12 +220,12 @@ const Training = () => {
       // isolated mode
       if (!isLastSerie) {
         setCurrentSerie(currentSerie + 1);
-        startTimer(currentBlock[currentExerciseInBlock].exercicios.descanso_passivo_segundos || 60);
+        startTimer();
       } else {
         if (!isLastExerciseInBlock) {
           setCurrentExerciseInBlock(currentExerciseInBlock + 1);
           setCurrentSerie(1);
-          startTimer(currentBlock[currentExerciseInBlock].exercicios.descanso_passivo_segundos || 60);
+          startTimer();
         } else {
           goToNextBlock();
         }
@@ -163,7 +238,7 @@ const Training = () => {
       setCurrentBlockIndex(currentBlockIndex + 1);
       setCurrentExerciseInBlock(0);
       setCurrentSerie(1);
-      startTimer(120); // Longer rest between blocks
+      startTimer();
     } else {
       handleWorkoutEnd();
     }
@@ -180,9 +255,10 @@ const Training = () => {
   const startCatchup = () => {
     const catchupBlocks = skippedExercises.map((ex, idx) => ([{
         ...ex,
-        numero_bloco: 999 + idx,
-        series_alvo: ex.series_alvo
+        numero_bloco: 999 + idx
     }]));
+
+    const firstPartialSerie = skippedExercises[0]?.partialSerie || 1;
 
     setBlocos(catchupBlocks);
     setSkippedExercises([]);
@@ -190,29 +266,29 @@ const Training = () => {
     setShowCheckoutModal(false);
     setCurrentBlockIndex(0);
     setCurrentExerciseInBlock(0);
-    setCurrentSerie(1);
+    setCurrentSerie(firstPartialSerie);
+    startTimer();
   };
 
   const finishWorkout = async () => {
     setSavingSession(true);
     // Record history
     const historyData = [];
-    // If it's catchup phase, we might need a different logic to find which were actual records vs skipped.
-    // Actually the current 'blocos' state might have been replaced.
-    // Let's assume we save everything currently in 'cargas' if it has a value > 0?
-    // No, better iterate through what we actually did.
 
-    // For simplicity, I'll use the current logic but ensure it handles the replaced 'blocos'
-    blocos.forEach((block, bIdx) => {
-      block.forEach((ex, eIdx) => {
-        const val = cargas[`${bIdx}_${eIdx}`];
-        if (val > 0) {
+    // We iterate through originalBlocos to make sure we don't lose data even if we are in catchup phase
+    originalBlocos.forEach((block) => {
+      block.forEach((ex) => {
+        const val = cargas[ex.exercicio_id];
+        const time = exerciseTimes[ex.exercicio_id] || 0;
+
+        if (val > 0 || time > 0) {
             historyData.push({
               usuario_id: user.id,
               exercicio_id: ex.exercicio_id,
-              carga_utilizada: parseFloat(val),
-              repeticoes_feitas: parseInt(repsFeitas[`${bIdx}_${eIdx}`] || 0),
+              carga_utilizada: parseFloat(val || 0),
+              repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id] || 0),
               series_executadas: ex.series_alvo,
+              tempo_total_segundos: time,
               letra_treino: letra,
               data_treino: new Date().toISOString()
             });
@@ -254,12 +330,30 @@ const Training = () => {
             </span>
             <span className="font-bold text-lg">Bloco {currentBlockIndex + 1} de {blocos.length}</span>
           </div>
-          <button
-            onClick={() => setExecutionMode(prev => prev === 'alternated' ? 'isolated' : 'alternated')}
-            className={`p-2 rounded-lg border ${isCoringa ? 'border-amber-700 bg-amber-800' : 'border-slate-700 bg-slate-800'}`}
-          >
-            <Settings2 size={20} />
-          </button>
+          <div className="flex gap-2">
+            {/* Metronome Control */}
+            <div className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950' : 'bg-indigo-500 border-indigo-500 text-white') : (isCoringa ? 'border-amber-700 bg-amber-800' : 'border-slate-700 bg-slate-800')}`}>
+                <button onClick={() => setMetronomeActive(!metronomeActive)} className="hover:scale-110 transition">
+                    {metronomeActive ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                </button>
+                <div className="flex items-center gap-1">
+                    <input
+                        type="number"
+                        value={bpm}
+                        onChange={(e) => setBpm(Math.max(30, Math.min(240, parseInt(e.target.value) || 60)))}
+                        className="bg-transparent w-8 text-center text-xs font-bold outline-none"
+                    />
+                    <span className="text-[8px] font-bold opacity-60">BPM</span>
+                </div>
+            </div>
+
+            <button
+                onClick={() => setExecutionMode(prev => prev === 'alternated' ? 'isolated' : 'alternated')}
+                className={`p-2 rounded-lg border ${isCoringa ? 'border-amber-700 bg-amber-800' : 'border-slate-700 bg-slate-800'}`}
+            >
+                <Settings2 size={20} />
+            </button>
+          </div>
         </header>
 
         {/* Progression */}
@@ -277,11 +371,16 @@ const Training = () => {
         <div className={`rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden ${isCoringa ? 'bg-amber-800/50 border border-amber-700' : 'bg-slate-800 border border-slate-700'}`}>
           <div className="flex justify-between items-start mb-6">
             <div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase mb-2 inline-block ${isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-500 text-white'}`}>
-                Série {currentSerie} / {exercise.series_alvo}
-              </span>
+              <div className="flex gap-2 items-center mb-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-500 text-white'}`}>
+                    Série {currentSerie} / {exercise.series_alvo}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-100/20 text-amber-100' : 'bg-rose-500 text-white'}`}>
+                    {exercise.exercicios.alvo_principal}
+                </span>
+              </div>
               <h2 className="text-2xl font-bold leading-tight">{exercise.exercicios.nome}</h2>
-              <p className="text-sm opacity-60 flex items-center gap-1"><Info size={14} /> {exercise.exercicios.alvo_principal}</p>
+              <p className="text-sm opacity-60 flex items-center gap-1 mt-1"><Info size={14} /> Fibra {exercise.exercicios.tipo_fibra}</p>
             </div>
             <div className="text-right">
               <span className="text-3xl font-black opacity-10 italic">#{exercise.exercicios.tipo_fibra}</span>
@@ -293,8 +392,8 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
                 <input
                   type="number"
-                  value={cargas[`${currentBlockIndex}_${currentExerciseInBlock}`]}
-                  onChange={(e) => handleCargaChange(currentBlockIndex, currentExerciseInBlock, e.target.value)}
+                  value={cargas[exercise.exercicio_id] || 0}
+                  onChange={(e) => handleCargaChange(exercise.exercicio_id, e.target.value)}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
              </div>
@@ -302,8 +401,8 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({exercise.reps_alvo})</label>
                 <input
                   type="number"
-                  value={repsFeitas[`${currentBlockIndex}_${currentExerciseInBlock}`]}
-                  onChange={(e) => handleRepsChange(currentBlockIndex, currentExerciseInBlock, e.target.value)}
+                  value={repsFeitas[exercise.exercicio_id] || 0}
+                  onChange={(e) => handleRepsChange(exercise.exercicio_id, e.target.value)}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
              </div>
@@ -316,16 +415,24 @@ const Training = () => {
           )}
         </div>
 
-        {/* Rest Timer */}
+        {/* Stopwatch & Reference */}
         <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 ${isTimerActive ? (isCoringa ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50' : 'bg-indigo-600 scale-105 shadow-lg shadow-indigo-900/50') : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')}`}>
-           <div>
-              <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Descanso Passivo</p>
-              <p className="text-4xl font-mono font-black">
-                {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
-              </p>
+           <div className="flex flex-col">
+              <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
+              <div className="flex items-baseline gap-3">
+                <p className="text-4xl font-mono font-black">
+                    {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
+                </p>
+                {lastExecutionTimes[exercise.exercicios.id] > 0 && (
+                  <div className="text-[10px] font-bold opacity-40 flex items-center gap-1">
+                    <RotateCcw size={10} />
+                    Ref: {Math.floor(lastExecutionTimes[exercise.exercicios.id] / 60)}:{String(lastExecutionTimes[exercise.exercicios.id] % 60).padStart(2, '0')}
+                  </div>
+                )}
+              </div>
            </div>
            <button
-             onClick={() => isTimerActive ? setIsTimerActive(false) : timer > 0 ? setIsTimerActive(true) : startTimer(60)}
+             onClick={() => isTimerActive ? stopAndRecordTime() : startTimer()}
              className={`w-14 h-14 rounded-full flex items-center justify-center transition ${isTimerActive ? 'bg-black/20' : 'bg-white/10 hover:bg-white/20'}`}
            >
              {isTimerActive ? <Pause fill="currentColor" /> : <Play fill="currentColor" className="ml-1" />}
@@ -342,17 +449,25 @@ const Training = () => {
              {currentBlock.map((ex, idx) => {
                if (idx === currentExerciseInBlock) return null;
                return (
-                 <div key={idx} className="flex items-center justify-between">
-                    <p className="font-bold text-sm truncate mr-4">{ex.exercicios.nome}</p>
-                    <div className="flex items-center gap-2 bg-black/20 p-1 px-3 rounded-xl">
-                       <Dumbbell size={14} className="opacity-40" />
-                       <input
-                         type="number"
-                         value={cargas[`${currentBlockIndex}_${idx}`]}
-                         onChange={(e) => handleCargaChange(currentBlockIndex, idx, e.target.value)}
-                         className="bg-transparent w-12 font-mono font-bold text-right outline-none"
-                       />
-                       <span className="text-[10px] opacity-40">kg</span>
+                 <div key={idx} className="space-y-2 border-t border-white/5 pt-3 mt-3 first:border-0 first:pt-0 first:mt-0">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-bold text-sm truncate">{ex.exercicios.nome}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[8px] font-bold bg-white/10 px-1.5 py-0.5 rounded uppercase opacity-60">{ex.exercicios.alvo_principal}</span>
+                                <span className="text-[8px] font-bold text-indigo-300 uppercase">{ex.series_alvo}x {ex.reps_alvo}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-black/20 p-2 px-3 rounded-xl">
+                            <Dumbbell size={14} className="opacity-40" />
+                            <input
+                                type="number"
+                                value={cargas[ex.exercicio_id] || 0}
+                                onChange={(e) => handleCargaChange(ex.exercicio_id, e.target.value)}
+                                className="bg-transparent w-12 font-mono font-bold text-right outline-none"
+                            />
+                            <span className="text-[10px] opacity-40">kg</span>
+                        </div>
                     </div>
                  </div>
                );
@@ -425,8 +540,44 @@ const Training = () => {
             </div>
         )}
 
-        <p className="text-center mt-6 text-[10px] font-bold opacity-30 uppercase tracking-[0.3em]">SmartTraining Architecture V2.0</p>
+        <p className="text-center mt-6 text-[10px] font-bold opacity-30 uppercase tracking-[0.3em] mb-24">SmartTraining Architecture V2.0</p>
       </div>
+
+      {/* Global Summary Footer */}
+      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t backdrop-blur-md z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
+        <div className="max-w-md mx-auto">
+            <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
+                {blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
+                    const isDone = (bIdx < currentBlockIndex) ||
+                                   (bIdx === currentBlockIndex && currentExerciseInBlock > eIdx) ||
+                                   (bIdx === currentBlockIndex && currentExerciseInBlock === eIdx && currentSerie > ex.series_alvo);
+
+                    const isCurrent = bIdx === currentBlockIndex && currentExerciseInBlock === eIdx;
+                    const isPartial = isCurrent && currentSerie > 1 && currentSerie <= ex.series_alvo;
+                    const isSkipped = skippedExercises.some(s => s.exercicio_id === ex.exercicio_id);
+
+                    return (
+                        <div key={`${bIdx}_${eIdx}`} className={`flex-shrink-0 px-3 py-1.5 rounded-xl border text-[9px] font-bold uppercase transition-all ${
+                            isDone ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' :
+                            isCurrent ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950 scale-110' : 'bg-indigo-500 border-indigo-500 text-white scale-110') :
+                            isSkipped ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 italic' :
+                            isPartial ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' :
+                            'bg-white/5 border-white/10 text-white/30'
+                        }`}>
+                            {ex.exercicios.nome.split(' ')[0]}
+                            <span className="ml-1 opacity-60">
+                                {isDone ? 'OK' : isSkipped ? 'PULADO' : isCurrent || isPartial ? `${currentSerie}/${ex.series_alvo}` : `0/${ex.series_alvo}`}
+                            </span>
+                        </div>
+                    );
+                }))}
+            </div>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-40">
+                <span>Progresso Total</span>
+                <span>{Math.round(((currentBlockIndex * 2 + currentExerciseInBlock) / (blocos.length * 2)) * 100)}%</span>
+            </div>
+        </div>
+      </footer>
     </div>
   );
 };
