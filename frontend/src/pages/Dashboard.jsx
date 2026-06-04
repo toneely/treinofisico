@@ -76,39 +76,11 @@ const Dashboard = () => {
         </Link>
       </header>
 
-      {/* Ações Rápidas */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <button
-          onClick={() => coringaWorkout && startTraining(coringaWorkout.letra)}
-          className="flex flex-col items-center gap-3 p-6 bg-amber-50 border-2 border-amber-100 rounded-3xl hover:bg-amber-100 transition active:scale-95 text-amber-900"
-        >
-          <div className="w-12 h-12 bg-amber-400 rounded-2xl flex items-center justify-center text-amber-950 shadow-lg shadow-amber-200">
-            <Zap size={24} fill="currentColor" />
-          </div>
-          <div className="text-center">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-0.5">Sessão</span>
-            <span className="text-sm font-bold">Coringa</span>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setShowActivityModal(true)}
-          className="flex flex-col items-center gap-3 p-6 bg-indigo-50 border-2 border-indigo-100 rounded-3xl hover:bg-indigo-100 transition active:scale-95 text-indigo-900"
-        >
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <Shield size={24} />
-          </div>
-          <div className="text-center">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-0.5">Registrar</span>
-            <span className="text-sm font-bold truncate max-w-[80px]">{atividadeAlt}</span>
-          </div>
-        </button>
-      </div>
-
       {/* Catálogo de Treinos */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Treinos Disponíveis</h3>
 
+        {/* Treinos Normais */}
         {workouts.filter(w => !w.is_coringa).map(workout => (
             <WorkoutCard
                 key={workout.id}
@@ -116,9 +88,28 @@ const Dashboard = () => {
                 subtitle={workout.subtitulo}
                 icon={workout.letra === 'A' ? <Dumbbell /> : workout.letra === 'B' ? <List /> : workout.letra === 'C' ? <RotateCcw /> : <Bike />}
                 onClick={() => startTraining(workout.letra)}
-                isCoringa={workout.is_coringa}
             />
         ))}
+
+        {/* Treino Coringa */}
+        {coringaWorkout && (
+            <WorkoutCard
+                title={coringaWorkout.nome}
+                subtitle={coringaWorkout.subtitulo}
+                icon={<Zap size={24} fill="currentColor" />}
+                onClick={() => startTraining(coringaWorkout.letra)}
+                variant="amber"
+            />
+        )}
+
+        {/* Atividade Alternativa */}
+        <WorkoutCard
+            title={atividadeAlt}
+            subtitle="Registrar atividade de hoje"
+            icon={<Shield size={24} />}
+            onClick={() => setShowActivityModal(true)}
+            variant="indigo"
+        />
       </div>
 
       {/* Modal de Atividade Alternativa */}
@@ -170,29 +161,49 @@ const Dashboard = () => {
   );
 };
 
-const WorkoutCard = ({ title, subtitle, icon, onClick, isCoringa }) => (
-  <button
-    onClick={onClick}
-    className={`w-full p-5 rounded-2xl shadow-sm border flex items-center justify-between hover:shadow-md transition-all active:scale-[0.98] text-left ${
-      isCoringa
-        ? 'bg-amber-100 border-amber-200 text-amber-900'
-        : 'bg-white border-slate-200 text-slate-800'
-    }`}
-  >
-    <div className="flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCoringa ? 'bg-amber-200 text-amber-700' : 'bg-slate-100 text-indigo-600'}`}>
-        {icon}
-      </div>
-      <div>
-        <div className="flex items-center gap-2">
-            <h4 className="font-bold text-lg">{title}</h4>
-            {isCoringa && <span className="text-[9px] font-bold bg-amber-400 px-1.5 py-0.5 rounded uppercase">Coringa</span>}
+const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
+  const getStyles = () => {
+    switch (variant) {
+      case 'amber':
+        return {
+          card: 'bg-amber-50 border-amber-100 text-amber-900',
+          iconBg: 'bg-amber-400 text-amber-950 shadow-sm',
+          chevron: 'text-amber-400'
+        };
+      case 'indigo':
+        return {
+          card: 'bg-indigo-50 border-indigo-100 text-indigo-900',
+          iconBg: 'bg-indigo-600 text-white shadow-sm',
+          chevron: 'text-indigo-400'
+        };
+      default:
+        return {
+          card: 'bg-white border-slate-200 text-slate-800',
+          iconBg: 'bg-slate-100 text-indigo-600',
+          chevron: 'text-slate-300'
+        };
+    }
+  };
+
+  const styles = getStyles();
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full p-5 rounded-3xl shadow-sm border flex items-center justify-between hover:shadow-md transition-all active:scale-[0.98] text-left ${styles.card}`}
+    >
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${styles.iconBg}`}>
+          {icon}
         </div>
-        <p className="text-sm opacity-60">{subtitle}</p>
+        <div>
+          <h4 className="font-bold text-lg">{title}</h4>
+          <p className="text-sm opacity-60 font-medium">{subtitle}</p>
+        </div>
       </div>
-    </div>
-    <ChevronRight className={isCoringa ? 'text-amber-400' : 'text-slate-300'} />
-  </button>
-);
+      <ChevronRight className={styles.chevron} size={20} />
+    </button>
+  );
+};
 
 export default Dashboard;
