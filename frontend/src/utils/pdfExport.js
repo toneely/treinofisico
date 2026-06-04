@@ -155,7 +155,7 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(secondary);
-    doc.text(`Página ${i} de ${pageCount} - SmartTraining System V2.0`, pageWidth / 2, 290, { align: "center" });
+    doc.text(`Página ${i} de ${pageCount} - SmartTraining System`, pageWidth / 2, 290, { align: "center" });
   }
 
   doc.save(`Historico_Treino_${userData?.nome?.replace(/\s+/g, "_")}.pdf`);
