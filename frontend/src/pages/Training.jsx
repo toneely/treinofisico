@@ -4,7 +4,7 @@ import {
   Play, Pause, RotateCcw, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Dumbbell, Shield,
   Settings2, Info, Save, SkipForward, Flame, X, Scale,
-  MoreVertical
+  MoreVertical, Square
 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -231,6 +231,23 @@ const Training = () => {
             title: `Descanso ${currentSerie}-${exercise.series_alvo}`
         }
     }));
+  };
+
+  const resetSeriesTimer = () => {
+    const exId = exercise.exercicio_id;
+
+    // Reset execution timer
+    setTimer(0);
+    setIsTimerActive(false);
+
+    // Cancel any associated active rest timer if it exists (accidental stop)
+    if (exId && activeRestTimers[exId]) {
+        setActiveRestTimers(prev => {
+            const next = { ...prev };
+            delete next[exId];
+            return next;
+        });
+    }
   };
 
   const completeRestTimer = (exId) => {
@@ -556,7 +573,7 @@ const Training = () => {
         </div>
 
         {/* Stopwatch & Reference */}
-        <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 ${isTimerActive ? (isCoringa ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50' : 'bg-indigo-600 scale-105 shadow-lg shadow-indigo-900/50') : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')}`}>
+        <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${isTimerActive ? (isCoringa ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50' : 'bg-indigo-600 scale-105 shadow-lg shadow-indigo-900/50') : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')}`}>
            <div className="flex flex-col">
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
               <div className="flex items-baseline gap-3">
@@ -571,12 +588,36 @@ const Training = () => {
                 )}
               </div>
            </div>
-           <button
-             onClick={() => isTimerActive ? stopExecutionAndStartRest() : startTimer()}
-             className={`w-14 h-14 rounded-full flex items-center justify-center transition ${isTimerActive ? 'bg-black/20' : 'bg-white/10 hover:bg-white/20'}`}
-           >
-             {isTimerActive ? <Pause fill="currentColor" /> : <Play fill="currentColor" className="ml-1" />}
-           </button>
+
+           <div className="flex items-center gap-3">
+                <button
+                    onClick={resetSeriesTimer}
+                    className="p-2 opacity-30 hover:opacity-100 transition rounded-lg hover:bg-white/10"
+                    title="Reiniciar série"
+                >
+                    <RotateCcw size={18} />
+                </button>
+
+                {/* Show Play only if not active AND timer is 0 (prevents resumption after Stop) */}
+                {(!isTimerActive && timer === 0) && (
+                    <button
+                        onClick={() => startTimer()}
+                        className="w-14 h-14 rounded-full flex items-center justify-center transition bg-white/10 hover:bg-white/20"
+                    >
+                        <Play fill="currentColor" className="ml-1" />
+                    </button>
+                )}
+
+                {/* Show Stop button only if active */}
+                {isTimerActive && (
+                    <button
+                        onClick={stopExecutionAndStartRest}
+                        className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
+                    >
+                        <Square fill="currentColor" size={20} />
+                    </button>
+                )}
+           </div>
         </div>
 
         {/* Simultaneous Loads (if alternated) */}
