@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import {
   Play, Pause, RotateCcw, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Dumbbell, Shield,
-  Settings2, Info, Save
+  Settings2, Info, Save, SkipForward, Flame, X, Scale
 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -28,6 +28,10 @@ const Training = () => {
   const [cargas, setCargas] = useState({}); // { blockIndex_exIndex: value }
   const [repsFeitas, setRepsFeitas] = useState({});
   const [savingSession, setSavingSession] = useState(false);
+
+  const [skippedExercises, setSkippedExercises] = useState([]);
+  const [isCatchupPhase, setIsCatchupPhase] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -100,6 +104,22 @@ const Training = () => {
     setRepsFeitas(prev => ({ ...prev, [`${bIdx}_${eIdx}`]: val }));
   };
 
+  const skipExercise = () => {
+    const currentBlock = blocos[currentBlockIndex];
+    const exercise = currentBlock[currentExerciseInBlock];
+
+    if (!isCatchupPhase) {
+        setSkippedExercises(prev => [...prev, exercise]);
+    }
+
+    if (currentExerciseInBlock < currentBlock.length - 1) {
+        setCurrentExerciseInBlock(currentExerciseInBlock + 1);
+        setCurrentSerie(1);
+    } else {
+        goToNextBlock();
+    }
+  };
+
   const nextStep = () => {
     const currentBlock = blocos[currentBlockIndex];
     const isLastExerciseInBlock = currentExerciseInBlock === currentBlock.length - 1;
@@ -145,33 +165,72 @@ const Training = () => {
       setCurrentSerie(1);
       startTimer(120); // Longer rest between blocks
     } else {
-      finishWorkout();
+      handleWorkoutEnd();
     }
+  };
+
+  const handleWorkoutEnd = () => {
+    if (skippedExercises.length > 0 && !isCatchupPhase) {
+        setShowCheckoutModal(true);
+    } else {
+        finishWorkout();
+    }
+  };
+
+  const startCatchup = () => {
+    const catchupBlocks = skippedExercises.map((ex, idx) => ([{
+        ...ex,
+        numero_bloco: 999 + idx,
+        series_alvo: ex.series_alvo
+    }]));
+
+    setBlocos(catchupBlocks);
+    setSkippedExercises([]);
+    setIsCatchupPhase(true);
+    setShowCheckoutModal(false);
+    setCurrentBlockIndex(0);
+    setCurrentExerciseInBlock(0);
+    setCurrentSerie(1);
   };
 
   const finishWorkout = async () => {
     setSavingSession(true);
     // Record history
     const historyData = [];
+    // If it's catchup phase, we might need a different logic to find which were actual records vs skipped.
+    // Actually the current 'blocos' state might have been replaced.
+    // Let's assume we save everything currently in 'cargas' if it has a value > 0?
+    // No, better iterate through what we actually did.
+
+    // For simplicity, I'll use the current logic but ensure it handles the replaced 'blocos'
     blocos.forEach((block, bIdx) => {
       block.forEach((ex, eIdx) => {
-        historyData.push({
-          usuario_id: user.id,
-          exercicio_id: ex.exercicio_id,
-          carga_utilizada: parseFloat(cargas[`${bIdx}_${eIdx}`] || 0),
-          repeticoes_feitas: parseInt(repsFeitas[`${bIdx}_${eIdx}`] || 0),
-          series_executadas: ex.series_alvo,
-          letra_treino: letra,
-          data_treino: new Date().toISOString()
-        });
+        const val = cargas[`${bIdx}_${eIdx}`];
+        if (val > 0) {
+            historyData.push({
+              usuario_id: user.id,
+              exercicio_id: ex.exercicio_id,
+              carga_utilizada: parseFloat(val),
+              repeticoes_feitas: parseInt(repsFeitas[`${bIdx}_${eIdx}`] || 0),
+              series_executadas: ex.series_alvo,
+              letra_treino: letra,
+              data_treino: new Date().toISOString()
+            });
+        }
       });
     });
+
+    if (historyData.length === 0) {
+        showToast('Nenhum exercício registrado.', 'info');
+        navigate('/');
+        return;
+    }
 
     const { error } = await supabase.from('historico_cargas').insert(historyData);
 
     if (error) showToast('Erro ao salvar histórico: ' + error.message, 'error');
     else {
-      showToast('Treino concluído e registrado!', 'success');
+      showToast('Treino concluído!', 'success');
       navigate('/');
     }
     setSavingSession(false);
@@ -191,7 +250,7 @@ const Training = () => {
           <button onClick={() => navigate('/')} className="opacity-50 hover:opacity-100 transition"><ChevronLeft /></button>
           <div className="text-center">
             <span className={`text-[10px] uppercase font-black tracking-[0.2em] block mb-1 ${isCoringa ? 'text-amber-400' : 'text-indigo-400'}`}>
-              Treino {letra} {isCoringa && '• CORINGA'}
+              {isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !isCatchupPhase && '• CORINGA'}
             </span>
             <span className="font-bold text-lg">Bloco {currentBlockIndex + 1} de {blocos.length}</span>
           </div>
@@ -301,20 +360,70 @@ const Training = () => {
           </div>
         )}
 
-        <button
-          onClick={nextStep}
-          disabled={isTimerActive || savingSession}
-          className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
-            isTimerActive ? 'bg-slate-800 text-slate-600 grayscale cursor-not-allowed' :
-            isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
-          }`}
-        >
-          {savingSession ? 'Salvando...' : (
-             currentBlockIndex === blocos.length - 1 && currentSerie === exercise.series_alvo && (executionMode === 'isolated' ? currentExerciseInBlock === currentBlock.length - 1 : true)
-             ? <><Save /> Finalizar Treino</>
-             : <>{executionMode === 'alternated' ? (currentExerciseInBlock === 0 && currentBlock.length > 1 ? 'Ir para Alternado' : 'Concluir Série') : 'Concluir Série'} <ChevronRight /></>
-          )}
-        </button>
+        <div className="flex flex-col gap-3">
+            <button
+              onClick={nextStep}
+              disabled={isTimerActive || savingSession}
+              className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                isTimerActive ? 'bg-slate-800 text-slate-600 grayscale cursor-not-allowed' :
+                isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
+              }`}
+            >
+              {savingSession ? 'Salvando...' : (
+                 currentBlockIndex === blocos.length - 1 && currentSerie === exercise.series_alvo && (executionMode === 'isolated' ? currentExerciseInBlock === currentBlock.length - 1 : true)
+                 ? <><Save /> {isCatchupPhase ? 'Finalizar Repescagem' : 'Finalizar Treino'}</>
+                 : <>{executionMode === 'alternated' ? (currentExerciseInBlock === 0 && currentBlock.length > 1 ? 'Ir para Alternado' : 'Concluir Série') : 'Concluir Série'} <ChevronRight /></>
+              )}
+            </button>
+
+            {!isCatchupPhase && (
+                <button
+                    onClick={skipExercise}
+                    disabled={isTimerActive || savingSession}
+                    className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                >
+                    <SkipForward size={16} /> Pular Exercício
+                </button>
+            )}
+        </div>
+
+        {/* Checkout Modal */}
+        {showCheckoutModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
+                    <div className="w-20 h-20 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Flame size={40} />
+                    </div>
+                    <h2 className="text-2xl font-black text-white text-center mb-2">Fim de Treino?</h2>
+                    <p className="text-slate-400 text-center text-sm mb-6">
+                        Você pulou <strong>{skippedExercises.length}</strong> exercícios durante a sessão. Deseja realizá-los agora na repescagem?
+                    </p>
+
+                    <div className="space-y-2 mb-8 max-h-32 overflow-y-auto">
+                        {skippedExercises.map((ex, i) => (
+                            <div key={i} className="px-4 py-2 bg-white/5 rounded-xl text-xs font-bold text-slate-300 border border-white/5 italic">
+                                {ex.exercicios.nome}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={startCatchup}
+                            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black shadow-lg shadow-emerald-900/20 hover:bg-emerald-400 transition"
+                        >
+                            Fazer Agora (Repescagem)
+                        </button>
+                        <button
+                            onClick={finishWorkout}
+                            className="w-full py-4 bg-slate-800 text-slate-400 rounded-2xl font-bold hover:bg-slate-700 transition"
+                        >
+                            Encerrar mesmo assim
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <p className="text-center mt-6 text-[10px] font-bold opacity-30 uppercase tracking-[0.3em]">SmartTraining Architecture V2.0</p>
       </div>
