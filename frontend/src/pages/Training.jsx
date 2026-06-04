@@ -3,7 +3,8 @@ import { supabase } from '../supabaseClient';
 import {
   Play, Pause, RotateCcw, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Dumbbell, Shield,
-  Settings2, Info, Save, SkipForward, Flame, X, Scale
+  Settings2, Info, Save, SkipForward, Flame, X, Scale,
+  MoreVertical
 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -24,7 +25,10 @@ const Training = () => {
 
   const [timer, setTimer] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [timerMode, setTimerMode] = useState('execution'); // 'execution' or 'rest'
+  const [isFloatingTimer, setIsFloatingTimer] = useState(false);
   const [exerciseTimes, setExerciseTimes] = useState({}); // { exercicio_id: totalSeconds }
+  const [restTimes, setRestTimes] = useState({}); // { exercicio_id: totalSeconds }
   const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
 
   const [cargas, setCargas] = useState({}); // { exercicio_id: value }
@@ -35,6 +39,7 @@ const Training = () => {
   const [skippedExercises, setSkippedExercises] = useState([]);
   const [isCatchupPhase, setIsCatchupPhase] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [openMenuExId, setOpenMenuExId] = useState(null);
 
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -150,17 +155,27 @@ const Training = () => {
 
   const startTimer = () => {
     setTimer(0);
+    setTimerMode('execution');
     setIsTimerActive(true);
+    setIsFloatingTimer(false);
   };
 
   const stopAndRecordTime = () => {
     const exId = blocos[currentBlockIndex][currentExerciseInBlock].exercicio_id;
-    setExerciseTimes(prev => ({
-        ...prev,
-        [exId]: (prev[exId] || 0) + timer
-    }));
+    if (timerMode === 'execution') {
+        setExerciseTimes(prev => ({
+            ...prev,
+            [exId]: (prev[exId] || 0) + timer
+        }));
+    } else {
+        setRestTimes(prev => ({
+            ...prev,
+            [exId]: (prev[exId] || 0) + timer
+        }));
+    }
     setTimer(0);
     setIsTimerActive(false);
+    setIsFloatingTimer(false);
   };
 
   const handleCargaChange = (exId, val) => {
@@ -176,10 +191,11 @@ const Training = () => {
     const exercise = currentBlock[currentExerciseInBlock];
 
     if (!isCatchupPhase) {
-        setSkippedExercises(prev => [...prev, {
-            ...exercise,
-            partialSerie: currentSerie
-        }]);
+        // Only add if not already skipped
+        setSkippedExercises(prev => {
+            if (prev.find(s => s.exercicio_id === exercise.exercicio_id)) return prev;
+            return [...prev, { ...exercise, partialSerie: currentSerie }];
+        });
     }
 
     if (isTimerActive) stopAndRecordTime();
@@ -198,19 +214,35 @@ const Training = () => {
     const isLastExerciseInBlock = currentExerciseInBlock === currentBlock.length - 1;
     const isLastSerie = currentSerie === currentBlock[0].series_alvo;
 
-    if (isTimerActive) stopAndRecordTime();
+    if (timerMode === 'execution') {
+        // Just finished a serie, start rest
+        const exId = exercise.exercicio_id;
+        setExerciseTimes(prev => ({ ...prev, [exId]: (prev[exId] || 0) + timer }));
+        setTimer(0);
+        setTimerMode('rest');
+        setIsTimerActive(true);
+        setIsFloatingTimer(true);
 
+        // Advance UI to next exercise/serie immediately
+        advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
+    } else {
+        // Manually clicking while in rest mode? Stop rest and start execution
+        stopAndRecordTime();
+        setTimerMode('execution');
+        startTimer();
+    }
+  };
+
+  const advanceUI = (currentBlock, isLastExerciseInBlock, isLastSerie) => {
     if (executionMode === 'alternated') {
       if (!isLastExerciseInBlock) {
         // Go to next exercise in same block
         setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-        startTimer();
       } else {
         if (!isLastSerie) {
           // Go back to first exercise, next serie
           setCurrentExerciseInBlock(0);
           setCurrentSerie(currentSerie + 1);
-          startTimer();
         } else {
           // Go to next block
           goToNextBlock();
@@ -220,12 +252,10 @@ const Training = () => {
       // isolated mode
       if (!isLastSerie) {
         setCurrentSerie(currentSerie + 1);
-        startTimer();
       } else {
         if (!isLastExerciseInBlock) {
           setCurrentExerciseInBlock(currentExerciseInBlock + 1);
           setCurrentSerie(1);
-          startTimer();
         } else {
           goToNextBlock();
         }
@@ -279,16 +309,19 @@ const Training = () => {
     originalBlocos.forEach((block) => {
       block.forEach((ex) => {
         const val = cargas[ex.exercicio_id];
-        const time = exerciseTimes[ex.exercicio_id] || 0;
+        const execTime = exerciseTimes[ex.exercicio_id] || 0;
+        const restTime = restTimes[ex.exercicio_id] || 0;
 
-        if (val > 0 || time > 0) {
+        if (val > 0 || execTime > 0 || restTime > 0) {
             historyData.push({
               usuario_id: user.id,
               exercicio_id: ex.exercicio_id,
               carga_utilizada: parseFloat(val || 0),
               repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id] || 0),
               series_executadas: ex.series_alvo,
-              tempo_total_segundos: time,
+              tempo_total_segundos: execTime + restTime,
+              tempo_execucao_segundos: execTime,
+              tempo_descanso_segundos: restTime,
               letra_treino: letra,
               data_treino: new Date().toISOString()
             });
@@ -382,9 +415,6 @@ const Training = () => {
               <h2 className="text-2xl font-bold leading-tight">{exercise.exercicios.nome}</h2>
               <p className="text-sm opacity-60 flex items-center gap-1 mt-1"><Info size={14} /> Fibra {exercise.exercicios.tipo_fibra}</p>
             </div>
-            <div className="text-right">
-              <span className="text-3xl font-black opacity-10 italic">#{exercise.exercicios.tipo_fibra}</span>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -415,7 +445,26 @@ const Training = () => {
           )}
         </div>
 
+        {/* Floating Timer Widget */}
+        {isFloatingTimer && isTimerActive && (
+            <div className={`fixed top-24 right-6 z-[200] p-4 rounded-3xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-500 ${isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-600 text-white'}`}>
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">Descanso</span>
+                    <span className="text-2xl font-mono font-black">
+                        {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
+                    </span>
+                </div>
+                <button
+                    onClick={() => { stopAndRecordTime(); startTimer(); }}
+                    className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20"
+                >
+                    <CheckCircle2 size={20} />
+                </button>
+            </div>
+        )}
+
         {/* Stopwatch & Reference */}
+        {!isFloatingTimer && (
         <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 ${isTimerActive ? (isCoringa ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50' : 'bg-indigo-600 scale-105 shadow-lg shadow-indigo-900/50') : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')}`}>
            <div className="flex flex-col">
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
@@ -438,6 +487,7 @@ const Training = () => {
              {isTimerActive ? <Pause fill="currentColor" /> : <Play fill="currentColor" className="ml-1" />}
            </button>
         </div>
+        )}
 
         {/* Simultaneous Loads (if alternated) */}
         {currentBlock.length > 1 && (
@@ -502,6 +552,68 @@ const Training = () => {
             )}
         </div>
 
+        {/* Session Exercise List */}
+        <div className="mt-12 space-y-4">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Exercícios da Sessão</h3>
+            {blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
+                const isDone = (bIdx < currentBlockIndex) ||
+                               (bIdx === currentBlockIndex && currentExerciseInBlock > eIdx) ||
+                               (bIdx === currentBlockIndex && currentExerciseInBlock === eIdx && currentSerie > ex.series_alvo);
+
+                const isCurrent = bIdx === currentBlockIndex && currentExerciseInBlock === eIdx;
+                const isSkipped = skippedExercises.some(s => s.exercicio_id === ex.exercicio_id);
+                const currentExSerie = isCurrent ? currentSerie : (isDone ? ex.series_alvo : (isSkipped ? (skippedExercises.find(s => s.exercicio_id === ex.exercicio_id)?.partialSerie || 0) : 0));
+
+                return (
+                    <div key={`${bIdx}_${eIdx}`} className={`relative p-4 rounded-2xl border transition-all ${
+                        isCurrent ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950 scale-[1.02]' : 'bg-indigo-600 border-indigo-600 text-white scale-[1.02]') :
+                        isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                        isSkipped ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+                        'bg-white/5 border-white/10 text-white/40'
+                    }`}>
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-black/10' : 'bg-white/5'}`}>
+                                    {isDone ? <CheckCircle2 size={16}/> : <Dumbbell size={16}/>}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm">{ex.exercicios.nome}</p>
+                                    <p className="text-[10px] opacity-60 font-medium">Séries: {currentExSerie}/{ex.series_alvo} executadas</p>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <button
+                                    onClick={() => setOpenMenuExId(openMenuExId === ex.exercicio_id ? null : ex.exercicio_id)}
+                                    className="p-2 hover:bg-black/10 rounded-lg transition"
+                                >
+                                    <MoreVertical size={16} />
+                                </button>
+
+                                {openMenuExId === ex.exercicio_id && (
+                                    <div className="absolute right-0 bottom-full mb-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
+                                        <button
+                                            onClick={() => {
+                                                if (isTimerActive) stopAndRecordTime();
+                                                setCurrentBlockIndex(bIdx);
+                                                setCurrentExerciseInBlock(eIdx);
+                                                setCurrentSerie(currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1);
+                                                setOpenMenuExId(null);
+                                                startTimer();
+                                            }}
+                                            className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
+                                        >
+                                            <RotateCcw size={14} /> Voltar ao exercício
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }))}
+        </div>
+
         {/* Checkout Modal */}
         {showCheckoutModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -540,41 +652,20 @@ const Training = () => {
             </div>
         )}
 
-        <p className="text-center mt-6 text-[10px] font-bold opacity-30 uppercase tracking-[0.3em] mb-24">SmartTraining Architecture V2.0</p>
       </div>
 
-      {/* Global Summary Footer */}
-      <footer className={`fixed bottom-0 left-0 right-0 p-4 border-t backdrop-blur-md z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
+      {/* Global Progress Footer */}
+      <footer className={`fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
         <div className="max-w-md mx-auto">
-            <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
-                {blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
-                    const isDone = (bIdx < currentBlockIndex) ||
-                                   (bIdx === currentBlockIndex && currentExerciseInBlock > eIdx) ||
-                                   (bIdx === currentBlockIndex && currentExerciseInBlock === eIdx && currentSerie > ex.series_alvo);
-
-                    const isCurrent = bIdx === currentBlockIndex && currentExerciseInBlock === eIdx;
-                    const isPartial = isCurrent && currentSerie > 1 && currentSerie <= ex.series_alvo;
-                    const isSkipped = skippedExercises.some(s => s.exercicio_id === ex.exercicio_id);
-
-                    return (
-                        <div key={`${bIdx}_${eIdx}`} className={`flex-shrink-0 px-3 py-1.5 rounded-xl border text-[9px] font-bold uppercase transition-all ${
-                            isDone ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' :
-                            isCurrent ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950 scale-110' : 'bg-indigo-500 border-indigo-500 text-white scale-110') :
-                            isSkipped ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 italic' :
-                            isPartial ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' :
-                            'bg-white/5 border-white/10 text-white/30'
-                        }`}>
-                            {ex.exercicios.nome.split(' ')[0]}
-                            <span className="ml-1 opacity-60">
-                                {isDone ? 'OK' : isSkipped ? 'PULADO' : isCurrent || isPartial ? `${currentSerie}/${ex.series_alvo}` : `0/${ex.series_alvo}`}
-                            </span>
-                        </div>
-                    );
-                }))}
-            </div>
-            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-40">
-                <span>Progresso Total</span>
+            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">
+                <span>Progresso Geral</span>
                 <span>{Math.round(((currentBlockIndex * 2 + currentExerciseInBlock) / (blocos.length * 2)) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div
+                    className={`h-full transition-all duration-1000 ${isCoringa ? 'bg-amber-400' : 'bg-indigo-500'}`}
+                    style={{ width: `${Math.round(((currentBlockIndex * 2 + currentExerciseInBlock) / (blocos.length * 2)) * 100)}%` }}
+                ></div>
             </div>
         </div>
       </footer>
