@@ -31,7 +31,8 @@ const Training = () => {
   const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: { seconds: number, title: string, nome: string } }
   const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
 
-  const [cargas, setCargas] = useState({}); // { exercicio_id: value }
+  const [cargas, setCargas] = useState({}); // { exercicio_id: current_input_value }
+  const [exerciseLoads, setExerciseLoads] = useState({}); // { exercicio_id: [s1, s2...] }
   const [repsFeitas, setRepsFeitas] = useState({});
   const [savingSession, setSavingSession] = useState(false);
 
@@ -150,7 +151,9 @@ const Training = () => {
         lastHistory.forEach(h => {
           if (!lastTimes[h.exercicio_id]) {
             lastTimes[h.exercicio_id] = h.tempo_total_segundos;
-            lastLoads[h.exercicio_id] = h.carga_utilizada;
+            // If it's an array, take the last used value to pre-fill
+            const loadArr = Array.isArray(h.carga_utilizada) ? h.carga_utilizada : [h.carga_utilizada];
+            lastLoads[h.exercicio_id] = loadArr[loadArr.length - 1];
             lastReps[h.exercicio_id] = h.repeticoes_feitas;
           }
         });
@@ -171,14 +174,17 @@ const Training = () => {
       const initialReps = {};
       const initialTimes = {};
       const initialRests = {};
+      const initialExLoads = {};
       data.forEach((ex) => {
         initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
         // For reps, prefer last session, otherwise parse target
         initialReps[ex.exercicio_id] = lastReps[ex.exercicio_id] ?? (ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10);
         initialTimes[ex.exercicio_id] = [];
         initialRests[ex.exercicio_id] = [];
+        initialExLoads[ex.exercicio_id] = [];
       });
       setCargas(initialCargas);
+      setExerciseLoads(initialExLoads);
       setRepsFeitas(initialReps);
       setExerciseTimes(initialTimes);
       setRestTimes(initialRests);
@@ -220,6 +226,13 @@ const Training = () => {
   const stopAndRecordTime = () => {
     const exId = exercise.exercicio_id;
     if (!exId) return;
+
+    // Capture current input load for this series
+    const currentInputLoad = parseFloat(cargas[exId]) || 0;
+    setExerciseLoads(prev => ({
+        ...prev,
+        [exId]: [...(prev[exId] || []), currentInputLoad]
+    }));
 
     setExerciseTimes(prev => ({
         ...prev,
@@ -467,6 +480,8 @@ const Training = () => {
         const execTimes = exerciseTimes[ex.exercicio_id] || [];
         const rests = restTimes[ex.exercicio_id] || [];
 
+        const exLoads = exerciseLoads[ex.exercicio_id] || [];
+
         if ((val !== '' && parseFloat(val) >= 0) || execTimes.length > 0 || rests.length > 0) {
             const totalExec = execTimes.reduce((a, b) => a + b, 0);
             const totalRest = rests.reduce((a, b) => a + b, 0);
@@ -474,7 +489,7 @@ const Training = () => {
             historyData.push({
               usuario_id: user.id,
               exercicio_id: ex.exercicio_id,
-              carga_utilizada: parseFloat(val) || 0,
+              carga_utilizada: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
               repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id]) || 0,
               series_executadas: execTimes.length || ex.series_alvo,
               tempo_total_segundos: totalExec + totalRest,
@@ -537,12 +552,6 @@ const Training = () => {
                 </div>
             </div>
 
-            <button
-                onClick={() => setExecutionMode(prev => prev === 'alternated' ? 'isolated' : 'alternated')}
-                className={`p-2 rounded-lg border ${isCoringa ? 'border-amber-700 bg-amber-800' : 'border-slate-700 bg-slate-800'}`}
-            >
-                <Settings2 size={20} />
-            </button>
           </div>
         </header>
 
@@ -616,13 +625,6 @@ const Training = () => {
                                 {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
                             </span>
                         </div>
-                        <button
-                            onClick={() => dismissRestTimer(exId)}
-                            data-testid={`dismiss-rest-${exId}`}
-                            className="bg-black/20 hover:bg-black/40 p-1.5 rounded-full transition-colors"
-                        >
-                            <X size={14} />
-                        </button>
                     </div>
                 );
             })}
@@ -822,6 +824,7 @@ const Training = () => {
                                 const sNum = sIdx + 1;
                                 const execTime = exerciseTimes[ex.exercicio_id]?.[sIdx];
                                 const restTime = restTimes[ex.exercicio_id]?.[sIdx];
+                                const load = exerciseLoads[ex.exercicio_id]?.[sIdx];
 
                                 const isCurrentS = isCurrent && sNum === currentSerie;
                                 const liveExec = isCurrentS && isTimerActive ? timer : null;
@@ -834,7 +837,10 @@ const Training = () => {
                                         isCurrentS ? 'bg-white/20 border-white/40 ring-2 ring-white/20' :
                                         (execTime ? 'bg-black/20 border-white/10' : 'bg-black/5 border-transparent opacity-40')
                                     }`}>
-                                        <span className="font-black opacity-40 mb-1">S{sNum}</span>
+                                        <div className="flex justify-between w-full opacity-40 mb-1 px-1">
+                                            <span className="font-black">S{sNum}</span>
+                                            {load !== undefined && <span className="font-bold">{load}kg</span>}
+                                        </div>
                                         <div className="flex flex-col items-center gap-0.5">
                                             <span className="font-mono font-bold whitespace-nowrap">
                                                 {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}

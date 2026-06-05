@@ -155,10 +155,14 @@ const History = () => {
 
   const handleAddWorkoutRecord = async (e) => {
     e.preventDefault();
+    const cargaVal = typeof formData.carga === 'string' && formData.carga.includes(',')
+        ? formData.carga.split(',').map(v => parseFloat(v.trim()))
+        : [parseFloat(formData.carga)];
+
     const { error } = await supabase.from('historico_cargas').insert([{
         usuario_id: userData.id,
         exercicio_id: formData.exercicio_id,
-        carga_utilizada: parseFloat(formData.carga),
+        carga_utilizada: cargaVal,
         repeticoes_feitas: parseInt(formData.reps),
         series_executadas: parseInt(formData.series),
         letra_treino: formData.letra || 'A',
@@ -177,10 +181,15 @@ const History = () => {
     e.preventDefault();
     let error;
     if (isEditing.type === 'workout') {
+        // Support comma separated string for array conversion
+        const cargaVal = typeof formData.carga === 'string' && formData.carga.includes(',')
+            ? formData.carga.split(',').map(v => parseFloat(v.trim()))
+            : [parseFloat(formData.carga)];
+
         const { error: err } = await supabase
             .from('historico_cargas')
             .update({
-                carga_utilizada: parseFloat(formData.carga),
+                carga_utilizada: cargaVal,
                 repeticoes_feitas: parseInt(formData.reps),
                 series_executadas: parseInt(formData.series)
             })
@@ -353,9 +362,11 @@ const History = () => {
                                                 <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">Total: {item.series_executadas} séries</p>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-lg font-mono font-black text-indigo-600">{item.carga_utilizada}kg</span>
+                                                <span className="text-lg font-mono font-black text-indigo-600">
+                                                    {Array.isArray(item.carga_utilizada) ? (item.carga_utilizada[item.carga_utilizada.length - 1]) : item.carga_utilizada}kg
+                                                </span>
                                                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
+                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: Array.isArray(item.carga_utilizada) ? item.carga_utilizada.join(', ') : item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
                                                     <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
                                                 </div>
                                             </div>
@@ -365,9 +376,13 @@ const History = () => {
                                         <div className="grid grid-cols-4 gap-1">
                                             {(item.tempo_execucao_segundos || []).map((t, sIdx) => {
                                                 const rest = (item.tempo_descanso_segundos || [])[sIdx];
+                                                const load = Array.isArray(item.carga_utilizada) ? item.carga_utilizada[sIdx] : item.carga_utilizada;
                                                 return (
                                                     <div key={sIdx} className="bg-slate-50 rounded-lg p-1.5 text-center">
-                                                        <span className="block text-[8px] font-black text-slate-300 uppercase">S{sIdx+1}</span>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-[7px] font-black text-slate-300 uppercase">S{sIdx+1}</span>
+                                                            {load !== undefined && <span className="text-[7px] font-bold text-indigo-400">{load}kg</span>}
+                                                        </div>
                                                         <span className="block text-[10px] font-bold text-slate-600">{item.repeticoes_feitas} reps</span>
                                                         {rest !== undefined && (
                                                             <span className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-emerald-500 mt-0.5">

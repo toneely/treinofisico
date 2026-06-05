@@ -137,7 +137,10 @@ export const exportHistoryToPDF = (userData, history) => {
       doc.text(item.exercicios.nome, 25, currentY);
       doc.setTextColor(secondary);
       doc.text((item.series_executadas || 3).toString(), 115, currentY);
-      doc.text(item.carga_utilizada.toString(), 145, currentY);
+
+      const displayLoad = Array.isArray(item.carga_utilizada) ? item.carga_utilizada.join("/") : item.carga_utilizada.toString();
+      doc.text(displayLoad, 145, currentY);
+
       doc.text(item.repeticoes_feitas.toString(), 175, currentY);
 
       doc.setDrawColor(240, 240, 240);
