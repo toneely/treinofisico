@@ -184,20 +184,23 @@ const Training = () => {
     const exId = targetExerciseId || exercise.exercicio_id;
     if (!exId) return;
 
-    // Sequential cleanup: stop ALL rests, record their times, and unmount all balloons
-    // because starting any exercise set means rest is over.
+    const idStr = String(exId);
+
+    // Independence Logic: Only stop and record the rest timer for THIS specific exercise.
+    // Other floating timers (e.g. from an alternated exercise) should keep running.
     setActiveRestTimers(prev => {
-        const ids = Object.keys(prev);
-        if (ids.length > 0) {
-            // Record each rest timer into its respective exercise history
-            setRestTimes(rt => {
-                const nextRt = { ...rt };
-                ids.forEach(id => {
-                    nextRt[id] = [...(nextRt[id] || []), prev[id].seconds];
-                });
-                return nextRt;
-            });
-            return {}; // Clear all active rest timers
+        if (prev[idStr]) {
+            const restDuration = prev[idStr].seconds;
+
+            // Record the rest time for this exercise
+            setRestTimes(rt => ({
+                ...rt,
+                [idStr]: [...(rt[idStr] || []), restDuration]
+            }));
+
+            const newState = { ...prev };
+            delete newState[idStr];
+            return newState;
         }
         return prev;
     });
@@ -559,7 +562,6 @@ const Training = () => {
                 </span>
               </div>
               <h2 className="text-2xl font-bold leading-tight">{exercise.exercicios.nome}</h2>
-              <p className="text-sm opacity-60 flex items-center gap-1 mt-1"><Info size={14} /> Fibra {exercise.exercicios.tipo_fibra}</p>
             </div>
           </div>
 
