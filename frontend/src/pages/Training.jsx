@@ -101,6 +101,7 @@ const Training = () => {
   useEffect(() => {
     let interval = null;
     const activeIds = Object.keys(activeRestTimers);
+    // Only run interval if there are timers AND they have content
     if (activeIds.length > 0) {
       interval = setInterval(() => {
         setActiveRestTimers(prev => {
@@ -221,7 +222,15 @@ const Training = () => {
     const exId = exercise.exercicio_id;
     if (!exId) return;
 
+    // Check if it's the last series BEFORE stopAndRecordTime to prevent floating timer trigger
+    const isLastSerie = currentSerie >= exercise.series_alvo;
+
     stopAndRecordTime();
+
+    // Bug fix 1: Don't spawn rest timer if it's the last series of the exercise
+    if (isLastSerie) {
+        return;
+    }
 
     // Spawn trigger: Start floating rest for THIS exercise automatically
     setActiveRestTimers(prev => ({
@@ -301,73 +310,81 @@ const Training = () => {
   const nextStep = () => {
     const currentBlock = blocos[currentBlockIndex];
     const isLastExerciseInBlock = currentExerciseInBlock === currentBlock.length - 1;
-    const isLastSerie = currentSerie >= exercise.series_alvo;
+    const isLastSerieOfBlock = currentSerie >= exercise.series_alvo &&
+                               currentBlock.every(ex => {
+                                 // Check if ALL exercises in block are done
+                                 // If we are at the last exercise, we check currentSerie
+                                 // If not, we'd need to know how many series they've done.
+                                 // But simple logic: if executionMode is alternated,
+                                 // they all follow the same series progression mostly.
+                                 return true;
+                               });
 
-    if (isLastExerciseInBlock && isLastSerie) {
-        handleWorkoutEnd();
+    // Determine if the entire BLOCK is finished
+    let blockFinished = false;
+    if (executionMode === 'isolated') {
+        blockFinished = isLastExerciseInBlock && (currentSerie >= exercise.series_alvo);
+    } else {
+        // Alternated: finished when we are at the last exercise AND it's the last serie
+        // AND all other exercises in block have also reached their series_alvo.
+        const allExercisesDone = currentBlock.every(ex => {
+            const isCurrent = ex.exercicio_id === exercise.exercicio_id;
+            const doneSeries = (exerciseTimes[ex.exercicio_id]?.length || 0) + (isCurrent ? 1 : 0);
+            return doneSeries >= ex.series_alvo;
+        });
+        blockFinished = allExercisesDone;
+    }
+
+    if (blockFinished) {
+        if (currentBlockIndex === blocos.length - 1) {
+            handleWorkoutEnd();
+        } else {
+            goToNextBlock();
+        }
         return;
     }
 
-    advanceUI(currentBlock, isLastExerciseInBlock, isLastSerie);
+    advanceUI(currentBlock, isLastExerciseInBlock);
     setTimer(0);
     setIsTimerActive(false);
   };
 
-  const advanceUI = (currentBlock, isLastExerciseInBlock, isLastSerie) => {
-    let nextEx = exercise;
+  const advanceUI = (currentBlock, isLastExerciseInBlock) => {
     if (executionMode === 'alternated') {
       if (!isLastExerciseInBlock) {
-        // Check if the next exercise is already done with its series
-        const next = currentBlock[currentExerciseInBlock + 1];
-        if (currentSerie <= next.series_alvo) {
-            setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-            nextEx = next;
+        // Try next exercise in block
+        const nextIdx = currentExerciseInBlock + 1;
+        const nextEx = currentBlock[nextIdx];
+        const nextExDoneSeries = exerciseTimes[nextEx.exercicio_id]?.length || 0;
+
+        if (nextExDoneSeries < nextEx.series_alvo) {
+            setCurrentExerciseInBlock(nextIdx);
         } else {
-            if (!isLastSerie) {
-                setCurrentSerie(currentSerie + 1);
-                // nextEx remains current exercise
-            } else {
-                goToNextBlock();
-                return null;
-            }
+            // Next is done, stay here and increment serie if not done
+            setCurrentSerie(currentSerie + 1);
         }
       } else {
-        // We are at the last exercise of the block (e.g. B)
-        // Try to go back to first exercise (e.g. A)
+        // We are at the last exercise, go back to first
         const firstEx = currentBlock[0];
-        if (currentSerie < firstEx.series_alvo) {
+        const firstExDoneSeries = exerciseTimes[firstEx.exercicio_id]?.length || 0;
+
+        if (firstExDoneSeries < firstEx.series_alvo) {
             setCurrentExerciseInBlock(0);
             setCurrentSerie(currentSerie + 1);
-            nextEx = firstEx;
         } else {
-            // First exercise is done
-            if (!isLastSerie) {
-                // Current exercise (B) is not done, stay here but increment serie
-                setCurrentSerie(currentSerie + 1);
-                // nextEx remains current exercise
-            } else {
-                goToNextBlock();
-                return null;
-            }
+            // First is done, just increment current serie
+            setCurrentSerie(currentSerie + 1);
         }
       }
     } else {
       // isolated mode
-      if (!isLastSerie) {
+      if (currentSerie < exercise.series_alvo) {
         setCurrentSerie(currentSerie + 1);
-        // nextEx remains current exercise
       } else {
-        if (!isLastExerciseInBlock) {
-          setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-          setCurrentSerie(1);
-          nextEx = currentBlock[currentExerciseInBlock + 1];
-        } else {
-          goToNextBlock();
-          return null;
-        }
+        setCurrentExerciseInBlock(currentExerciseInBlock + 1);
+        setCurrentSerie(1);
       }
     }
-    return nextEx;
   };
 
   const goToNextBlock = () => {
@@ -461,6 +478,7 @@ const Training = () => {
   if (!blocos.length) return <div className="p-10 text-center text-slate-500">Nenhum exercício encontrado. <Link to="/" className="underline">Voltar</Link></div>;
 
   const isCoringa = currentBlock.some(b => b.is_coringa);
+  const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${isCoringa ? 'bg-amber-900 text-amber-50' : 'bg-slate-900 text-white'}`}>
@@ -573,7 +591,14 @@ const Training = () => {
         </div>
 
         {/* Stopwatch & Reference */}
-        <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${isTimerActive ? (isCoringa ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50' : 'bg-indigo-600 scale-105 shadow-lg shadow-indigo-900/50') : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')}`}>
+        <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${
+          isTimerActive
+            ? (isCoringa
+                ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50'
+                : (isPrimaryEx ? 'bg-indigo-600' : 'bg-purple-600') + ' scale-105 shadow-lg ' + (isPrimaryEx ? 'shadow-indigo-900/50' : 'shadow-purple-900/50')
+              )
+            : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')
+        }`}>
            <div className="flex flex-col">
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
               <div className="flex items-baseline gap-3">

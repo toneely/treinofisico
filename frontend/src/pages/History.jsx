@@ -344,19 +344,39 @@ const History = () => {
                                 </div>
                                 <button onClick={() => handleDeleteWorkout(act.letra, act.fullDate)} className="p-1 hover:bg-white/10 rounded"><Trash2 size={14}/></button>
                             </div>
-                            <div className="p-3 space-y-2">
+                            <div className="p-3 space-y-3">
                                 {act.items.map((item, i) => (
-                                    <div key={i} className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0 group">
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-700">{item.exercicios.nome}</p>
-                                            <p className="text-[10px] text-slate-400 font-medium">{item.series_executadas || 3} séries x {item.repeticoes_feitas} reps</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-lg font-mono font-black text-indigo-600">{item.carga_utilizada}kg</span>
-                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
-                                                <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
-                                                <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                    <div key={i} className="border-b border-slate-50 last:border-0 pb-3 last:pb-0 group">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-700">{item.exercicios.nome}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">Total: {item.series_executadas} séries</p>
                                             </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg font-mono font-black text-indigo-600">{item.carga_utilizada}kg</span>
+                                                <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
+                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
+                                                    <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Series-by-series Detail */}
+                                        <div className="grid grid-cols-4 gap-1">
+                                            {(item.tempo_execucao_segundos || []).map((t, sIdx) => {
+                                                const rest = (item.tempo_descanso_segundos || [])[sIdx];
+                                                return (
+                                                    <div key={sIdx} className="bg-slate-50 rounded-lg p-1.5 text-center">
+                                                        <span className="block text-[8px] font-black text-slate-300 uppercase">S{sIdx+1}</span>
+                                                        <span className="block text-[10px] font-bold text-slate-600">{item.repeticoes_feitas} reps</span>
+                                                        {rest !== undefined && (
+                                                            <span className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-emerald-500 mt-0.5">
+                                                                <Clock size={8}/> {Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}
