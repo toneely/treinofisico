@@ -134,19 +134,24 @@ const Training = () => {
     if (error) {
       console.error('Erro ao buscar treino:', error);
     } else {
-      // Fetch last execution times for these exercises
+      // Fetch last execution data (times and loads) for these exercises
       const exerciseIds = data.map(ex => ex.exercicio_id);
       const { data: lastHistory } = await supabase
         .from('historico_cargas')
-        .select('exercicio_id, tempo_total_segundos, data_treino')
+        .select('exercicio_id, tempo_total_segundos, carga_utilizada, repeticoes_feitas, data_treino')
         .in('exercicio_id', exerciseIds)
         .order('data_treino', { ascending: false });
 
       const lastTimes = {};
+      const lastLoads = {};
+      const lastReps = {};
+
       if (lastHistory) {
         lastHistory.forEach(h => {
           if (!lastTimes[h.exercicio_id]) {
             lastTimes[h.exercicio_id] = h.tempo_total_segundos;
+            lastLoads[h.exercicio_id] = h.carga_utilizada;
+            lastReps[h.exercicio_id] = h.repeticoes_feitas;
           }
         });
       }
@@ -161,14 +166,15 @@ const Training = () => {
       setBlocos(blocksArray);
       setOriginalBlocos(blocksArray);
 
-      // Initialize cargas and reps using exercicio_id
+      // Initialize cargas and reps using exercicio_id, inheriting from last session if available
       const initialCargas = {};
       const initialReps = {};
       const initialTimes = {};
       const initialRests = {};
       data.forEach((ex) => {
-        initialCargas[ex.exercicio_id] = 0;
-        initialReps[ex.exercicio_id] = ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10;
+        initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
+        // For reps, prefer last session, otherwise parse target
+        initialReps[ex.exercicio_id] = lastReps[ex.exercicio_id] ?? (ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10);
         initialTimes[ex.exercicio_id] = [];
         initialRests[ex.exercicio_id] = [];
       });
@@ -297,10 +303,12 @@ const Training = () => {
   };
 
   const handleCargaChange = (exId, val) => {
+    // Allow empty string for better typing experience
     setCargas(prev => ({ ...prev, [exId]: val }));
   };
 
   const handleRepsChange = (exId, val) => {
+    // Allow empty string for better typing experience
     setRepsFeitas(prev => ({ ...prev, [exId]: val }));
   };
 
@@ -459,15 +467,15 @@ const Training = () => {
         const execTimes = exerciseTimes[ex.exercicio_id] || [];
         const rests = restTimes[ex.exercicio_id] || [];
 
-        if (val > 0 || execTimes.length > 0 || rests.length > 0) {
+        if ((val !== '' && parseFloat(val) >= 0) || execTimes.length > 0 || rests.length > 0) {
             const totalExec = execTimes.reduce((a, b) => a + b, 0);
             const totalRest = rests.reduce((a, b) => a + b, 0);
 
             historyData.push({
               usuario_id: user.id,
               exercicio_id: ex.exercicio_id,
-              carga_utilizada: parseFloat(val || 0),
-              repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id] || 0),
+              carga_utilizada: parseFloat(val) || 0,
+              repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id]) || 0,
               series_executadas: execTimes.length || ex.series_alvo,
               tempo_total_segundos: totalExec + totalRest,
               tempo_execucao_segundos: execTimes,
@@ -570,8 +578,9 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
                 <input
                   type="number"
-                  value={cargas[exercise.exercicio_id] || 0}
+                  value={cargas[exercise.exercicio_id] ?? ''}
                   onChange={(e) => handleCargaChange(exercise.exercicio_id, e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
              </div>
@@ -579,8 +588,9 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({exercise.reps_alvo})</label>
                 <input
                   type="number"
-                  value={repsFeitas[exercise.exercicio_id] || 0}
+                  value={repsFeitas[exercise.exercicio_id] ?? ''}
                   onChange={(e) => handleRepsChange(exercise.exercicio_id, e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
              </div>
@@ -698,8 +708,9 @@ const Training = () => {
                             <Dumbbell size={14} className="opacity-40" />
                             <input
                                 type="number"
-                                value={cargas[ex.exercicio_id] || 0}
+                                value={cargas[ex.exercicio_id] ?? ''}
                                 onChange={(e) => handleCargaChange(ex.exercicio_id, e.target.value)}
+                                onFocus={(e) => e.target.select()}
                                 className="bg-transparent w-12 font-mono font-bold text-right outline-none"
                             />
                             <span className="text-[10px] opacity-40">kg</span>
@@ -765,7 +776,14 @@ const Training = () => {
                                 </div>
                                 <div>
                                     <p className="font-bold text-sm">{ex.exercicios.nome}</p>
-                                    <p className="text-[10px] opacity-60 font-medium">Séries: {currentExSerie}/{ex.series_alvo} executadas</p>
+                                    <div className="flex gap-2 items-center">
+                                        <p className="text-[10px] opacity-60 font-medium">Séries: {currentExSerie}/{ex.series_alvo}</p>
+                                        {cargas[ex.exercicio_id] > 0 && (
+                                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1">
+                                                <Dumbbell size={10} /> {cargas[ex.exercicio_id]}kg
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -796,6 +814,38 @@ const Training = () => {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Series Details Grid */}
+                        <div className="mt-4 grid grid-cols-5 gap-1.5">
+                            {[...Array(ex.series_alvo)].map((_, sIdx) => {
+                                const sNum = sIdx + 1;
+                                const execTime = exerciseTimes[ex.exercicio_id]?.[sIdx];
+                                const restTime = restTimes[ex.exercicio_id]?.[sIdx];
+
+                                const isCurrentS = isCurrent && sNum === currentSerie;
+                                const liveExec = isCurrentS && isTimerActive ? timer : null;
+
+                                // Rest occurs AFTER the series. So Rest 1 follows Series 1.
+                                const liveRest = activeRestTimers[ex.exercicio_id] && sNum === (exerciseTimes[ex.exercicio_id]?.length) ? activeRestTimers[ex.exercicio_id].seconds : null;
+
+                                return (
+                                    <div key={sIdx} className={`p-2 rounded-xl text-[8px] flex flex-col items-center justify-center border transition-all ${
+                                        isCurrentS ? 'bg-white/20 border-white/40 ring-2 ring-white/20' :
+                                        (execTime ? 'bg-black/20 border-white/10' : 'bg-black/5 border-transparent opacity-40')
+                                    }`}>
+                                        <span className="font-black opacity-40 mb-1">S{sNum}</span>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="font-mono font-bold whitespace-nowrap">
+                                                {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}
+                                            </span>
+                                            <span className={`font-mono text-[7px] ${liveRest !== null ? 'text-emerald-400 animate-pulse font-black' : 'opacity-30'}`}>
+                                                {restTime ? `${Math.floor(restTime/60)}:${String(restTime%60).padStart(2,'0')}` : (liveRest !== null ? `${Math.floor(liveRest/60)}:${String(liveRest%60).padStart(2,'0')}` : '--:--')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
                 );
