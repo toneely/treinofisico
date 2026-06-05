@@ -381,23 +381,31 @@ const History = () => {
                                         </div>
 
                                         {/* Series-by-series Detail */}
-                                        <div className="grid grid-cols-4 gap-1">
+                                        <div className="grid grid-cols-4 gap-2">
                                             {(item.tempo_execucao_segundos || []).map((t, sIdx) => {
                                                 const rest = (item.tempo_descanso_segundos || [])[sIdx];
                                                 const load = Array.isArray(item.carga) ? item.carga[sIdx] : item.carga_utilizada;
                                                 const reps = Array.isArray(item.repeticoes) ? item.repeticoes[sIdx] : item.repeticoes_feitas;
                                                 return (
-                                                    <div key={sIdx} className="bg-slate-50 rounded-lg p-1.5 text-center">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-[7px] font-black text-slate-300 uppercase">S{sIdx+1}</span>
-                                                            {load !== undefined && <span className="text-[7px] font-bold text-indigo-400">{load}kg | {reps}r</span>}
+                                                    <div key={sIdx} className="bg-slate-50 rounded-2xl p-2.5 flex flex-col items-center border border-slate-100">
+                                                        <span className="text-[8px] font-black text-slate-300 uppercase mb-1">S{sIdx+1}</span>
+
+                                                        <div className="flex flex-col items-center mb-2">
+                                                            <span className="text-[11px] font-black text-slate-700 leading-tight">{load}kg</span>
+                                                            <span className="text-[10px] font-bold text-indigo-500">{reps} reps</span>
                                                         </div>
-                                                        <span className="block text-[10px] font-bold text-slate-600">Exec: {Math.floor(t/60)}:{String(t%60).padStart(2,'0')}</span>
-                                                        {rest !== undefined && (
-                                                            <span className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-emerald-500 mt-0.5">
-                                                                <Clock size={8}/> {Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}
-                                                            </span>
-                                                        )}
+
+                                                        <div className="w-full pt-2 border-t border-slate-200/50 flex flex-col items-center gap-0.5">
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock size={8} className="text-slate-300"/>
+                                                                <span className="text-[9px] font-mono font-bold text-slate-500">{Math.floor(t/60)}:{String(t%60).padStart(2,'0')}</span>
+                                                            </div>
+                                                            {rest !== undefined && (
+                                                                <span className="text-[8px] font-mono font-bold text-emerald-500">
+                                                                    {Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

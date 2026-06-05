@@ -4,7 +4,7 @@ import {
   Play, Pause, RotateCcw, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Dumbbell, Shield,
   Settings2, Info, Save, SkipForward, Flame, X, Scale,
-  MoreVertical, Square
+  MoreVertical, Square, Clock
 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -200,6 +200,9 @@ const Training = () => {
     const exId = targetExerciseId || exercise.exercicio_id;
     if (!exId) return;
 
+    // Reset inputs for the NEW series with current values (which serve as baseline)
+    // No explicit change needed here as cargas/repsFeitas already hold the "current" view.
+
     const idStr = String(exId);
 
     // Independence Logic: Only stop and record the rest timer for THIS specific exercise.
@@ -327,13 +330,32 @@ const Training = () => {
   };
 
   const handleCargaChange = (exId, val) => {
-    // Allow empty string for better typing experience
+    // 1. Update the current input state
     setCargas(prev => ({ ...prev, [exId]: val }));
+
+    // 2. If we have already finished a series (stopped timer), update the latest recorded load
+    // so user can correct it during rest.
+    setExerciseLoads(prev => {
+        const loads = [...(prev[exId] || [])];
+        if (loads.length > 0) {
+            loads[loads.length - 1] = parseFloat(val) || 0;
+        }
+        return { ...prev, [exId]: loads };
+    });
   };
 
   const handleRepsChange = (exId, val) => {
-    // Allow empty string for better typing experience
+    // 1. Update current input state
     setRepsFeitas(prev => ({ ...prev, [exId]: val }));
+
+    // 2. Update latest recorded reps if we finished a series
+    setExerciseReps(prev => {
+        const reps = [...(prev[exId] || [])];
+        if (reps.length > 0) {
+            reps[reps.length - 1] = parseInt(val) || 0;
+        }
+        return { ...prev, [exId]: reps };
+    });
   };
 
   const skipExercise = () => {
@@ -831,7 +853,7 @@ const Training = () => {
                         </div>
 
                         {/* Series Details Grid */}
-                        <div className="mt-4 grid grid-cols-5 gap-1.5">
+                        <div className="mt-4 grid grid-cols-4 gap-2">
                             {[...Array(ex.series_alvo)].map((_, sIdx) => {
                                 const sNum = sIdx + 1;
                                 const execTime = exerciseTimes[ex.exercicio_id]?.[sIdx];
@@ -846,19 +868,29 @@ const Training = () => {
                                 const liveRest = activeRestTimers[ex.exercicio_id] && sNum === (exerciseTimes[ex.exercicio_id]?.length) ? activeRestTimers[ex.exercicio_id].seconds : null;
 
                                 return (
-                                    <div key={sIdx} className={`p-2 rounded-xl text-[8px] flex flex-col items-center justify-center border transition-all ${
-                                        isCurrentS ? 'bg-white/20 border-white/40 ring-2 ring-white/20' :
-                                        (execTime ? 'bg-black/20 border-white/10' : 'bg-black/5 border-transparent opacity-40')
+                                    <div key={sIdx} className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
+                                        isCurrentS ? 'bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10' :
+                                        (execTime ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent opacity-30')
                                     }`}>
-                                        <div className="flex justify-between w-full opacity-40 mb-1 px-1">
-                                            <span className="font-black text-[7px]">S{sNum}</span>
-                                            {load !== undefined && <span className="font-bold text-[7px]">{load}kg | {reps}r</span>}
-                                        </div>
-                                        <div className="flex flex-col items-center gap-0.5">
-                                            <span className="font-mono font-bold whitespace-nowrap text-[9px]">
-                                                {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}
+                                        <span className="font-black text-[9px] opacity-40 uppercase mb-2">Série {sNum}</span>
+
+                                        <div className="flex flex-col items-center gap-1 mb-2">
+                                            <span className="font-mono font-black text-[11px] leading-none text-white">
+                                                {load !== undefined ? `${load} kg` : '-- kg'}
                                             </span>
-                                            <span className={`font-mono text-[7px] ${liveRest !== null ? 'text-emerald-400 animate-pulse font-black' : 'opacity-30'}`}>
+                                            <span className="font-bold text-[10px] text-white opacity-60">
+                                                {reps !== undefined ? `${reps} reps` : '-- reps'}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1">
+                                            <div className="flex items-center gap-1">
+                                                <Clock size={8} className="opacity-30" />
+                                                <span className="font-mono font-bold text-[9px] text-white">
+                                                    {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}
+                                                </span>
+                                            </div>
+                                            <span className={`font-mono text-[8px] font-bold ${liveRest !== null ? 'text-emerald-400 animate-pulse' : 'opacity-30'}`}>
                                                 {restTime ? `${Math.floor(restTime/60)}:${String(restTime%60).padStart(2,'0')}` : (liveRest !== null ? `${Math.floor(liveRest/60)}:${String(liveRest%60).padStart(2,'0')}` : '--:--')}
                                             </span>
                                         </div>
