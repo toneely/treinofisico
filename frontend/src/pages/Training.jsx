@@ -28,7 +28,7 @@ const Training = () => {
   const [timerMode, setTimerMode] = useState('execution'); // 'execution' or 'rest'
   const [exerciseTimes, setExerciseTimes] = useState({}); // { exercicio_id: [s1, s2...] }
   const [restTimes, setRestTimes] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: { seconds: number, title: string } }
+  const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: { seconds: number, title: string, nome: string } }
   const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
 
   const [cargas, setCargas] = useState({}); // { exercicio_id: value }
@@ -182,26 +182,27 @@ const Training = () => {
 
   const startTimer = (targetExerciseId = null) => {
     const exId = targetExerciseId || exercise.exercicio_id;
+    if (!exId) return;
 
-    // Sequential cleanup: stop rest, record time, and unmount balloon
-    if (exId && activeRestTimers[exId]) {
-        const restDuration = activeRestTimers[exId].seconds;
+    // Sequential cleanup: stop ALL rests, record their times, and unmount all balloons
+    // because starting any exercise set means rest is over.
+    setActiveRestTimers(prev => {
+        const ids = Object.keys(prev);
+        if (ids.length > 0) {
+            // Record each rest timer into its respective exercise history
+            setRestTimes(rt => {
+                const nextRt = { ...rt };
+                ids.forEach(id => {
+                    nextRt[id] = [...(nextRt[id] || []), prev[id].seconds];
+                });
+                return nextRt;
+            });
+            return {}; // Clear all active rest timers
+        }
+        return prev;
+    });
 
-        // 1. Save rest time
-        setRestTimes(prev => ({
-            ...prev,
-            [exId]: [...(prev[exId] || []), restDuration]
-        }));
-
-        // 2. Remove from active rest timers (unmount balloon)
-        setActiveRestTimers(prev => {
-            const newState = { ...prev };
-            delete newState[exId];
-            return newState;
-        });
-    }
-
-    // 3. Reset and start execution timer
+    // Reset and start execution timer
     setTimer(0);
     setTimerMode('execution');
     setIsTimerActive(true);
@@ -233,44 +234,61 @@ const Training = () => {
     }
 
     // Spawn trigger: Start floating rest for THIS exercise automatically
+    const idStr = String(exId);
     setActiveRestTimers(prev => ({
         ...prev,
-        [exId]: {
+        [idStr]: {
             seconds: 0,
-            title: `Descanso ${currentSerie}-${exercise.series_alvo}`
+            title: `Descanso ${currentSerie}-${exercise.series_alvo}`,
+            nome: exercise.exercicios.nome
         }
     }));
   };
 
   const resetSeriesTimer = () => {
     const exId = exercise.exercicio_id;
+    if (!exId) return;
+
+    const idStr = String(exId);
 
     // Reset execution timer
     setTimer(0);
     setIsTimerActive(false);
 
     // Cancel any associated active rest timer if it exists (accidental stop)
-    if (exId && activeRestTimers[exId]) {
-        setActiveRestTimers(prev => {
+    setActiveRestTimers(prev => {
+        if (prev[idStr]) {
             const next = { ...prev };
-            delete next[exId];
+            delete next[idStr];
             return next;
-        });
-    }
+        }
+        return prev;
+    });
   };
 
   const completeRestTimer = (exId) => {
-    const data = activeRestTimers[exId];
-    if (!data) return;
+    const idStr = String(exId);
 
-    const time = data.seconds;
-    setRestTimes(prev => ({
-        ...prev,
-        [exId]: [...(prev[exId] || []), time]
-    }));
+    setActiveRestTimers(prev => {
+        if (!prev[idStr]) return prev;
+
+        const time = prev[idStr].seconds;
+        setRestTimes(rt => ({
+            ...rt,
+            [idStr]: [...(rt[idStr] || []), time]
+        }));
+
+        const next = { ...prev };
+        delete next[idStr];
+        return next;
+    });
+  };
+
+  const dismissRestTimer = (exId) => {
+    const idStr = String(exId);
     setActiveRestTimers(prev => {
         const next = { ...prev };
-        delete next[exId];
+        delete next[idStr];
         return next;
     });
   };
@@ -574,17 +592,25 @@ const Training = () => {
         </div>
 
         {/* Floating Timer Widgets */}
-        <div className="fixed top-24 right-6 z-[200] flex flex-col gap-3">
-            {Object.entries(activeRestTimers).map(([exId, data], idx) => {
-                const isPrimary = parseInt(exId) === currentBlock[0].exercicio_id;
+        <div className="fixed top-24 right-4 z-[200] flex flex-col gap-3 items-end max-w-[200px]">
+            {Object.entries(activeRestTimers).map(([exId, data]) => {
+                const isPrimary = parseInt(exId) === (currentBlock[0]?.exercicio_id);
                 return (
-                    <div key={exId} className={`p-4 px-6 rounded-3xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-500 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
-                        <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">{data.title}</span>
-                            <span className="text-2xl font-mono font-black">
+                    <div key={exId} className={`p-3 px-5 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right duration-500 relative group border border-white/10 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-[7px] font-black uppercase tracking-widest opacity-70 truncate mb-0.5">{data.nome || 'Exercício'}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-tighter opacity-90 mb-1">{data.title}</span>
+                            <span className="text-xl font-mono font-black leading-none">
                                 {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
                             </span>
                         </div>
+                        <button
+                            onClick={() => dismissRestTimer(exId)}
+                            data-testid={`dismiss-rest-${exId}`}
+                            className="bg-black/20 hover:bg-black/40 p-1.5 rounded-full transition-colors"
+                        >
+                            <X size={14} />
+                        </button>
                     </div>
                 );
             })}
@@ -627,6 +653,7 @@ const Training = () => {
                 {(!isTimerActive && timer === 0) && (
                     <button
                         onClick={() => startTimer()}
+                        data-testid="start-timer-btn"
                         className="w-14 h-14 rounded-full flex items-center justify-center transition bg-white/10 hover:bg-white/20"
                     >
                         <Play fill="currentColor" className="ml-1" />
@@ -637,6 +664,7 @@ const Training = () => {
                 {isTimerActive && (
                     <button
                         onClick={stopExecutionAndStartRest}
+                        data-testid="stop-timer-btn"
                         className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
                     >
                         <Square fill="currentColor" size={20} />
