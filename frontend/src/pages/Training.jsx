@@ -6,13 +6,15 @@ import {
   Settings2, Info, Save, SkipForward, Flame, X, Scale,
   MoreVertical, Square, Clock
 } from 'lucide-react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 
 const Training = () => {
   const { showToast } = useToast();
   const { letra } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isResuming = new URLSearchParams(location.search).get('resume') === 'true';
 
   const [user, setUser] = useState(null);
   const [blocos, setBlocos] = useState([]);
@@ -53,6 +55,34 @@ const Training = () => {
   useEffect(() => {
     fetchData();
   }, [letra]);
+
+  // Persistence Logic
+  useEffect(() => {
+    if (!loading && blocos.length > 0) {
+      const stateToSave = {
+        letra,
+        currentBlockIndex,
+        currentExerciseInBlock,
+        currentSerie,
+        exerciseTimes,
+        restTimes,
+        exerciseLoads,
+        exerciseReps,
+        cargas,
+        repsFeitas,
+        executionMode,
+        isCatchupPhase,
+        skippedExercises,
+        originalBlocos
+      };
+      localStorage.setItem('active_training_session', JSON.stringify(stateToSave));
+    }
+  }, [
+    currentBlockIndex, currentExerciseInBlock, currentSerie,
+    exerciseTimes, restTimes, exerciseLoads, exerciseReps,
+    cargas, repsFeitas, executionMode, isCatchupPhase,
+    skippedExercises, loading, blocos
+  ]);
 
   useEffect(() => {
     let metronomeInterval = null;
@@ -124,6 +154,46 @@ const Training = () => {
     // Fetch User
     const { data: userData } = await supabase.from('usuarios').select('*').single();
     setUser(userData);
+
+    if (isResuming) {
+        const saved = localStorage.getItem('active_training_session');
+        if (saved) {
+            const state = JSON.parse(saved);
+            setBlocos(state.originalBlocos || []);
+            setOriginalBlocos(state.originalBlocos || []);
+            setCurrentBlockIndex(state.currentBlockIndex);
+            setCurrentExerciseInBlock(state.currentExerciseInBlock);
+            setCurrentSerie(state.currentSerie);
+            setExerciseTimes(state.exerciseTimes);
+            setRestTimes(state.restTimes);
+            setExerciseLoads(state.exerciseLoads);
+            setExerciseReps(state.exerciseReps);
+            setCargas(state.cargas);
+            setRepsFeitas(state.repsFeitas);
+            setExecutionMode(state.executionMode);
+            setIsCatchupPhase(state.isCatchupPhase);
+            setSkippedExercises(state.skippedExercises);
+            setLoading(false);
+
+            // Also need last execution times for reference
+            const data = (state.originalBlocos || []).flat();
+            const exerciseIds = data.map(ex => ex.exercicio_id);
+            const { data: lastHistory } = await supabase
+                .from('historico_cargas')
+                .select('exercicio_id, tempo_total_segundos')
+                .in('exercicio_id', exerciseIds)
+                .order('data_treino', { ascending: false });
+
+            const lastTimes = {};
+            if (lastHistory) {
+                lastHistory.forEach(h => {
+                    if (!lastTimes[h.exercicio_id]) lastTimes[h.exercicio_id] = h.tempo_total_segundos;
+                });
+            }
+            setLastExecutionTimes(lastTimes);
+            return;
+        }
+    }
 
     // Fetch Blocks
     const { data, error } = await supabase
@@ -338,7 +408,7 @@ const Training = () => {
     setExerciseLoads(prev => {
         const loads = [...(prev[exId] || [])];
         if (loads.length > 0) {
-            loads[loads.length - 1] = parseFloat(val) || 0;
+            loads[loads.length - 1] = val === '' ? null : parseFloat(val);
         }
         return { ...prev, [exId]: loads };
     });
@@ -352,9 +422,31 @@ const Training = () => {
     setExerciseReps(prev => {
         const reps = [...(prev[exId] || [])];
         if (reps.length > 0) {
-            reps[reps.length - 1] = parseInt(val) || 0;
+            reps[reps.length - 1] = val === '' ? null : parseInt(val);
         }
         return { ...prev, [exId]: reps };
+    });
+  };
+
+  const updateSessionValue = (type, exId, sIdx, val) => {
+    const setters = {
+        load: setExerciseLoads,
+        reps: setExerciseReps,
+        exec: setExerciseTimes,
+        rest: setRestTimes
+    };
+
+    setters[type](prev => {
+        const arr = [...(prev[exId] || [])];
+        if (type === 'exec' || type === 'rest') {
+            // Convert MM:SS to seconds if needed, but here we assume it's number or empty string
+            arr[sIdx] = val === '' ? null : parseInt(val);
+        } else if (type === 'load') {
+            arr[sIdx] = val === '' ? null : parseFloat(val);
+        } else {
+            arr[sIdx] = val === '' ? null : parseInt(val);
+        }
+        return { ...prev, [exId]: arr };
     });
   };
 
@@ -546,6 +638,7 @@ const Training = () => {
 
     if (error) showToast('Erro ao salvar histórico: ' + error.message, 'error');
     else {
+      localStorage.removeItem('active_training_session');
       showToast('Treino concluído!', 'success');
       navigate('/');
     }
@@ -562,7 +655,18 @@ const Training = () => {
     <div className={`min-h-screen transition-colors duration-700 ${isCoringa ? 'bg-amber-900 text-amber-50' : 'bg-slate-900 text-white'}`}>
       <div className="p-6 max-w-md mx-auto">
         <header className="flex justify-between items-center mb-6">
-          <button onClick={() => navigate('/')} className="opacity-50 hover:opacity-100 transition"><ChevronLeft /></button>
+          <div className="flex gap-2">
+            <button onClick={() => navigate('/')} className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"><ChevronLeft /></button>
+            <button
+                onClick={() => {
+                    showToast('Treino pausado. Seu progresso foi salvo.', 'info');
+                    navigate('/');
+                }}
+                className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+            >
+                <Pause size={14} /> Pausar
+            </button>
+          </div>
           <div className="text-center">
             <span className={`text-[10px] uppercase font-black tracking-[0.2em] block mb-1 ${isCoringa ? 'text-amber-400' : 'text-indigo-400'}`}>
               {isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !isCatchupPhase && '• CORINGA'}
@@ -870,29 +974,71 @@ const Training = () => {
                                 return (
                                     <div key={sIdx} className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
                                         isCurrentS ? 'bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10' :
-                                        (execTime ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent opacity-30')
+                                        ((execTime !== undefined && execTime !== null) ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent opacity-30')
                                     }`}>
                                         <span className="font-black text-[9px] opacity-40 uppercase mb-2">Série {sNum}</span>
 
                                         <div className="flex flex-col items-center gap-1 mb-2">
-                                            <span className="font-mono font-black text-[11px] leading-none text-white">
-                                                {load !== undefined ? `${load} kg` : '-- kg'}
-                                            </span>
-                                            <span className="font-bold text-[10px] text-white opacity-60">
-                                                {reps !== undefined ? `${reps} reps` : '-- reps'}
-                                            </span>
+                                            <div className="flex items-center gap-0.5">
+                                                <input
+                                                    type="number"
+                                                    value={load || ''}
+                                                    placeholder="-"
+                                                    onChange={(e) => updateSessionValue('load', ex.exercicio_id, sIdx, e.target.value)}
+                                                    className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
+                                                />
+                                                <span className="text-[8px] font-bold opacity-40">kg</span>
+                                            </div>
+                                            <div className="flex items-center gap-0.5">
+                                                <input
+                                                    type="number"
+                                                    value={reps || ''}
+                                                    placeholder="-"
+                                                    onChange={(e) => updateSessionValue('reps', ex.exercicio_id, sIdx, e.target.value)}
+                                                    className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
+                                                />
+                                                <span className="text-[7px] font-bold opacity-30 uppercase">reps</span>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1">
                                             <div className="flex items-center gap-1">
                                                 <Clock size={8} className="opacity-30" />
-                                                <span className="font-mono font-bold text-[9px] text-white">
-                                                    {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}
-                                                </span>
+                                                {liveExec !== null ? (
+                                                    <span className="font-mono font-bold text-[9px] text-white">
+                                                        {Math.floor(liveExec/60)}:{String(liveExec%60).padStart(2,'0')}
+                                                    </span>
+                                                ) : (
+                                                    <div className="flex items-center">
+                                                        <input
+                                                            type="number"
+                                                            value={execTime || ''}
+                                                            placeholder="-"
+                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value)}
+                                                            className="bg-transparent w-6 text-center font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                                        />
+                                                        {(execTime !== null && execTime !== undefined) && <span className="text-[7px] opacity-30">s</span>}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <span className={`font-mono text-[8px] font-bold ${liveRest !== null ? 'text-emerald-400 animate-pulse' : 'opacity-30'}`}>
-                                                {restTime ? `${Math.floor(restTime/60)}:${String(restTime%60).padStart(2,'0')}` : (liveRest !== null ? `${Math.floor(liveRest/60)}:${String(liveRest%60).padStart(2,'0')}` : '--:--')}
-                                            </span>
+                                            <div className={`flex items-center gap-1 ${liveRest !== null ? 'text-emerald-400 animate-pulse' : 'opacity-30'}`}>
+                                                {liveRest !== null ? (
+                                                    <span className="font-mono text-[8px] font-bold">
+                                                        {Math.floor(liveRest/60)}:{String(liveRest%60).padStart(2,'0')}
+                                                    </span>
+                                                ) : (
+                                                    <div className="flex items-center">
+                                                        <input
+                                                            type="number"
+                                                            value={restTime || ''}
+                                                            placeholder="-"
+                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value)}
+                                                            className="bg-transparent w-6 text-center font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                                        />
+                                                        {(restTime !== null && restTime !== undefined) && <span className="text-[7px] opacity-30">s</span>}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )

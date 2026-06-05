@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import {
   Dumbbell, List, RotateCcw, Bike, Shield,
   AlertCircle, ChevronRight, Settings, History as HistoryIcon,
-  User as UserIcon, Zap, Check, X
+  User as UserIcon, Zap, Check, X, Play
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -15,11 +15,24 @@ const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [savedTraining, setSavedTraining] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     fetchData();
+    checkSavedTraining();
   }, []);
+
+  const checkSavedTraining = () => {
+    const saved = localStorage.getItem('active_training_session');
+    if (saved) {
+      try {
+        setSavedTraining(JSON.parse(saved));
+      } catch (e) {
+        localStorage.removeItem('active_training_session');
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,6 +88,27 @@ const Dashboard = () => {
           <Settings size={20} />
         </Link>
       </header>
+
+      {/* Treino Interrompido */}
+      {savedTraining && (
+        <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
+          <button
+            onClick={() => navigate(`/treino/${savedTraining.letra}?resume=true`)}
+            className="w-full p-6 bg-indigo-600 rounded-[32px] shadow-xl shadow-indigo-200 text-white flex items-center justify-between group active:scale-95 transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
+                <Play fill="currentColor" size={20} />
+              </div>
+              <div className="text-left">
+                <h4 className="font-black text-lg leading-tight uppercase">Continuar Treino</h4>
+                <p className="text-xs font-bold opacity-70 uppercase tracking-widest">Treino {savedTraining.letra} Interrompido</p>
+              </div>
+            </div>
+            <ChevronRight className="opacity-50 group-hover:opacity-100" />
+          </button>
+        </div>
+      )}
 
       {/* Catálogo de Treinos */}
       <div className="space-y-4">

@@ -187,12 +187,12 @@ const History = () => {
     if (isEditing.type === 'workout') {
         // Support comma separated string for array conversion
         const cargaVal = typeof formData.carga === 'string' && formData.carga.includes(',')
-            ? formData.carga.split(',').map(v => parseFloat(v.trim()))
-            : [parseFloat(formData.carga)];
+            ? formData.carga.split(',').map(v => v.trim() === '' ? null : parseFloat(v.trim()))
+            : [formData.carga === '' ? null : parseFloat(formData.carga)];
 
         const repsVal = typeof formData.reps === 'string' && formData.reps.includes(',')
-            ? formData.reps.split(',').map(v => parseInt(v.trim()))
-            : [parseInt(formData.reps)];
+            ? formData.reps.split(',').map(v => v.trim() === '' ? null : parseInt(v.trim()))
+            : [formData.reps === '' ? null : parseInt(formData.reps)];
 
         const { error: err } = await supabase
             .from('historico_cargas')
@@ -215,6 +215,45 @@ const History = () => {
     else {
         showToast('Registro atualizado!', 'success');
         setIsEditing(null);
+        fetchHistory();
+    }
+  };
+
+  const updateHistorySeriesValue = async (item, type, sIdx, val) => {
+    const updatedItem = { ...item };
+    const value = val === '' ? null : (type === 'load' ? parseFloat(val) : parseInt(val));
+
+    if (type === 'load') {
+        const arr = Array.isArray(item.carga) ? [...item.carga] : [item.carga_utilizada];
+        arr[sIdx] = value;
+        updatedItem.carga = arr;
+    } else if (type === 'reps') {
+        const arr = Array.isArray(item.repeticoes) ? [...item.repeticoes] : [item.repeticoes_feitas];
+        arr[sIdx] = value;
+        updatedItem.repeticoes = arr;
+    } else if (type === 'exec') {
+        const arr = [...(item.tempo_execucao_segundos || [])];
+        arr[sIdx] = value;
+        updatedItem.tempo_execucao_segundos = arr;
+    } else if (type === 'rest') {
+        const arr = [...(item.tempo_descanso_segundos || [])];
+        arr[sIdx] = value;
+        updatedItem.tempo_descanso_segundos = arr;
+    }
+
+    const { error } = await supabase
+        .from('historico_cargas')
+        .update({
+            carga: updatedItem.carga,
+            repeticoes: updatedItem.repeticoes,
+            tempo_execucao_segundos: updatedItem.tempo_execucao_segundos,
+            tempo_descanso_segundos: updatedItem.tempo_descanso_segundos
+        })
+        .eq('id', item.id);
+
+    if (error) showToast('Erro ao atualizar: ' + error.message, 'error');
+    else {
+        // Update local state to avoid full re-fetch if possible, or just re-fetch
         fetchHistory();
     }
   };
@@ -391,20 +430,52 @@ const History = () => {
                                                         <span className="text-[8px] font-black text-slate-300 uppercase mb-1">S{sIdx+1}</span>
 
                                                         <div className="flex flex-col items-center mb-2">
-                                                            <span className="text-[11px] font-black text-slate-700 leading-tight">{load}kg</span>
-                                                            <span className="text-[10px] font-bold text-indigo-500">{reps} reps</span>
+                                                            <div className="flex items-center gap-0.5">
+                                                                <input
+                                                                    type="number"
+                                                                    value={load || ''}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => updateHistorySeriesValue(item, 'load', sIdx, e.target.value)}
+                                                                    className="bg-transparent w-8 text-center font-black text-[11px] outline-none text-slate-700 placeholder:text-slate-300"
+                                                                />
+                                                                <span className="text-[8px] font-bold text-slate-400">kg</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-0.5">
+                                                                <input
+                                                                    type="number"
+                                                                    value={reps || ''}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => updateHistorySeriesValue(item, 'reps', sIdx, e.target.value)}
+                                                                    className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-indigo-500 placeholder:text-slate-300"
+                                                                />
+                                                                <span className="text-[7px] font-bold text-indigo-300 uppercase">reps</span>
+                                                            </div>
                                                         </div>
 
                                                         <div className="w-full pt-2 border-t border-slate-200/50 flex flex-col items-center gap-0.5">
                                                             <div className="flex items-center gap-1">
                                                                 <Clock size={8} className="text-slate-300"/>
-                                                                <span className="text-[9px] font-mono font-bold text-slate-500">{Math.floor(t/60)}:{String(t%60).padStart(2,'0')}</span>
+                                                                <div className="flex items-center">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={t || ''}
+                                                                        placeholder="-"
+                                                                        onChange={(e) => updateHistorySeriesValue(item, 'exec', sIdx, e.target.value)}
+                                                                        className="bg-transparent w-6 text-center font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
+                                                                    />
+                                                                    {(t !== null && t !== undefined) && <span className="text-[7px] text-slate-300">s</span>}
+                                                                </div>
                                                             </div>
-                                                            {rest !== undefined && (
-                                                                <span className="text-[8px] font-mono font-bold text-emerald-500">
-                                                                    {Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}
-                                                                </span>
-                                                            )}
+                                                            <div className="flex items-center">
+                                                                <input
+                                                                    type="number"
+                                                                    value={rest || ''}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => updateHistorySeriesValue(item, 'rest', sIdx, e.target.value)}
+                                                                    className="bg-transparent w-6 text-center font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
+                                                                />
+                                                                {(rest !== null && rest !== undefined) && <span className="text-[7px] text-emerald-200">s</span>}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
