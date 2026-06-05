@@ -33,7 +33,8 @@ const Training = () => {
 
   const [cargas, setCargas] = useState({}); // { exercicio_id: current_input_value }
   const [exerciseLoads, setExerciseLoads] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [repsFeitas, setRepsFeitas] = useState({});
+  const [repsFeitas, setRepsFeitas] = useState({}); // { exercicio_id: current_input_value }
+  const [exerciseReps, setExerciseReps] = useState({}); // { exercicio_id: [s1, s2...] }
   const [savingSession, setSavingSession] = useState(false);
 
   const [originalBlocos, setOriginalBlocos] = useState([]);
@@ -175,6 +176,7 @@ const Training = () => {
       const initialTimes = {};
       const initialRests = {};
       const initialExLoads = {};
+      const initialExReps = {};
       data.forEach((ex) => {
         initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
         // For reps, prefer last session, otherwise parse target
@@ -182,9 +184,11 @@ const Training = () => {
         initialTimes[ex.exercicio_id] = [];
         initialRests[ex.exercicio_id] = [];
         initialExLoads[ex.exercicio_id] = [];
+        initialExReps[ex.exercicio_id] = [];
       });
       setCargas(initialCargas);
       setExerciseLoads(initialExLoads);
+      setExerciseReps(initialExReps);
       setRepsFeitas(initialReps);
       setExerciseTimes(initialTimes);
       setRestTimes(initialRests);
@@ -227,11 +231,18 @@ const Training = () => {
     const exId = exercise.exercicio_id;
     if (!exId) return;
 
-    // Capture current input load for this series
+    // Capture current input load and reps for this series
     const currentInputLoad = parseFloat(cargas[exId]) || 0;
+    const currentInputReps = parseInt(repsFeitas[exId]) || 0;
+
     setExerciseLoads(prev => ({
         ...prev,
         [exId]: [...(prev[exId] || []), currentInputLoad]
+    }));
+
+    setExerciseReps(prev => ({
+        ...prev,
+        [exId]: [...(prev[exId] || []), currentInputReps]
     }));
 
     setExerciseTimes(prev => ({
@@ -481,6 +492,7 @@ const Training = () => {
         const rests = restTimes[ex.exercicio_id] || [];
 
         const exLoads = exerciseLoads[ex.exercicio_id] || [];
+        const exReps = exerciseReps[ex.exercicio_id] || [];
 
         if ((val !== '' && parseFloat(val) >= 0) || execTimes.length > 0 || rests.length > 0) {
             const totalExec = execTimes.reduce((a, b) => a + b, 0);
@@ -489,8 +501,8 @@ const Training = () => {
             historyData.push({
               usuario_id: user.id,
               exercicio_id: ex.exercicio_id,
-              carga_utilizada: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
-              repeticoes_feitas: parseInt(repsFeitas[ex.exercicio_id]) || 0,
+              carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
+              repeticoes: exReps.length > 0 ? exReps : [parseInt(repsFeitas[ex.exercicio_id]) || 0],
               series_executadas: execTimes.length || ex.series_alvo,
               tempo_total_segundos: totalExec + totalRest,
               tempo_execucao_segundos: execTimes,
@@ -825,6 +837,7 @@ const Training = () => {
                                 const execTime = exerciseTimes[ex.exercicio_id]?.[sIdx];
                                 const restTime = restTimes[ex.exercicio_id]?.[sIdx];
                                 const load = exerciseLoads[ex.exercicio_id]?.[sIdx];
+                                const reps = exerciseReps[ex.exercicio_id]?.[sIdx];
 
                                 const isCurrentS = isCurrent && sNum === currentSerie;
                                 const liveExec = isCurrentS && isTimerActive ? timer : null;
@@ -838,11 +851,11 @@ const Training = () => {
                                         (execTime ? 'bg-black/20 border-white/10' : 'bg-black/5 border-transparent opacity-40')
                                     }`}>
                                         <div className="flex justify-between w-full opacity-40 mb-1 px-1">
-                                            <span className="font-black">S{sNum}</span>
-                                            {load !== undefined && <span className="font-bold">{load}kg</span>}
+                                            <span className="font-black text-[7px]">S{sNum}</span>
+                                            {load !== undefined && <span className="font-bold text-[7px]">{load}kg | {reps}r</span>}
                                         </div>
                                         <div className="flex flex-col items-center gap-0.5">
-                                            <span className="font-mono font-bold whitespace-nowrap">
+                                            <span className="font-mono font-bold whitespace-nowrap text-[9px]">
                                                 {execTime ? `${Math.floor(execTime/60)}:${String(execTime%60).padStart(2,'0')}` : (liveExec !== null ? `${Math.floor(liveExec/60)}:${String(liveExec%60).padStart(2,'0')}` : '--:--')}
                                             </span>
                                             <span className={`font-mono text-[7px] ${liveRest !== null ? 'text-emerald-400 animate-pulse font-black' : 'opacity-30'}`}>

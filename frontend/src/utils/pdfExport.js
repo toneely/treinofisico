@@ -138,10 +138,11 @@ export const exportHistoryToPDF = (userData, history) => {
       doc.setTextColor(secondary);
       doc.text((item.series_executadas || 3).toString(), 115, currentY);
 
-      const displayLoad = Array.isArray(item.carga_utilizada) ? item.carga_utilizada.join("/") : item.carga_utilizada.toString();
+      const displayLoad = Array.isArray(item.carga) ? item.carga.join("/") : (item.carga_utilizada || "").toString();
       doc.text(displayLoad, 145, currentY);
 
-      doc.text(item.repeticoes_feitas.toString(), 175, currentY);
+      const displayReps = Array.isArray(item.repeticoes) ? item.repeticoes.join("/") : (item.repeticoes_feitas || "").toString();
+      doc.text(displayReps, 175, currentY);
 
       doc.setDrawColor(240, 240, 240);
       doc.line(20, currentY + 2, pageWidth - 20, currentY + 2);

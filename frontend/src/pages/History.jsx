@@ -159,11 +159,15 @@ const History = () => {
         ? formData.carga.split(',').map(v => parseFloat(v.trim()))
         : [parseFloat(formData.carga)];
 
+    const repsVal = typeof formData.reps === 'string' && formData.reps.includes(',')
+        ? formData.reps.split(',').map(v => parseInt(v.trim()))
+        : [parseInt(formData.reps)];
+
     const { error } = await supabase.from('historico_cargas').insert([{
         usuario_id: userData.id,
         exercicio_id: formData.exercicio_id,
-        carga_utilizada: cargaVal,
-        repeticoes_feitas: parseInt(formData.reps),
+        carga: cargaVal,
+        repeticoes: repsVal,
         series_executadas: parseInt(formData.series),
         letra_treino: formData.letra || 'A',
         data_treino: new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay, 10, 0).toISOString()
@@ -186,11 +190,15 @@ const History = () => {
             ? formData.carga.split(',').map(v => parseFloat(v.trim()))
             : [parseFloat(formData.carga)];
 
+        const repsVal = typeof formData.reps === 'string' && formData.reps.includes(',')
+            ? formData.reps.split(',').map(v => parseInt(v.trim()))
+            : [parseInt(formData.reps)];
+
         const { error: err } = await supabase
             .from('historico_cargas')
             .update({
-                carga_utilizada: cargaVal,
-                repeticoes_feitas: parseInt(formData.reps),
+                carga: cargaVal,
+                repeticoes: repsVal,
                 series_executadas: parseInt(formData.series)
             })
             .eq('id', isEditing.item.id);
@@ -363,10 +371,10 @@ const History = () => {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-lg font-mono font-black text-indigo-600">
-                                                    {Array.isArray(item.carga_utilizada) ? (item.carga_utilizada[item.carga_utilizada.length - 1]) : item.carga_utilizada}kg
+                                                    {Array.isArray(item.carga) ? (item.carga[item.carga.length - 1]) : (item.carga_utilizada || 0)}kg
                                                 </span>
                                                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: Array.isArray(item.carga_utilizada) ? item.carga_utilizada.join(', ') : item.carga_utilizada, reps: item.repeticoes_feitas, series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
+                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: Array.isArray(item.carga) ? item.carga.join(', ') : (item.carga_utilizada || 0), reps: Array.isArray(item.repeticoes) ? item.repeticoes.join(', ') : (item.repeticoes_feitas || 0), series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
                                                     <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
                                                 </div>
                                             </div>
@@ -376,14 +384,15 @@ const History = () => {
                                         <div className="grid grid-cols-4 gap-1">
                                             {(item.tempo_execucao_segundos || []).map((t, sIdx) => {
                                                 const rest = (item.tempo_descanso_segundos || [])[sIdx];
-                                                const load = Array.isArray(item.carga_utilizada) ? item.carga_utilizada[sIdx] : item.carga_utilizada;
+                                                const load = Array.isArray(item.carga) ? item.carga[sIdx] : item.carga_utilizada;
+                                                const reps = Array.isArray(item.repeticoes) ? item.repeticoes[sIdx] : item.repeticoes_feitas;
                                                 return (
                                                     <div key={sIdx} className="bg-slate-50 rounded-lg p-1.5 text-center">
                                                         <div className="flex justify-between items-center mb-1">
                                                             <span className="text-[7px] font-black text-slate-300 uppercase">S{sIdx+1}</span>
-                                                            {load !== undefined && <span className="text-[7px] font-bold text-indigo-400">{load}kg</span>}
+                                                            {load !== undefined && <span className="text-[7px] font-bold text-indigo-400">{load}kg | {reps}r</span>}
                                                         </div>
-                                                        <span className="block text-[10px] font-bold text-slate-600">{item.repeticoes_feitas} reps</span>
+                                                        <span className="block text-[10px] font-bold text-slate-600">Exec: {Math.floor(t/60)}:{String(t%60).padStart(2,'0')}</span>
                                                         {rest !== undefined && (
                                                             <span className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-emerald-500 mt-0.5">
                                                                 <Clock size={8}/> {Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}
