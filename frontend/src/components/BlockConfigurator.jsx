@@ -4,7 +4,7 @@ import { Plus, Trash2, GripVertical, Save, AlertCircle, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
-const BlockConfigurator = () => {
+const BlockConfigurator = ({ overrideUserId = null }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
@@ -29,7 +29,7 @@ const BlockConfigurator = () => {
     const { data } = await supabase
       .from('treinos')
       .select('*')
-      .eq('user_id', authUser.id)
+      .eq('user_id', overrideUserId || authUser.id)
       .order('letra');
     if (data && data.length > 0) {
         setWorkouts(data);
@@ -48,7 +48,7 @@ const BlockConfigurator = () => {
       .from('blocos_treino')
       .select('*')
       .eq('letra_treino', letra)
-      .eq('user_id', authUser.id)
+      .eq('user_id', overrideUserId || authUser.id)
       .order('numero_bloco', { ascending: true })
       .order('ordem_execucao', { ascending: true });
 
@@ -120,12 +120,13 @@ const BlockConfigurator = () => {
 
   const handleSave = async () => {
     setSaving(true);
+    const userId = overrideUserId || authUser.id;
     // 1. Delete all existing for this workout
     const { error: deleteError } = await supabase
       .from('blocos_treino')
       .delete()
       .eq('letra_treino', selectedWorkout)
-      .eq('user_id', authUser.id);
+      .eq('user_id', userId);
 
     if (deleteError) {
       showToast('Erro ao limpar blocos antigos: ' + deleteError.message, 'error');
@@ -135,7 +136,7 @@ const BlockConfigurator = () => {
 
     // 2. Insert new blocks
     const toInsert = blocks.flatMap(b => b.exercicios.map(ex => ({
-      user_id: authUser.id,
+      user_id: userId,
       letra_treino: selectedWorkout,
       numero_bloco: b.numero,
       exercicio_id: ex.exercicio_id,

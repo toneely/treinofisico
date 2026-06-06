@@ -184,6 +184,14 @@ const Profile = () => {
             <Mail size={14} />
             {user.email}
         </div>
+        {user.email === 'tone.mendes@gmail.com' && (
+            <Link
+                to="/admin"
+                className="mt-4 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition"
+            >
+                Painel Administrativo
+            </Link>
+        )}
       </section>
 
       <div className="space-y-6">

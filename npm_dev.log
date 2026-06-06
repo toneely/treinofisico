@@ -9,3 +9,10 @@
   ➜  Network: use --host to expose
 4:29:43 AM [vite] (client) page reload src/main.jsx
 4:29:45 AM [vite] (client) hmr update /src/App.jsx, /src/index.css
+12:32:13 PM [vite] (client) hmr update /src/App.jsx, /src/index.css
+12:32:32 PM [vite] (client) hmr update /src/pages/Admin.jsx, /src/index.css
+12:32:40 PM [vite] (client) hmr update /src/components/ExerciseManager.jsx, /src/index.css
+12:32:48 PM [vite] (client) hmr update /src/components/WorkoutManager.jsx, /src/index.css
+12:32:55 PM [vite] (client) hmr update /src/components/BlockConfigurator.jsx, /src/index.css
+12:33:24 PM [vite] (client) hmr update /src/pages/Admin.jsx, /src/index.css
+12:33:35 PM [vite] (client) hmr update /src/pages/Profile.jsx, /src/index.css

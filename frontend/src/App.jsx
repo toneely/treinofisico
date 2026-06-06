@@ -18,6 +18,16 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const admins = ['tone.mendes@gmail.com'];
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Carregando...</div>;
+  if (!user || !admins.includes(user.email)) return <Navigate to="/" />;
+
+  return children;
+};
+
 const App = () => {
   return (
     <Router>
@@ -25,7 +35,7 @@ const App = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
           <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

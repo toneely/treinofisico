@@ -4,7 +4,7 @@ import { Plus, Trash2, Edit2, Check, X, LayoutGrid } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
-const WorkoutManager = () => {
+const WorkoutManager = ({ overrideUserId = null }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
@@ -26,7 +26,7 @@ const WorkoutManager = () => {
     const { data, error } = await supabase
       .from('treinos')
       .select('*')
-      .eq('user_id', authUser.id)
+      .eq('user_id', overrideUserId || authUser.id)
       .order('letra', { ascending: true });
 
     if (error) {
@@ -47,12 +47,13 @@ const WorkoutManager = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const userId = overrideUserId || authUser.id;
     if (isEditing) {
       const { error } = await supabase
         .from('treinos')
-        .update({ ...formData, user_id: authUser.id })
+        .update({ ...formData, user_id: userId })
         .eq('id', isEditing)
-        .eq('user_id', authUser.id);
+        .eq('user_id', userId);
 
       if (error) showToast('Erro ao atualizar treino: ' + error.message, 'error');
       else {
@@ -64,7 +65,7 @@ const WorkoutManager = () => {
     } else {
       const { error } = await supabase
         .from('treinos')
-        .insert([{ ...formData, user_id: authUser.id }]);
+        .insert([{ ...formData, user_id: userId }]);
 
       if (error) showToast('Erro ao criar treino: ' + error.message, 'error');
       else {
@@ -96,12 +97,13 @@ const WorkoutManager = () => {
   };
 
   const handleDelete = async (id) => {
+    const userId = overrideUserId || authUser.id;
     if (window.confirm('Tem certeza que deseja excluir este treino? Isso pode afetar a visualização de blocos.')) {
       const { error } = await supabase
         .from('treinos')
         .delete()
         .eq('id', id)
-        .eq('user_id', authUser.id);
+        .eq('user_id', userId);
 
       if (error) showToast('Erro ao excluir treino: ' + error.message, 'error');
       else {

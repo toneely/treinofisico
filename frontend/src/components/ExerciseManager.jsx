@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Plus, Trash2, Edit2, Check, X, Search } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
-const ExerciseManager = () => {
+const ExerciseManager = ({ overrideUserId = null }) => {
+  const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,7 @@ const ExerciseManager = () => {
     const { data, error } = await supabase
       .from('exercicios')
       .select('*')
+      .eq('user_id', overrideUserId || authUser.id)
       .order('nome', { ascending: true });
 
     if (error) {
@@ -47,11 +50,13 @@ const ExerciseManager = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const userId = overrideUserId || authUser.id;
     if (isEditing) {
       const { error } = await supabase
         .from('exercicios')
-        .update(formData)
-        .eq('id', isEditing);
+        .update({ ...formData, user_id: userId })
+        .eq('id', isEditing)
+        .eq('user_id', userId);
 
       if (error) showToast('Erro ao atualizar exercício: ' + error.message, 'error');
       else {
@@ -63,7 +68,7 @@ const ExerciseManager = () => {
     } else {
       const { error } = await supabase
         .from('exercicios')
-        .insert([formData]);
+        .insert([{ ...formData, user_id: userId }]);
 
       if (error) showToast('Erro ao criar exercício: ' + error.message, 'error');
       else {
@@ -99,11 +104,13 @@ const ExerciseManager = () => {
   };
 
   const handleDelete = async (id) => {
+    const userId = overrideUserId || authUser.id;
     if (window.confirm('Tem certeza que deseja excluir este exercício?')) {
       const { error } = await supabase
         .from('exercicios')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
       if (error) showToast('Erro ao excluir exercício: ' + error.message, 'error');
       else {
