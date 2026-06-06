@@ -98,16 +98,22 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
-    doc.text("Exercício", 25, y + 5);
-    doc.text("Séries", 110, y + 5);
-    doc.text("Carga (kg)", 135, y + 5);
-    doc.text("Reps", 170, y + 5);
+    doc.text("Exercício / Detalhamento por Série", 25, y + 5);
+    doc.text("Séries", 175, y + 5);
     return y + 10;
+  };
+
+  const formatValue = (val) => (val === null || val === undefined || val === "" ? "-" : val);
+  const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined || seconds === "") return "-";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   sortedGroups.forEach((group) => {
     // Verificar espaço para o cabeçalho do grupo + pelo menos um item
-    if (currentY > 260) {
+    if (currentY > 250) {
       doc.addPage();
       currentY = 20;
     }
@@ -118,36 +124,65 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(primary);
-    doc.text(`${group.date} - TREINO ${group.letra}`, 25, currentY + 6.5);
+
+    // Obter hora exata se disponível
+    const firstItem = group.items[0];
+    const timeStr = firstItem.created_at ? new Date(firstItem.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+
+    doc.text(`${group.date} ${timeStr ? `- ${timeStr}` : ""} - TREINO ${group.letra}`, 25, currentY + 6.5);
     currentY += 12;
 
     currentY = drawTableHeader(currentY);
 
     group.items.forEach((item) => {
-      if (currentY > 280) {
+      // Estimar altura necessária (Nome do exercício + linhas das séries)
+      const seriesCount = Math.max(
+        item.series_executadas || 0,
+        Array.isArray(item.carga) ? item.carga.length : 0
+      );
+      const estimatedHeight = 6 + (seriesCount * 5) + 4;
+
+      if (currentY + estimatedHeight > 280) {
         doc.addPage();
         currentY = 20;
         currentY = drawTableHeader(currentY);
       }
 
       doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setTextColor(dark);
 
       doc.text(item.exercicios.nome, 25, currentY);
       doc.setTextColor(secondary);
-      doc.text((item.series_executadas || 3).toString(), 115, currentY);
+      doc.setFont("helvetica", "normal");
+      doc.text((item.series_executadas || seriesCount).toString(), 180, currentY);
 
-      const displayLoad = Array.isArray(item.carga) ? item.carga.join("/") : (item.carga_utilizada || "").toString();
-      doc.text(displayLoad, 145, currentY);
+      currentY += 5;
 
-      const displayReps = Array.isArray(item.repeticoes) ? item.repeticoes.join("/") : (item.repeticoes_feitas || "").toString();
-      doc.text(displayReps, 175, currentY);
+      // Detalhar Séries
+      const loads = Array.isArray(item.carga) ? item.carga : [item.carga_utilizada];
+      const reps = Array.isArray(item.repeticoes) ? item.repeticoes : [item.repeticoes_feitas];
+      const execTimes = Array.isArray(item.tempo_execucao_segundos) ? item.tempo_execucao_segundos : [];
+      const restTimes = Array.isArray(item.tempo_descanso_segundos) ? item.tempo_descanso_segundos : [];
+
+      for (let i = 0; i < seriesCount; i++) {
+        doc.setFontSize(8);
+        doc.setTextColor(secondary);
+
+        const sLoad = formatValue(loads[i]);
+        const sReps = formatValue(reps[i]);
+        const sExec = formatTime(execTimes[i]);
+        const sRest = formatTime(restTimes[i]);
+
+        const seriesText = `Série ${i + 1} | ${sLoad} kg | ${sReps} reps | Exec: ${sExec} | Desc: ${sRest}`;
+        doc.text(seriesText, 35, currentY);
+        currentY += 5;
+      }
 
       doc.setDrawColor(240, 240, 240);
-      doc.line(20, currentY + 2, pageWidth - 20, currentY + 2);
+      doc.line(20, currentY, pageWidth - 20, currentY);
 
-      currentY += 8;
+      currentY += 4;
     });
 
     currentY += 5; // Espaço entre grupos
