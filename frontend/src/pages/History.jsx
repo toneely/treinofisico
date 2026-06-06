@@ -9,9 +9,11 @@ import {
 import { Link } from 'react-router-dom';
 import { exportHistoryToPDF } from '../utils/pdfExport';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const History = () => {
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
   const [extraActivities, setExtraActivities] = useState([]);
@@ -48,8 +50,12 @@ const History = () => {
   };
 
   const fetchUser = async () => {
-    const { data } = await supabase.from('usuarios').select('*').single();
-    setUserData(data);
+    const { data } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+    setUserData(data || { id: authUser.id, nome: authUser.user_metadata?.full_name || authUser.email });
   };
 
   const fetchExercises = async () => {
@@ -65,6 +71,7 @@ const History = () => {
     const { data: loads, error: errorLoads } = await supabase
       .from('historico_cargas')
       .select('*, exercicios(*)')
+      .eq('user_id', authUser.id)
       .gte('data_treino', startOfMonth)
       .lte('data_treino', endOfMonth)
       .order('data_treino', { ascending: false });
@@ -72,6 +79,7 @@ const History = () => {
     const { data: extras, error: errorExtras } = await supabase
       .from('registro_atividades')
       .select('*')
+      .eq('user_id', authUser.id)
       .gte('data', startOfMonth)
       .lte('data', endOfMonth)
       .order('data', { ascending: false });
@@ -173,7 +181,7 @@ const History = () => {
         : [parseInt(formData.reps)];
 
     const { error } = await supabase.from('historico_cargas').insert([{
-        usuario_id: userData.id,
+        user_id: authUser.id,
         exercicio_id: formData.exercicio_id,
         carga: cargaVal,
         repeticoes: repsVal,
@@ -270,7 +278,7 @@ const History = () => {
   const handleAddExtraRecord = async (e) => {
     e.preventDefault();
     const { error } = await supabase.from('registro_atividades').insert([{
-        usuario_id: userData.id,
+        user_id: authUser.id,
         nome_atividade: formData.nome || userData.atividade_alternativa,
         data: new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay, 19, 0).toISOString()
     }]);
@@ -287,6 +295,7 @@ const History = () => {
     const { data } = await supabase
         .from('historico_cargas')
         .select('*')
+        .eq('user_id', authUser.id)
         .eq('exercicio_id', exercicioId)
         .order('data_treino', { ascending: false })
         .limit(1);
@@ -308,6 +317,7 @@ const History = () => {
         let query = supabase
             .from('historico_cargas')
             .select('*, exercicios(*)')
+            .eq('user_id', authUser.id)
             .order('data_treino', { ascending: false });
 
         if (exportFilters.startDate) {

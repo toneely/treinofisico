@@ -7,10 +7,12 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,9 +21,11 @@ const Dashboard = () => {
   const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
-    fetchData();
-    checkSavedTraining();
-  }, []);
+    if (authUser) {
+      fetchData();
+      checkSavedTraining();
+    }
+  }, [authUser]);
 
   const checkSavedTraining = () => {
     const saved = localStorage.getItem('active_training_session');
@@ -37,8 +41,13 @@ const Dashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     // Fetch User
-    const { data: userData } = await supabase.from('usuarios').select('*').single();
-    setUser(userData);
+    const { data: userData } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    setUser(userData || { id: authUser.id, nome: authUser.user_metadata?.full_name || authUser.email });
 
     // Fetch Workouts
     const { data: workoutsData } = await supabase.from('treinos').select('*').order('letra');
@@ -55,7 +64,7 @@ const Dashboard = () => {
   const recordActivity = async () => {
     setIsRecording(true);
     const { error } = await supabase.from('registro_atividades').insert([{
-        usuario_id: user.id,
+        user_id: authUser.id,
         nome_atividade: atividadeAlt,
         data: new Date().toISOString()
     }]);
@@ -186,7 +195,7 @@ const Dashboard = () => {
           <HistoryIcon size={24} />
           <span className="text-[10px] font-bold uppercase">Histórico</span>
         </Link>
-        <Link to="/admin" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/perfil" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
           <UserIcon size={24} />
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>

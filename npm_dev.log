@@ -13,3 +13,13 @@ Port 5173 is in use, trying another one...
 12:56:53 AM [vite] (client) hmr update /src/pages/History.jsx, /src/index.css
 2:30:02 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
 2:37:53 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
+3:44:48 AM [vite] (client) hmr update /src/App.jsx, /src/index.css
+3:46:34 AM [vite] (client) hmr update /src/pages/Admin.jsx, /src/index.css
+3:48:51 AM [vite] (client) hmr update /src/pages/Dashboard.jsx, /src/index.css
+3:49:10 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
+3:50:26 AM [vite] (client) hmr update /src/pages/History.jsx, /src/index.css
+3:52:24 AM [vite] (client) hmr update /src/pages/Dashboard.jsx, /src/index.css
+3:55:53 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
+3:55:59 AM [vite] (client) hmr update /src/pages/History.jsx, /src/index.css
+3:56:03 AM [vite] (client) hmr update /src/pages/Dashboard.jsx, /src/index.css
+4:00:11 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css

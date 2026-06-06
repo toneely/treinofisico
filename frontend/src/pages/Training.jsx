@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const Training = () => {
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
   const { letra } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -152,8 +154,12 @@ const Training = () => {
     setLoading(true);
 
     // Fetch User
-    const { data: userData } = await supabase.from('usuarios').select('*').single();
-    setUser(userData);
+    const { data: userData } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+    setUser(userData || { id: authUser.id, nome: authUser.user_metadata?.full_name || authUser.email });
 
     if (isResuming) {
         const saved = localStorage.getItem('active_training_session');
@@ -597,6 +603,7 @@ const Training = () => {
     setSavingSession(true);
     // Record history
     const historyData = [];
+    const workoutTimestamp = new Date().toISOString();
 
     // We iterate through originalBlocos to make sure we don't lose data even if we are in catchup phase
     originalBlocos.forEach((block) => {
@@ -613,7 +620,7 @@ const Training = () => {
             const totalRest = rests.reduce((a, b) => a + b, 0);
 
             historyData.push({
-              usuario_id: user.id,
+              user_id: authUser.id,
               exercicio_id: ex.exercicio_id,
               carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
               repeticoes: exReps.length > 0 ? exReps : [parseInt(repsFeitas[ex.exercicio_id]) || 0],
@@ -622,7 +629,7 @@ const Training = () => {
               tempo_execucao_segundos: execTimes,
               tempo_descanso_segundos: rests,
               letra_treino: letra,
-              data_treino: new Date().toISOString()
+              data_treino: workoutTimestamp
             });
         }
       });

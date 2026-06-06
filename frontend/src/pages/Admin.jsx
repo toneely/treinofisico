@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, Dumbbell, LayoutGrid, Settings } from 'lucide-react';
 import ExerciseManager from '../components/ExerciseManager';
 import BlockConfigurator from '../components/BlockConfigurator';
-import GeneralSettings from '../components/GeneralSettings';
 import WorkoutManager from '../components/WorkoutManager';
 
 const Admin = () => {
@@ -39,19 +38,12 @@ const Admin = () => {
           icon={<LayoutGrid size={18} />}
           label="Configurador de Blocos"
         />
-        <TabButton
-          active={activeTab === 'settings'}
-          onClick={() => setActiveTab('settings')}
-          icon={<Settings size={18} />}
-          label="Configurações Gerais"
-        />
       </div>
 
       <main>
         {activeTab === 'workouts' && <WorkoutManager />}
         {activeTab === 'exercises' && <ExerciseManager />}
         {activeTab === 'blocks' && <BlockConfigurator />}
-        {activeTab === 'settings' && <GeneralSettings />}
       </main>
     </div>
   );
