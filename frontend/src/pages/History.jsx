@@ -20,6 +20,15 @@ const History = () => {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
+  // Export Filter States
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilters, setExportFilters] = useState({
+    startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    workoutType: 'all'
+  });
+  const [isExporting, setIsExporting] = useState(false);
+
   // CRUD States
   const [isEditing, setIsEditing] = useState(null); // {type: 'workout'|'extra', item: object}
   const [showAddForm, setShowAddForm] = useState(null); // 'workout' | 'extra'
@@ -293,12 +302,49 @@ const History = () => {
     }
   };
 
+  const handleGenerateFilteredPDF = async () => {
+    setIsExporting(true);
+    try {
+        let query = supabase
+            .from('historico_cargas')
+            .select('*, exercicios(*)')
+            .order('data_treino', { ascending: false });
+
+        if (exportFilters.startDate) {
+            query = query.gte('data_treino', `${exportFilters.startDate}T00:00:00`);
+        }
+        if (exportFilters.endDate) {
+            query = query.lte('data_treino', `${exportFilters.endDate}T23:59:59`);
+        }
+        if (exportFilters.workoutType !== 'all') {
+            query = query.eq('letra_treino', exportFilters.workoutType);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            showToast('Nenhum treino encontrado para este período', 'info');
+            return;
+        }
+
+        exportHistoryToPDF(userData, data);
+        setShowExportModal(false);
+        showToast('PDF gerado com sucesso!', 'success');
+    } catch (err) {
+        showToast('Erro ao exportar PDF: ' + err.message, 'error');
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-md mx-auto bg-slate-50 min-h-screen pb-24">
       <header className="mb-6 flex justify-between items-center">
         <Link to="/" className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400"><ChevronLeft size={20} /></Link>
         <h1 className="text-2xl font-bold text-slate-800">Histórico</h1>
-        <button onClick={() => exportHistoryToPDF(userData, history)} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200"><FileDown size={18} /></button>
+        <button onClick={() => setShowExportModal(true)} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200"><FileDown size={18} /></button>
       </header>
 
       {/* Calendário */}
@@ -509,6 +555,61 @@ const History = () => {
                 </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Export Filter Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-slate-800">Exportar PDF</h2>
+                    <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-bold uppercase opacity-50 mb-1 block">Período</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <input
+                                type="date"
+                                value={exportFilters.startDate}
+                                onChange={e => setExportFilters({...exportFilters, startDate: e.target.value})}
+                                className="w-full p-2 bg-slate-50 rounded-xl text-xs font-bold border-none"
+                            />
+                            <input
+                                type="date"
+                                value={exportFilters.endDate}
+                                onChange={e => setExportFilters({...exportFilters, endDate: e.target.value})}
+                                className="w-full p-2 bg-slate-50 rounded-xl text-xs font-bold border-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold uppercase opacity-50 mb-1 block">Tipo de Treino</label>
+                        <select
+                            value={exportFilters.workoutType}
+                            onChange={e => setExportFilters({...exportFilters, workoutType: e.target.value})}
+                            className="w-full p-3 bg-slate-50 rounded-xl text-sm font-bold border-none appearance-none"
+                        >
+                            <option value="all">Todos os Treinos</option>
+                            {workoutsMetadata.map(w => (
+                                <option key={w.letra} value={w.letra}>Treino {w.letra}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <button
+                        onClick={handleGenerateFilteredPDF}
+                        disabled={isExporting}
+                        className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {isExporting ? <RotateCcw size={18} className="animate-spin"/> : <FileDown size={18}/>}
+                        {isExporting ? 'Processando...' : 'Gerar PDF'}
+                    </button>
+                </div>
+            </div>
         </div>
       )}
 
