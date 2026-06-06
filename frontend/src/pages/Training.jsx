@@ -554,34 +554,34 @@ const Training = () => {
   };
 
   const advanceUI = (currentBlock, isLastExerciseInBlock) => {
-    if (executionMode === 'alternated') {
-      if (!isLastExerciseInBlock) {
-        // Try next exercise in block
-        const nextIdx = currentExerciseInBlock + 1;
-        const nextEx = currentBlock[nextIdx];
-        const nextExDoneSeries = exerciseTimes[nextEx.exercicio_id]?.length || 0;
+    if (executionMode === 'alternated' && currentBlock.length > 1) {
+        // Alternated Mode Logic:
+        // Try to find the next exercise in the block that still has series to do
+        let nextIdx = (currentExerciseInBlock + 1) % currentBlock.length;
+        let found = false;
 
-        if (nextExDoneSeries < nextEx.series_alvo) {
-            setCurrentExerciseInBlock(nextIdx);
-        } else {
-            // Next is done, stay here and increment serie if not done
-            setCurrentSerie(currentSerie + 1);
-        }
-      } else {
-        // We are at the last exercise, go back to first
-        const firstEx = currentBlock[0];
-        const firstExDoneSeries = exerciseTimes[firstEx.exercicio_id]?.length || 0;
+        // Loop once through the block to find the next available exercise
+        for (let i = 0; i < currentBlock.length; i++) {
+            const candidate = currentBlock[nextIdx];
+            const doneSeries = exerciseTimes[candidate.exercicio_id]?.length || 0;
 
-        if (firstExDoneSeries < firstEx.series_alvo) {
-            setCurrentExerciseInBlock(0);
-            setCurrentSerie(currentSerie + 1);
-        } else {
-            // First is done, just increment current serie
-            setCurrentSerie(currentSerie + 1);
+            if (doneSeries < candidate.series_alvo) {
+                setCurrentExerciseInBlock(nextIdx);
+                // Important: the global currentSerie should reflect how many series
+                // the focus exercise is about to perform.
+                setCurrentSerie(doneSeries + 1);
+                found = true;
+                break;
+            }
+            nextIdx = (nextIdx + 1) % currentBlock.length;
         }
-      }
+
+        if (!found) {
+            // This should have been caught by blockFinished logic, but as fallback:
+            goToNextBlock();
+        }
     } else {
-      // isolated mode
+      // isolated mode or single-exercise block
       if (currentSerie < exercise.series_alvo) {
         setCurrentSerie(currentSerie + 1);
       } else {
@@ -690,6 +690,9 @@ const Training = () => {
 
   const isCoringa = currentBlock.some(b => b.is_coringa);
   const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
+
+  // State machine helper for UI highlights
+  const isWaitingForPlay = !isTimerActive && timer === 0;
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${isCoringa ? 'bg-amber-900 text-amber-50' : 'bg-slate-900 text-white'}`}>
@@ -825,11 +828,13 @@ const Training = () => {
                 </button>
 
                 {/* Show Play only if not active AND timer is 0 (prevents resumption after Stop) */}
-                {(!isTimerActive && timer === 0) && (
+                {isWaitingForPlay && (
                     <button
                         onClick={() => startTimer()}
                         data-testid="start-timer-btn"
-                        className="w-14 h-14 rounded-full flex items-center justify-center transition bg-white/10 hover:bg-white/20"
+                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 ${
+                            isCoringa ? 'bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/50' : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/50'
+                        }`}
                     >
                         <Play fill="currentColor" className="ml-1" />
                     </button>
@@ -935,8 +940,8 @@ const Training = () => {
                 return (
                     <div key={`${bIdx}_${eIdx}`} className={`relative p-4 rounded-2xl border transition-all ${
                         isCurrent ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950 scale-[1.02]' : 'bg-indigo-600 border-indigo-600 text-white scale-[1.02]') :
+                        isSkipped ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-lg shadow-rose-900/20' :
                         isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                        isSkipped ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
                         'bg-white/5 border-white/10 text-white/40'
                     }`}>
                         <div className="flex justify-between items-center">
@@ -1006,7 +1011,23 @@ const Training = () => {
                                         isCurrentS ? 'bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10' :
                                         ((execTime !== undefined && execTime !== null) ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent opacity-30')
                                     }`}>
-                                        <span className="font-black text-[9px] opacity-40 uppercase mb-2">Série {sNum}</span>
+                                        <button
+                                            onClick={() => {
+                                                if (!isDone && !isCurrentS) {
+                                                    if (isTimerActive) stopAndRecordTime();
+                                                    setCurrentBlockIndex(bIdx);
+                                                    setCurrentExerciseInBlock(eIdx);
+                                                    setCurrentSerie(sNum);
+                                                    setTimer(0);
+                                                    setIsTimerActive(false);
+                                                    showToast(`Foco alterado para Série ${sNum}`, 'info');
+                                                }
+                                            }}
+                                            disabled={isDone || isCurrentS}
+                                            className={`font-black text-[9px] uppercase mb-2 hover:underline cursor-pointer ${isCurrentS ? 'opacity-100' : 'opacity-40'}`}
+                                        >
+                                            Série {sNum}
+                                        </button>
 
                                         <div className="flex flex-col items-center gap-1 mb-2">
                                             <div className="flex items-center gap-0.5">

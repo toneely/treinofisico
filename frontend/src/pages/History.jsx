@@ -254,7 +254,7 @@ const History = () => {
     let value;
 
     if (type === 'exec' || type === 'rest') {
-        const currentArr = type === 'exec' ? (item.tempo_execucao_segundos || []) : (item.tempo_descanso_segundos || []);
+        const currentArr = type === 'exec' ? [...(item.tempo_execucao_segundos || [])] : [...(item.tempo_descanso_segundos || [])];
         const currentSeconds = currentArr[sIdx] || 0;
         const mins = Math.floor(currentSeconds / 60);
         const secs = currentSeconds % 60;
