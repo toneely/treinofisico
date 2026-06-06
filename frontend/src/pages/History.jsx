@@ -249,12 +249,23 @@ const History = () => {
     }
   };
 
-  const updateHistorySeriesValue = async (item, type, sIdx, val) => {
+  const updateHistorySeriesValue = async (item, type, sIdx, val, part = 'all') => {
     const updatedFields = {};
     let value;
 
     if (type === 'exec' || type === 'rest') {
-        value = val === '' ? null : (val.includes(':') ? parseTime(val) : parseInt(val));
+        const currentArr = type === 'exec' ? (item.tempo_execucao_segundos || []) : (item.tempo_descanso_segundos || []);
+        const currentSeconds = currentArr[sIdx] || 0;
+        const mins = Math.floor(currentSeconds / 60);
+        const secs = currentSeconds % 60;
+
+        if (part === 'mins') {
+            value = (parseInt(val) || 0) * 60 + secs;
+        } else if (part === 'secs') {
+            value = mins * 60 + (parseInt(val) || 0);
+        } else {
+            value = val === '' ? null : (typeof val === 'string' && val.includes(':') ? parseTime(val) : parseInt(val));
+        }
     } else if (type === 'load') {
         value = val === '' ? null : parseFloat(val);
     } else {
@@ -529,25 +540,43 @@ const History = () => {
                                                         <div className="w-full pt-2 border-t border-slate-200/50 flex flex-col items-center gap-0.5">
                                                             <div className="flex items-center gap-1">
                                                                 <Clock size={8} className="text-slate-300"/>
-                                                                <div className="flex items-center">
+                                                                <div className="flex items-center gap-0.5">
                                                                     <input
-                                                                        type="text"
-                                                                        value={formatTime(t)}
-                                                                        placeholder="0:00"
-                                                                        onChange={(e) => updateHistorySeriesValue(item, 'exec', sIdx, e.target.value)}
+                                                                        type="number"
+                                                                        value={t !== null && t !== undefined ? Math.floor(t / 60) : ''}
+                                                                        placeholder="0"
+                                                                        onChange={(e) => updateHistorySeriesValue(item, 'exec', sIdx, e.target.value, 'mins')}
                                                                         onFocus={(e) => e.target.select()}
-                                                                        className="bg-transparent w-10 text-center font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
+                                                                        className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
+                                                                    />
+                                                                    <span className="text-[9px] font-bold opacity-30">:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={t !== null && t !== undefined ? String(t % 60).padStart(2, '0') : ''}
+                                                                        placeholder="00"
+                                                                        onChange={(e) => updateHistorySeriesValue(item, 'exec', sIdx, e.target.value, 'secs')}
+                                                                        onFocus={(e) => e.target.select()}
+                                                                        className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
                                                                     />
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center">
+                                                            <div className="flex items-center gap-0.5">
                                                                 <input
-                                                                    type="text"
-                                                                    value={formatTime(rest)}
-                                                                    placeholder="0:00"
-                                                                    onChange={(e) => updateHistorySeriesValue(item, 'rest', sIdx, e.target.value)}
+                                                                    type="number"
+                                                                    value={rest !== null && rest !== undefined ? Math.floor(rest / 60) : ''}
+                                                                    placeholder="0"
+                                                                    onChange={(e) => updateHistorySeriesValue(item, 'rest', sIdx, e.target.value, 'mins')}
                                                                     onFocus={(e) => e.target.select()}
-                                                                    className="bg-transparent w-10 text-center font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
+                                                                    className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
+                                                                />
+                                                                <span className="text-[8px] font-bold opacity-30">:</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={rest !== null && rest !== undefined ? String(rest % 60).padStart(2, '0') : ''}
+                                                                    placeholder="00"
+                                                                    onChange={(e) => updateHistorySeriesValue(item, 'rest', sIdx, e.target.value, 'secs')}
+                                                                    onFocus={(e) => e.target.select()}
+                                                                    className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
                                                                 />
                                                             </div>
                                                         </div>

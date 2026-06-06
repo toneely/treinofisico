@@ -8,6 +8,7 @@ import History from './pages/History';
 import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import UserSettings from './pages/UserSettings';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              <Route path="/configuracoes" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
           <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

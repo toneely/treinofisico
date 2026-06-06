@@ -98,7 +98,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-slate-800">Olá, {user?.nome?.split(' ')[0]}</h1>
           <p className="text-slate-500">Pronto para superar seus limites?</p>
         </div>
-        <Link to="/admin" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 hover:text-indigo-600 transition">
+        <Link to="/configuracoes" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 hover:text-indigo-600 transition">
           <Settings size={20} />
         </Link>
       </header>

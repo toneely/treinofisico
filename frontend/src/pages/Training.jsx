@@ -446,7 +446,7 @@ const Training = () => {
     });
   };
 
-  const updateSessionValue = (type, exId, sIdx, val) => {
+  const updateSessionValue = (type, exId, sIdx, val, part = 'all') => {
     const setters = {
         load: setExerciseLoads,
         reps: setExerciseReps,
@@ -457,10 +457,17 @@ const Training = () => {
     setters[type](prev => {
         const arr = [...(prev[exId] || [])];
         if (type === 'exec' || type === 'rest') {
-            // val is expected to be in MM:SS for editing, but we store seconds
-            // If it doesn't contain ':', we might be receiving a direct number from some source,
-            // but the UI now uses MM:SS for these fields.
-            arr[sIdx] = val === '' ? null : (val.includes(':') ? parseTime(val) : parseInt(val));
+            const currentSeconds = arr[sIdx] || 0;
+            const mins = Math.floor(currentSeconds / 60);
+            const secs = currentSeconds % 60;
+
+            if (part === 'mins') {
+                arr[sIdx] = (parseInt(val) || 0) * 60 + secs;
+            } else if (part === 'secs') {
+                arr[sIdx] = mins * 60 + (parseInt(val) || 0);
+            } else {
+                arr[sIdx] = val === '' ? null : (typeof val === 'string' && val.includes(':') ? parseTime(val) : parseInt(val));
+            }
         } else if (type === 'load') {
             arr[sIdx] = val === '' ? null : parseFloat(val);
         } else {
@@ -1032,15 +1039,25 @@ const Training = () => {
                                                         {formatTime(liveExec)}
                                                     </span>
                                                 ) : (
-                                                    <div className="flex items-center">
+                                                    <div className="flex items-center gap-0.5">
                                                         <input
-                                                            type="text"
-                                                            value={formatTime(execTime)}
-                                                            placeholder="0:00"
+                                                            type="number"
+                                                            value={execTime !== null && execTime !== undefined ? Math.floor(execTime / 60) : ''}
+                                                            placeholder="0"
                                                             readOnly={!execTime && execTime !== 0}
-                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value)}
+                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value, 'mins')}
                                                             onFocus={(e) => e.target.select()}
-                                                            className="bg-transparent w-10 text-center font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                                            className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                                        />
+                                                        <span className="text-[9px] font-bold opacity-30">:</span>
+                                                        <input
+                                                            type="number"
+                                                            value={execTime !== null && execTime !== undefined ? String(execTime % 60).padStart(2, '0') : ''}
+                                                            placeholder="00"
+                                                            readOnly={!execTime && execTime !== 0}
+                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value, 'secs')}
+                                                            onFocus={(e) => e.target.select()}
+                                                            className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
                                                         />
                                                     </div>
                                                 )}
@@ -1051,15 +1068,25 @@ const Training = () => {
                                                         {formatTime(liveRest)}
                                                     </span>
                                                 ) : (
-                                                    <div className="flex items-center">
+                                                    <div className="flex items-center gap-0.5">
                                                         <input
-                                                            type="text"
-                                                            value={formatTime(restTime)}
-                                                            placeholder="0:00"
+                                                            type="number"
+                                                            value={restTime !== null && restTime !== undefined ? Math.floor(restTime / 60) : ''}
+                                                            placeholder="0"
                                                             readOnly={!restTime && restTime !== 0}
-                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value)}
+                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value, 'mins')}
                                                             onFocus={(e) => e.target.select()}
-                                                            className="bg-transparent w-10 text-center font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                                            className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                                        />
+                                                        <span className="text-[8px] font-bold opacity-30">:</span>
+                                                        <input
+                                                            type="number"
+                                                            value={restTime !== null && restTime !== undefined ? String(restTime % 60).padStart(2, '0') : ''}
+                                                            placeholder="00"
+                                                            readOnly={!restTime && restTime !== 0}
+                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value, 'secs')}
+                                                            onFocus={(e) => e.target.select()}
+                                                            className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
                                                         />
                                                     </div>
                                                 )}
