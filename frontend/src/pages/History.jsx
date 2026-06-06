@@ -672,7 +672,7 @@ const History = () => {
         <Link to="/historico" className="text-indigo-600 flex flex-col items-center gap-1">
           <HistoryIcon size={24} /><span className="text-[10px] font-bold uppercase">Histórico</span>
         </Link>
-        <Link to="/admin" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/perfil" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
           <UserIcon size={24} /><span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>

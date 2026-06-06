@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Plus, Trash2, Edit2, Check, X, LayoutGrid } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const WorkoutManager = () => {
+  const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,7 @@ const WorkoutManager = () => {
     const { data, error } = await supabase
       .from('treinos')
       .select('*')
+      .eq('user_id', authUser.id)
       .order('letra', { ascending: true });
 
     if (error) {
@@ -47,8 +50,9 @@ const WorkoutManager = () => {
     if (isEditing) {
       const { error } = await supabase
         .from('treinos')
-        .update(formData)
-        .eq('id', isEditing);
+        .update({ ...formData, user_id: authUser.id })
+        .eq('id', isEditing)
+        .eq('user_id', authUser.id);
 
       if (error) showToast('Erro ao atualizar treino: ' + error.message, 'error');
       else {
@@ -60,7 +64,7 @@ const WorkoutManager = () => {
     } else {
       const { error } = await supabase
         .from('treinos')
-        .insert([formData]);
+        .insert([{ ...formData, user_id: authUser.id }]);
 
       if (error) showToast('Erro ao criar treino: ' + error.message, 'error');
       else {
@@ -96,7 +100,8 @@ const WorkoutManager = () => {
       const { error } = await supabase
         .from('treinos')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', authUser.id);
 
       if (error) showToast('Erro ao excluir treino: ' + error.message, 'error');
       else {

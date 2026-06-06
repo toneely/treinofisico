@@ -50,7 +50,12 @@ const Dashboard = () => {
     setUser(userData || { id: authUser.id, nome: authUser.user_metadata?.full_name || authUser.email });
 
     // Fetch Workouts
-    const { data: workoutsData } = await supabase.from('treinos').select('*').order('letra');
+    const { data: workoutsData } = await supabase
+      .from('treinos')
+      .select('*')
+      .eq('user_id', authUser.id)
+      .order('letra');
+
     if (workoutsData) {
         setWorkouts(workoutsData);
     }

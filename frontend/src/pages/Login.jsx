@@ -5,22 +5,34 @@ import { useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, Chrome, Loader2 } from 'lucide-react';
 
 const Login = () => {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleEmailLogin = async (e) => {
+  const handleEmailAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signIn(email, password);
-    if (error) {
-      showToast(error.message, 'error');
+
+    if (isSignUp) {
+      const { error } = await signUp(email, password);
+      if (error) {
+        showToast(error.message, 'error');
+      } else {
+        showToast('Conta criada! Verifique seu e-mail.', 'success');
+        setIsSignUp(false);
+      }
     } else {
-      showToast('Bem-vindo de volta!', 'success');
-      navigate('/');
+      const { error } = await signIn(email, password);
+      if (error) {
+        showToast(error.message, 'error');
+      } else {
+        showToast('Bem-vindo de volta!', 'success');
+        navigate('/');
+      }
     }
     setLoading(false);
   };
@@ -54,7 +66,7 @@ const Login = () => {
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-4 text-slate-400 font-bold tracking-widest">ou e-mail</span></div>
         </div>
 
-        <form onSubmit={handleEmailLogin} className="space-y-4">
+        <form onSubmit={handleEmailAuth} className="space-y-4">
             <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Seu E-mail</label>
                 <div className="relative">
@@ -90,12 +102,18 @@ const Login = () => {
                 disabled={loading}
                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-200 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 mt-4"
             >
-                {loading ? <Loader2 className="animate-spin" /> : 'Entrar na Conta'}
+                {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar na Conta')}
             </button>
         </form>
 
         <p className="mt-8 text-center text-xs text-slate-400 font-medium">
-            Não tem uma conta? <span className="text-indigo-600 font-bold hover:underline cursor-pointer">Cadastre-se</span>
+            {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'} {' '}
+            <span
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-indigo-600 font-bold hover:underline cursor-pointer"
+            >
+                {isSignUp ? 'Faça Login' : 'Cadastre-se'}
+            </span>
         </p>
       </div>
     </div>

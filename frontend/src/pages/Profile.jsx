@@ -80,10 +80,11 @@ const Profile = () => {
   };
 
   const fetchCoringaStatus = async () => {
-    // Note: blocks are still global or we can filter by user_id if that was added
+    // Note: blocks are now user-specific
     const { data } = await supabase
       .from('blocos_treino')
-      .select('letra_treino, is_coringa');
+      .select('letra_treino, is_coringa')
+      .eq('user_id', user.id);
 
     if (data) {
       const map = data.reduce((acc, curr) => {
@@ -112,7 +113,8 @@ const Profile = () => {
     const { error } = await supabase
       .from('blocos_treino')
       .update({ is_coringa: newValue })
-      .eq('letra_treino', letra);
+      .eq('letra_treino', letra)
+      .eq('user_id', user.id);
 
     if (!error) {
       setCoringaWorkouts(prev => ({ ...prev, [letra]: newValue }));

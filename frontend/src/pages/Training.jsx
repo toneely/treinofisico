@@ -206,6 +206,7 @@ const Training = () => {
       .from('blocos_treino')
       .select('*, exercicios(*)')
       .eq('letra_treino', letra)
+      .eq('user_id', authUser.id)
       .order('numero_bloco', { ascending: true })
       .order('ordem_execucao', { ascending: true });
 

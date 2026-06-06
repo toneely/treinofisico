@@ -20,22 +20,18 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Router>
-          <div className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
-              <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
-              <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            </Routes>
-          </div>
-        </Router>
-      </ToastProvider>
-    </AuthProvider>
+    <Router>
+      <div className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
+          <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        </Routes>
+      </div>
+    </Router>
   );
 };
 
