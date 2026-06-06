@@ -750,23 +750,6 @@ const Training = () => {
           )}
         </div>
 
-        {/* Floating Timer Widgets */}
-        <div className="fixed top-24 right-4 z-[200] flex flex-col gap-3 items-end max-w-[200px]">
-            {Object.entries(activeRestTimers).map(([exId, data]) => {
-                const isPrimary = parseInt(exId) === (currentBlock[0]?.exercicio_id);
-                return (
-                    <div key={exId} className={`p-3 px-5 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right duration-500 relative group border border-white/10 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[7px] font-black uppercase tracking-widest opacity-70 truncate mb-0.5">{data.nome || 'Exercício'}</span>
-                            <span className="text-[9px] font-bold uppercase tracking-tighter opacity-90 mb-1">{data.title}</span>
-                            <span className="text-xl font-mono font-black leading-none">
-                                {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
-                            </span>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
 
         {/* Stopwatch & Reference */}
         <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${
@@ -830,7 +813,14 @@ const Training = () => {
           <div className={`p-4 rounded-2xl mb-6 border border-dashed ${isCoringa ? 'border-amber-700 bg-amber-800/20' : 'border-slate-700 bg-slate-800/50'}`}>
              <div className="flex justify-between items-center mb-3">
                <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Carga Alternada</span>
-               <div className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-bold uppercase tracking-tighter">Modo: {executionMode === 'alternated' ? 'Alternado' : 'Isolado'}</div>
+               <button
+                  onClick={() => setExecutionMode(prev => prev === 'alternated' ? 'isolated' : 'alternated')}
+                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors ${
+                    executionMode === 'alternated' ? (isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-600 text-white') : 'bg-white/10 text-white/60'
+                  }`}
+               >
+                  Modo: {executionMode === 'alternated' ? 'Alternado' : 'Isolado'}
+               </button>
              </div>
              {currentBlock.map((ex, idx) => {
                if (idx === currentExerciseInBlock) return null;
@@ -1092,14 +1082,51 @@ const Training = () => {
       {/* Global Progress Footer */}
       <footer className={`fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
         <div className="max-w-md mx-auto">
+            {/* Horizontal Rest Timers */}
+            {Object.keys(activeRestTimers).length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {Object.entries(activeRestTimers).map(([exId, data]) => {
+                        const isPrimary = parseInt(exId) === (currentBlock[0]?.exercicio_id);
+                        return (
+                            <div key={exId} className={`flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[6px] font-black uppercase tracking-widest opacity-70 truncate">{data.nome || 'Exercício'}</span>
+                                    <span className="text-sm font-mono font-black leading-tight">
+                                        {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
+                                    </span>
+                                </div>
+                                <div className="ml-auto flex items-center gap-2">
+                                    <span className="text-[8px] font-bold uppercase opacity-60 tracking-tighter">{data.title}</span>
+                                    <button
+                                        onClick={() => dismissRestTimer(exId)}
+                                        data-testid={`dismiss-rest-${exId}`}
+                                        className="p-1 hover:bg-black/10 rounded-md"
+                                    >
+                                        <X size={12}/>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">
                 <span>Progresso Geral</span>
-                <span>{Math.round(((currentBlockIndex * 2 + currentExerciseInBlock) / (blocos.length * 2)) * 100)}%</span>
+                <span>{(() => {
+                    const totalEx = blocos.reduce((acc, b) => acc + b.length, 0);
+                    const doneEx = blocos.slice(0, currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + currentExerciseInBlock;
+                    return Math.round((doneEx / totalEx) * 100);
+                })()}%</span>
             </div>
             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                 <div
                     className={`h-full transition-all duration-1000 ${isCoringa ? 'bg-amber-400' : 'bg-indigo-500'}`}
-                    style={{ width: `${Math.round(((currentBlockIndex * 2 + currentExerciseInBlock) / (blocos.length * 2)) * 100)}%` }}
+                    style={{ width: `${(() => {
+                        const totalEx = blocos.reduce((acc, b) => acc + b.length, 0);
+                        const doneEx = blocos.slice(0, currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + currentExerciseInBlock;
+                        return Math.round((doneEx / totalEx) * 100);
+                    })()}%` }}
                 ></div>
             </div>
         </div>

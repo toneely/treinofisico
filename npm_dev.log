@@ -11,3 +11,5 @@ Port 5173 is in use, trying another one...
 12:16:39 AM [vite] (client) hmr update /src/index.css, /src/pages/History.jsx
 12:21:04 AM [vite] (client) hmr update /src/index.css, /src/pages/History.jsx
 12:56:53 AM [vite] (client) hmr update /src/pages/History.jsx, /src/index.css
+2:30:02 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
+2:37:53 AM [vite] (client) hmr update /src/pages/Training.jsx, /src/index.css
