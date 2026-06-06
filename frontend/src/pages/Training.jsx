@@ -47,6 +47,20 @@ const Training = () => {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
 
+  // Time conversion helpers
+  const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const parseTime = (timeStr) => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const [mins, secs] = timeStr.split(':').map(Number);
+    return (mins * 60) + (secs || 0);
+  };
+
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
   const audioContextRef = React.useRef(null);
@@ -277,9 +291,6 @@ const Training = () => {
     const exId = targetExerciseId || exercise.exercicio_id;
     if (!exId) return;
 
-    // Reset inputs for the NEW series with current values (which serve as baseline)
-    // No explicit change needed here as cargas/repsFeitas already hold the "current" view.
-
     const idStr = String(exId);
 
     // Independence Logic: Only stop and record the rest timer for THIS specific exercise.
@@ -446,8 +457,10 @@ const Training = () => {
     setters[type](prev => {
         const arr = [...(prev[exId] || [])];
         if (type === 'exec' || type === 'rest') {
-            // Convert MM:SS to seconds if needed, but here we assume it's number or empty string
-            arr[sIdx] = val === '' ? null : parseInt(val);
+            // val is expected to be in MM:SS for editing, but we store seconds
+            // If it doesn't contain ':', we might be receiving a direct number from some source,
+            // but the UI now uses MM:SS for these fields.
+            arr[sIdx] = val === '' ? null : (val.includes(':') ? parseTime(val) : parseInt(val));
         } else if (type === 'load') {
             arr[sIdx] = val === '' ? null : parseFloat(val);
         } else {
@@ -461,23 +474,33 @@ const Training = () => {
     const currentBlock = blocos[currentBlockIndex];
     const exercise = currentBlock[currentExerciseInBlock];
 
-    if (!isCatchupPhase) {
-        // Only add if not already skipped
-        setSkippedExercises(prev => {
-            if (prev.find(s => s.exercicio_id === exercise.exercicio_id)) return prev;
-            return [...prev, { ...exercise, partialSerie: currentSerie }];
-        });
-    }
-
     if (isTimerActive) stopAndRecordTime();
 
-    if (currentExerciseInBlock < currentBlock.length - 1) {
+    // Reset current exercise timer
+    setTimer(0);
+    setIsTimerActive(false);
+
+    const isLastInBlock = currentExerciseInBlock === currentBlock.length - 1;
+
+    if (executionMode === 'alternated' && currentBlock.length > 1 && !isLastInBlock) {
+        // Just move to the next exercise in the block, we'll return to this one later
+        // because nextStep/advanceUI handles the looping.
         setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-        setCurrentSerie(1);
-        setTimer(0);
-        setIsTimerActive(false);
     } else {
-        goToNextBlock();
+        // Isolated or last in block or already the only one left
+        if (!isCatchupPhase) {
+            setSkippedExercises(prev => {
+                if (prev.find(s => s.exercicio_id === exercise.exercicio_id)) return prev;
+                return [...prev, { ...exercise, partialSerie: currentSerie }];
+            });
+        }
+
+        if (currentExerciseInBlock < currentBlock.length - 1) {
+            setCurrentExerciseInBlock(currentExerciseInBlock + 1);
+            setCurrentSerie(1);
+        } else {
+            goToNextBlock();
+        }
     }
   };
 
@@ -586,6 +609,8 @@ const Training = () => {
         ...ex,
         numero_bloco: 999 + idx
     }]));
+
+    if (catchupBlocks.length === 0) return;
 
     const firstPartialSerie = skippedExercises[0]?.partialSerie || 1;
 
@@ -1004,36 +1029,38 @@ const Training = () => {
                                                 <Clock size={8} className="opacity-30" />
                                                 {liveExec !== null ? (
                                                     <span className="font-mono font-bold text-[9px] text-white">
-                                                        {Math.floor(liveExec/60)}:{String(liveExec%60).padStart(2,'0')}
+                                                        {formatTime(liveExec)}
                                                     </span>
                                                 ) : (
                                                     <div className="flex items-center">
                                                         <input
-                                                            type="number"
-                                                            value={execTime || ''}
-                                                            placeholder="-"
+                                                            type="text"
+                                                            value={formatTime(execTime)}
+                                                            placeholder="0:00"
+                                                            readOnly={!execTime && execTime !== 0}
                                                             onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value)}
-                                                            className="bg-transparent w-6 text-center font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                                            onFocus={(e) => e.target.select()}
+                                                            className="bg-transparent w-10 text-center font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
                                                         />
-                                                        {(execTime !== null && execTime !== undefined) && <span className="text-[7px] opacity-30">s</span>}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className={`flex items-center gap-1 ${liveRest !== null ? 'text-emerald-400 animate-pulse' : 'opacity-30'}`}>
                                                 {liveRest !== null ? (
                                                     <span className="font-mono text-[8px] font-bold">
-                                                        {Math.floor(liveRest/60)}:{String(liveRest%60).padStart(2,'0')}
+                                                        {formatTime(liveRest)}
                                                     </span>
                                                 ) : (
                                                     <div className="flex items-center">
                                                         <input
-                                                            type="number"
-                                                            value={restTime || ''}
-                                                            placeholder="-"
+                                                            type="text"
+                                                            value={formatTime(restTime)}
+                                                            placeholder="0:00"
+                                                            readOnly={!restTime && restTime !== 0}
                                                             onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value)}
-                                                            className="bg-transparent w-6 text-center font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                                            onFocus={(e) => e.target.select()}
+                                                            className="bg-transparent w-10 text-center font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
                                                         />
-                                                        {(restTime !== null && restTime !== undefined) && <span className="text-[7px] opacity-30">s</span>}
                                                     </div>
                                                 )}
                                             </div>

@@ -13,6 +13,19 @@ import { useAuth } from '../context/AuthContext';
 
 const History = () => {
   const { showToast } = useToast();
+
+  const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const parseTime = (timeStr) => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const [mins, secs] = timeStr.split(':').map(Number);
+    return (mins * 60) + (secs || 0);
+  };
   const { user: authUser } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
@@ -237,41 +250,46 @@ const History = () => {
   };
 
   const updateHistorySeriesValue = async (item, type, sIdx, val) => {
-    const updatedItem = { ...item };
-    const value = val === '' ? null : (type === 'load' ? parseFloat(val) : parseInt(val));
+    const updatedFields = {};
+    let value;
+
+    if (type === 'exec' || type === 'rest') {
+        value = val === '' ? null : (val.includes(':') ? parseTime(val) : parseInt(val));
+    } else if (type === 'load') {
+        value = val === '' ? null : parseFloat(val);
+    } else {
+        value = val === '' ? null : parseInt(val);
+    }
 
     if (type === 'load') {
         const arr = Array.isArray(item.carga) ? [...item.carga] : [item.carga_utilizada];
         arr[sIdx] = value;
-        updatedItem.carga = arr;
+        updatedFields.carga = arr;
     } else if (type === 'reps') {
         const arr = Array.isArray(item.repeticoes) ? [...item.repeticoes] : [item.repeticoes_feitas];
         arr[sIdx] = value;
-        updatedItem.repeticoes = arr;
+        updatedFields.repeticoes = arr;
     } else if (type === 'exec') {
         const arr = [...(item.tempo_execucao_segundos || [])];
         arr[sIdx] = value;
-        updatedItem.tempo_execucao_segundos = arr;
+        updatedFields.tempo_execucao_segundos = arr;
     } else if (type === 'rest') {
         const arr = [...(item.tempo_descanso_segundos || [])];
         arr[sIdx] = value;
-        updatedItem.tempo_descanso_segundos = arr;
+        updatedFields.tempo_descanso_segundos = arr;
     }
+
+    // Optimistic Update
+    setHistory(prev => prev.map(h => h.id === item.id ? { ...h, ...updatedFields } : h));
 
     const { error } = await supabase
         .from('historico_cargas')
-        .update({
-            carga: updatedItem.carga,
-            repeticoes: updatedItem.repeticoes,
-            tempo_execucao_segundos: updatedItem.tempo_execucao_segundos,
-            tempo_descanso_segundos: updatedItem.tempo_descanso_segundos
-        })
+        .update(updatedFields)
         .eq('id', item.id);
 
-    if (error) showToast('Erro ao atualizar: ' + error.message, 'error');
-    else {
-        // Update local state to avoid full re-fetch if possible, or just re-fetch
-        fetchHistory();
+    if (error) {
+        showToast('Erro ao atualizar: ' + error.message, 'error');
+        fetchHistory(); // Revert on error
     }
   };
 
@@ -513,24 +531,24 @@ const History = () => {
                                                                 <Clock size={8} className="text-slate-300"/>
                                                                 <div className="flex items-center">
                                                                     <input
-                                                                        type="number"
-                                                                        value={t || ''}
-                                                                        placeholder="-"
+                                                                        type="text"
+                                                                        value={formatTime(t)}
+                                                                        placeholder="0:00"
                                                                         onChange={(e) => updateHistorySeriesValue(item, 'exec', sIdx, e.target.value)}
-                                                                        className="bg-transparent w-6 text-center font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
+                                                                        onFocus={(e) => e.target.select()}
+                                                                        className="bg-transparent w-10 text-center font-mono font-bold text-[9px] outline-none text-slate-500 placeholder:text-slate-300"
                                                                     />
-                                                                    {(t !== null && t !== undefined) && <span className="text-[7px] text-slate-300">s</span>}
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center">
                                                                 <input
-                                                                    type="number"
-                                                                    value={rest || ''}
-                                                                    placeholder="-"
+                                                                    type="text"
+                                                                    value={formatTime(rest)}
+                                                                    placeholder="0:00"
                                                                     onChange={(e) => updateHistorySeriesValue(item, 'rest', sIdx, e.target.value)}
-                                                                    className="bg-transparent w-6 text-center font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
+                                                                    onFocus={(e) => e.target.select()}
+                                                                    className="bg-transparent w-10 text-center font-mono font-bold text-[8px] outline-none text-emerald-500 placeholder:text-slate-300"
                                                                 />
-                                                                {(rest !== null && rest !== undefined) && <span className="text-[7px] text-emerald-200">s</span>}
                                                             </div>
                                                         </div>
                                                     </div>
