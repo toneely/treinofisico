@@ -768,7 +768,10 @@ const Training = () => {
         <div className="flex flex-col gap-3 mb-6">
             {(!state.isTimerActive && state.timer > 0) && (
                 <button
-                    onClick={() => dispatch({ type: 'ADVANCE_STEP', payload: { currentBlock } })}
+                    onClick={() => {
+                        dispatch({ type: 'ADVANCE_STEP', payload: { currentBlock } });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                     disabled={savingSession}
                     className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
                         isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'

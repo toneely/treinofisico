@@ -162,12 +162,12 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+      <div className="p-6 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
           <GripVertical size={20} className="text-indigo-600" />
           Configurador de Blocos
         </h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {workouts.map(w => (
             <button
               key={w.letra}
