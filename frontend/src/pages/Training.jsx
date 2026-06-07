@@ -550,14 +550,6 @@ const Training = () => {
     setSavingSession(false);
   };
 
-  if (loading) return <div className="p-10 text-center text-slate-500">Iniciando treino...</div>;
-  if (!state.blocos.length) return <div className="p-10 text-center text-slate-500">Nenhum exercício encontrado. <Link to="/" className="underline">Voltar</Link></div>;
-
-  const isCoringa = currentBlock.some(b => b.is_coringa);
-  const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
-
-  const isWaitingForPlay = !state.isTimerActive && state.timer === 0;
-
   // Sync state.status to checkout modal
   useEffect(() => {
     if (state.status === 'COMPLETED') {
@@ -568,6 +560,14 @@ const Training = () => {
         }
     }
   }, [state.status]);
+
+  if (loading) return <div className="p-10 text-center text-slate-500">Iniciando treino...</div>;
+  if (!state.blocos.length) return <div className="p-10 text-center text-slate-500">Nenhum exercício encontrado. <Link to="/" className="underline">Voltar</Link></div>;
+
+  const isCoringa = currentBlock.some(b => b.is_coringa);
+  const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
+
+  const isWaitingForPlay = !state.isTimerActive && state.timer === 0;
 
   // Manual Timer Dismiss Helper
   const dismissRestTimer = (exId) => dispatch({ type: 'DISMISS_REST', exId });
