@@ -168,7 +168,11 @@ function trainingReducer(state, action) {
         if (state.currentSerie < currentBlock[state.currentExerciseInBlock].series_alvo) {
             return { ...state, currentSerie: state.currentSerie + 1, timer: 0, status: 'IDLE' };
         } else {
-            return { ...state, currentExerciseInBlock: state.currentExerciseInBlock + 1, currentSerie: 1, timer: 0, status: 'IDLE' };
+            const nextIdx = state.currentExerciseInBlock + 1;
+            const nextEx = currentBlock[nextIdx];
+            const nextExPendingSerie = (state.exerciseTimes[nextEx?.exercicio_id]?.length || 0) + 1;
+
+            return { ...state, currentExerciseInBlock: nextIdx, currentSerie: nextExPendingSerie, timer: 0, status: 'IDLE' };
         }
     }
 
@@ -197,11 +201,13 @@ function trainingReducer(state, action) {
                 } else {
                     nextState.currentBlockIndex += 1;
                     nextState.currentExerciseInBlock = 0;
-                    nextState.currentSerie = 1;
+                    const nextEx = state.blocos[nextState.currentBlockIndex][0];
+                    nextState.currentSerie = (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
                 }
             } else {
                 nextState.currentExerciseInBlock += 1;
-                nextState.currentSerie = 1;
+                const nextEx = currentBlock[nextState.currentExerciseInBlock];
+                nextState.currentSerie = (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
             }
         }
         return nextState;
@@ -920,28 +926,35 @@ const Training = () => {
                                 // Rest occurs AFTER the series. So Rest 1 follows Series 1.
                                 const liveRest = state.activeRestTimers[ex.exercicio_id] && sNum === (state.exerciseTimes[ex.exercicio_id]?.length) ? state.activeRestTimers[ex.exercicio_id].seconds : null;
 
+                                const nextPendingSNum = (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
+                                const isNextPending = sNum === nextPendingSNum;
+                                const isExecuted = sNum < nextPendingSNum;
+
                                 return (
                                     <div key={sIdx} className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
                                         isCurrentS ? 'bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10' :
-                                        ((execTime !== undefined && execTime !== null) ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent opacity-30')
+                                        (isExecuted ? 'bg-black/20 border-white/5' : 'bg-black/5 border-transparent')
                                     }`}>
                                         <button
                                             onClick={() => {
-                                                if (!isCurrentS) {
+                                                if (isNextPending && !isCurrentS) {
                                                     dispatch({ type: 'MANUAL_OVERRIDE', bIdx, eIdx, sNum });
                                                     showToast(`Foco alterado para Série ${sNum}`, 'info');
                                                 }
                                             }}
-                                            className={`font-black text-[9px] uppercase mb-2 px-2 py-0.5 rounded-md transition-all ${
+                                            className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all ${
                                                 isCurrentS
                                                     ? 'bg-white/20 text-white opacity-100'
-                                                    : 'hover:bg-white/10 text-white/60 hover:text-white cursor-pointer active:scale-95'
+                                                    : (isNextPending
+                                                        ? 'bg-indigo-500/40 hover:bg-indigo-500 text-white cursor-pointer active:scale-95 opacity-100 shadow-sm'
+                                                        : 'text-white/30 cursor-default opacity-40'
+                                                      )
                                             }`}
                                         >
                                             Série {sNum}
                                         </button>
 
-                                        <div className="flex flex-col items-center gap-1 mb-2">
+                                        <div className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${(!isExecuted && !isCurrentS) ? 'opacity-30' : 'opacity-100'}`}>
                                             <div className="flex items-center gap-0.5">
                                                 <input
                                                     type="number"
@@ -964,7 +977,7 @@ const Training = () => {
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1">
+                                        <div className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${(!isExecuted && !isCurrentS) ? 'opacity-30' : 'opacity-100'}`}>
                                             <div className="flex items-center gap-1">
                                                 <Clock size={8} className="opacity-30" />
                                                 {liveExec !== null ? (
