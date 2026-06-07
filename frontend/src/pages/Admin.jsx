@@ -66,39 +66,66 @@ const Admin = () => {
 
       <main className="animate-in fade-in duration-500">
         {activeTab === 'onboarding' && (
-            <div className="space-y-12">
-                <section>
-                    <div className="mb-6">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                            <LayoutGrid className="text-indigo-600" size={24} />
-                            Categorias de Treino Padrão
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Defina os treinos que serão copiados para novos usuários.</p>
-                    </div>
-                    <WorkoutManager overrideUserId={moldeUserId} />
-                </section>
+            <div className="space-y-6">
+                <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit mb-8">
+                    <button
+                        onClick={() => setSubTab('workouts')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'workouts' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Treinos Padrão
+                    </button>
+                    <button
+                        onClick={() => setSubTab('blocks')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'blocks' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Blocos Padrão
+                    </button>
+                    <button
+                        onClick={() => setSubTab('exercises')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'exercises' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Exercícios Globais
+                    </button>
+                </div>
 
-                <section>
-                    <div className="mb-6">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                            <Dumbbell className="text-indigo-600" size={24} />
-                            Catálogo de Exercícios Padrão
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Biblioteca Global de exercícios disponíveis para todos os usuários.</p>
-                    </div>
-                    <ExerciseManager targetTable="exercicios_padrao" />
-                </section>
+                {subTab === 'workouts' && (
+                    <section className="animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                <LayoutGrid className="text-indigo-600" size={24} />
+                                Categorias de Treino Padrão
+                            </h2>
+                            <p className="text-sm text-slate-500 mt-1">Defina os treinos que serão copiados para novos usuários.</p>
+                        </div>
+                        <WorkoutManager overrideUserId={moldeUserId} />
+                    </section>
+                )}
 
-                <section>
-                    <div className="mb-6">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                            <Settings className="text-indigo-600" size={24} />
-                            Estrutura de Blocos (Molde)
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Configure as séries e repetições padrão.</p>
-                    </div>
-                    <BlockConfigurator overrideUserId={moldeUserId} />
-                </section>
+                {subTab === 'exercises' && (
+                    <section className="animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                <Dumbbell className="text-indigo-600" size={24} />
+                                Catálogo de Exercícios Padrão
+                            </h2>
+                            <p className="text-sm text-slate-500 mt-1">Biblioteca Global de exercícios disponíveis para todos os usuários.</p>
+                        </div>
+                        <ExerciseManager targetTable="exercicios_padrao" />
+                    </section>
+                )}
+
+                {subTab === 'blocks' && (
+                    <section className="animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                <Settings className="text-indigo-600" size={24} />
+                                Estrutura de Blocos (Molde)
+                            </h2>
+                            <p className="text-sm text-slate-500 mt-1">Configure as séries e repetições padrão.</p>
+                        </div>
+                        <BlockConfigurator overrideUserId={moldeUserId} />
+                    </section>
+                )}
             </div>
         )}
         {activeTab === 'users' && (

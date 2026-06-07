@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS exercicios_padrao (
     nome TEXT NOT NULL UNIQUE,
     alvo_principal TEXT NOT NULL,
     tipo_fibra TEXT NOT NULL,
-    categoria TEXT NOT NULL, -- Ex: 'Musculação', 'CrossFit', 'Pilates', 'Calistenia'
+    categoria TEXT NOT NULL, -- Ex: 'Empurrar', 'Puxar', 'Perna', 'Postural'
+    modalidade TEXT NOT NULL, -- Ex: 'Musculação', 'CrossFit', 'Pilates', 'Calistenia'
     depende_peso_corporal BOOLEAN DEFAULT FALSE,
     descanso_passivo_segundos INT DEFAULT 60
 );
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS exercicios (
     alvo_principal TEXT NOT NULL,
     tipo_fibra TEXT NOT NULL,
     categoria TEXT NOT NULL,
+    modalidade TEXT NOT NULL,
     depende_peso_corporal BOOLEAN DEFAULT FALSE,
     descanso_passivo_segundos INT DEFAULT 60,
     UNIQUE(user_id, nome)

@@ -9,13 +9,13 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
   const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [category, setCategory] = useState('Musculação');
+  const [modalidade, setModalidade] = useState('Musculação');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEx, setSelectedEx] = useState(null);
   const dropdownRef = useRef(null);
 
-  const categories = [
+  const modalidades = [
     "Musculação", "CrossFit", "Pilates", "Calistenia", "Mobilidade", "Cardio", "Luta"
   ];
 
@@ -30,7 +30,7 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
       if (isOpen) fetchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchTerm, category, isOpen]);
+  }, [searchTerm, modalidade, isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -60,7 +60,7 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
       .from('exercicios')
       .select('id, nome, alvo_principal, is_global:id(id)') // logic flag
       .eq('user_id', userId)
-      .eq('categoria', category)
+      .eq('modalidade', modalidade)
       .ilike('nome', `%${searchTerm}%`)
       .limit(10);
 
@@ -68,7 +68,7 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
     const { data: global } = await supabase
       .from('exercicios_padrao')
       .select('id, nome, alvo_principal')
-      .eq('categoria', category)
+      .eq('modalidade', modalidade)
       .ilike('nome', `%${searchTerm}%`)
       .limit(10);
 
@@ -155,11 +155,11 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
         <div className="absolute z-[100] mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           <div className="p-2 border-b border-slate-50 flex gap-2">
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={modalidade}
+              onChange={(e) => setModalidade(e.target.value)}
               className="p-1.5 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              {modalidades.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <div className="relative flex-1">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={12} />

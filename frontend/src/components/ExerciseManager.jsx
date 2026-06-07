@@ -15,7 +15,8 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
     nome: '',
     alvo_principal: '',
     tipo_fibra: 'Tipo IIa',
-    categoria: 'Musculação',
+    categoria: 'Empurrar',
+    modalidade: 'Musculação',
     depende_peso_corporal: false,
     descanso_passivo_segundos: 60
   });
@@ -93,7 +94,8 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
       nome: '',
       alvo_principal: '',
       tipo_fibra: 'Tipo IIa',
-      categoria: 'Musculação',
+      categoria: 'Empurrar',
+      modalidade: 'Musculação',
       depende_peso_corporal: false,
       descanso_passivo_segundos: 60
     });
@@ -107,6 +109,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
       alvo_principal: exercise.alvo_principal,
       tipo_fibra: exercise.tipo_fibra,
       categoria: exercise.categoria,
+      modalidade: exercise.modalidade || 'Musculação',
       depende_peso_corporal: exercise.depende_peso_corporal,
       descanso_passivo_segundos: exercise.descanso_passivo_segundos || 60
     });
@@ -187,6 +190,20 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               onChange={handleInputChange}
               className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             >
+              <option value="Empurrar">Empurrar</option>
+              <option value="Puxar">Puxar</option>
+              <option value="Perna">Perna</option>
+              <option value="Postural">Postural</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-slate-500 uppercase">Modalidade</label>
+            <select
+              name="modalidade"
+              value={formData.modalidade}
+              onChange={handleInputChange}
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
               <option value="Musculação">Musculação</option>
               <option value="CrossFit">CrossFit</option>
               <option value="Pilates">Pilates</option>
@@ -259,6 +276,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
                   <th className="py-3 px-4 font-bold">Alvo</th>
                   <th className="py-3 px-4 font-bold">Fibra</th>
                   <th className="py-3 px-4 font-bold">Cat.</th>
+                  <th className="py-3 px-4 font-bold">Mod.</th>
                   <th className="py-3 px-4 font-bold text-center">Ações</th>
                 </tr>
               </thead>
@@ -277,6 +295,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
                       </span>
                     </td>
                     <td className="py-3 px-4 text-slate-500 text-sm">{exercise.categoria}</td>
+                    <td className="py-3 px-4 text-slate-500 text-sm">{exercise.modalidade}</td>
                     <td className="py-3 px-4">
                       <div className="flex justify-center gap-2">
                         <button
