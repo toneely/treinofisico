@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { Plus, Trash2, GripVertical, Save, AlertCircle, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import ExerciseSelector from './ExerciseSelector';
 
 const BlockConfigurator = ({ overrideUserId = null }) => {
   const { user: authUser } = useAuth();
@@ -38,6 +39,8 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   };
 
   const fetchExercises = async () => {
+    // Only fetch basic info if needed for other parts,
+    // but the ExerciseSelector now handles the heavy lifting
     const { data } = await supabase.from('exercicios').select('id, nome, descanso_passivo_segundos').order('nome');
     setExercises(data || []);
   };
@@ -220,15 +223,11 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           {eIdx === 0 ? 'Exercício Principal' : 'Exercício Alternado'}
                         </label>
-                        <select
-                          value={ex.exercicio_id}
-                          onChange={(e) => updateExercise(bIdx, eIdx, 'exercicio_id', e.target.value)}
-                          className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                        >
-                          {exercises.map(item => (
-                            <option key={item.id} value={item.id}>{item.nome}</option>
-                          ))}
-                        </select>
+                        <ExerciseSelector
+                            currentExerciseId={ex.exercicio_id}
+                            onSelect={(newId) => updateExercise(bIdx, eIdx, 'exercicio_id', newId)}
+                            overrideUserId={overrideUserId}
+                        />
                       </div>
 
                       <div className="w-20 flex flex-col gap-1">

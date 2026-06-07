@@ -84,9 +84,9 @@ const Admin = () => {
                             <Dumbbell className="text-indigo-600" size={24} />
                             Catálogo de Exercícios Padrão
                         </h2>
-                        <p className="text-sm text-slate-500 mt-1">Exercícios globais disponíveis para o molde.</p>
+                        <p className="text-sm text-slate-500 mt-1">Biblioteca Global de exercícios disponíveis para todos os usuários.</p>
                     </div>
-                    <ExerciseManager overrideUserId={moldeUserId} />
+                    <ExerciseManager targetTable="exercicios_padrao" />
                 </section>
 
                 <section>

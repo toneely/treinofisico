@@ -4,7 +4,7 @@ import { Plus, Trash2, Edit2, Check, X, Search } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
-const ExerciseManager = ({ overrideUserId = null }) => {
+const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [exercises, setExercises] = useState([]);
@@ -15,22 +15,27 @@ const ExerciseManager = ({ overrideUserId = null }) => {
     nome: '',
     alvo_principal: '',
     tipo_fibra: 'Tipo IIa',
-    categoria: 'Empurrar',
+    categoria: 'Musculação',
     depende_peso_corporal: false,
     descanso_passivo_segundos: 60
   });
 
   useEffect(() => {
     fetchExercises();
-  }, []);
+  }, [targetTable]);
 
   const fetchExercises = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('exercicios')
+    let query = supabase
+      .from(targetTable)
       .select('*')
-      .eq('user_id', overrideUserId || authUser.id)
       .order('nome', { ascending: true });
+
+    if (targetTable === 'exercicios') {
+        query = query.eq('user_id', overrideUserId || authUser.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Erro ao buscar exercícios:', error);
@@ -51,12 +56,16 @@ const ExerciseManager = ({ overrideUserId = null }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const userId = overrideUserId || authUser.id;
+    const payload = { ...formData };
+    if (targetTable === 'exercicios') {
+        payload.user_id = userId;
+    }
+
     if (isEditing) {
-      const { error } = await supabase
-        .from('exercicios')
-        .update({ ...formData, user_id: userId })
-        .eq('id', isEditing)
-        .eq('user_id', userId);
+      let query = supabase.from(targetTable).update(payload).eq('id', isEditing);
+      if (targetTable === 'exercicios') query = query.eq('user_id', userId);
+
+      const { error } = await query;
 
       if (error) showToast('Erro ao atualizar exercício: ' + error.message, 'error');
       else {
@@ -67,8 +76,8 @@ const ExerciseManager = ({ overrideUserId = null }) => {
       }
     } else {
       const { error } = await supabase
-        .from('exercicios')
-        .insert([{ ...formData, user_id: userId }]);
+        .from(targetTable)
+        .insert([payload]);
 
       if (error) showToast('Erro ao criar exercício: ' + error.message, 'error');
       else {
@@ -84,7 +93,7 @@ const ExerciseManager = ({ overrideUserId = null }) => {
       nome: '',
       alvo_principal: '',
       tipo_fibra: 'Tipo IIa',
-      categoria: 'Empurrar',
+      categoria: 'Musculação',
       depende_peso_corporal: false,
       descanso_passivo_segundos: 60
     });
@@ -106,11 +115,10 @@ const ExerciseManager = ({ overrideUserId = null }) => {
   const handleDelete = async (id) => {
     const userId = overrideUserId || authUser.id;
     if (window.confirm('Tem certeza que deseja excluir este exercício?')) {
-      const { error } = await supabase
-        .from('exercicios')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
+      let query = supabase.from(targetTable).delete().eq('id', id);
+      if (targetTable === 'exercicios') query = query.eq('user_id', userId);
+
+      const { error } = await query;
 
       if (error) showToast('Erro ao excluir exercício: ' + error.message, 'error');
       else {
@@ -179,10 +187,13 @@ const ExerciseManager = ({ overrideUserId = null }) => {
               onChange={handleInputChange}
               className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             >
-              <option value="Empurrar">Empurrar</option>
-              <option value="Puxar">Puxar</option>
-              <option value="Perna">Perna</option>
-              <option value="Postural">Postural</option>
+              <option value="Musculação">Musculação</option>
+              <option value="CrossFit">CrossFit</option>
+              <option value="Pilates">Pilates</option>
+              <option value="Calistenia">Calistenia</option>
+              <option value="Mobilidade">Mobilidade</option>
+              <option value="Cardio">Cardio</option>
+              <option value="Luta">Luta</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
