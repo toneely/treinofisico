@@ -215,7 +215,8 @@ function trainingReducer(state, action) {
             currentSerie: action.sNum,
             isTimerActive: false,
             timer: 0,
-            status: 'IDLE'
+            status: 'IDLE',
+            activeRestTimers: {} // Reset active rest timers on manual override
         };
     }
 
@@ -710,7 +711,7 @@ const Training = () => {
                         onClick={() => dispatch({ type: 'START_SERIES', exercicio_id: exercise.exercicio_id })}
                         data-testid="start-timer-btn"
                         className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 ${
-                            isCoringa ? 'bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/50' : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/50'
+                            isCoringa ? 'bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/50' : (isPrimaryEx ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-purple-500 shadow-purple-500/50') + ' text-white shadow-lg'
                         }`}
                     >
                         <Play fill="currentColor" className="ml-1" />
@@ -736,6 +737,47 @@ const Training = () => {
                     </button>
                 )}
            </div>
+        </div>
+
+        <div className="flex flex-col gap-3 mb-6">
+            {(!state.isTimerActive && state.timer > 0) && (
+                <button
+                    onClick={() => dispatch({ type: 'ADVANCE_STEP', payload: { currentBlock } })}
+                    disabled={savingSession}
+                    className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                        isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
+                    }`}
+                >
+                    {savingSession ? 'Salvando...' : (() => {
+                        const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
+                        const isLastInBlock = state.executionMode === 'isolated'
+                            ? (state.currentExerciseInBlock === currentBlock.length - 1 && state.currentSerie === exercise.series_alvo)
+                            : currentBlock.every(ex => (state.exerciseTimes[ex.exercicio_id]?.length || 0) >= ex.series_alvo);
+
+                        if (isLastInBlock) {
+                            if (isLastBlock) return <><Save /> {state.isCatchupPhase ? 'Finalizar Repescagem' : 'Finalizar Treino'}</>;
+                            return <><ChevronRight /> Próximo bloco</>;
+                        }
+
+                        const isFirstAlternatedTransition = state.executionMode === 'alternated' &&
+                                                           currentBlock.length > 1 &&
+                                                           state.currentExerciseInBlock === 0 &&
+                                                           (state.exerciseTimes[exercise.exercicio_id]?.length || 0) === 1;
+
+                        return <>{isFirstAlternatedTransition ? 'Ir para Alternado' : 'Próxima Série'} <ChevronRight /></>;
+                    })()}
+                </button>
+            )}
+
+            {!state.isCatchupPhase && (
+                <button
+                    onClick={() => dispatch({ type: 'SKIP_EXERCISE', payload: { currentBlock } })}
+                    disabled={state.isTimerActive || savingSession}
+                    className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                >
+                    <SkipForward size={16} /> Pular Exercício
+                </button>
+            )}
         </div>
 
         {/* Simultaneous Loads (if alternated) */}
@@ -782,36 +824,8 @@ const Training = () => {
           </div>
         )}
 
-        <div className="flex flex-col gap-3">
-            {(!state.isTimerActive && state.timer > 0) && (
-                <button
-                    onClick={() => dispatch({ type: 'ADVANCE_STEP', payload: { currentBlock } })}
-                    disabled={savingSession}
-                    className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
-                        isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
-                    }`}
-                >
-                    {savingSession ? 'Salvando...' : (
-                        (state.currentBlockIndex === state.blocos.length - 1 && state.currentSerie === exercise.series_alvo && (state.executionMode === 'isolated' ? state.currentExerciseInBlock === currentBlock.length - 1 : true))
-                        ? <><Save /> {state.isCatchupPhase ? 'Finalizar Repescagem' : 'Finalizar Treino'}</>
-                        : <>{state.executionMode === 'alternated' && currentBlock.length > 1 && state.currentExerciseInBlock === 0 ? 'Ir para Alternado' : 'Próxima Série'} <ChevronRight /></>
-                    )}
-                </button>
-            )}
-
-            {!state.isCatchupPhase && (
-                <button
-                    onClick={() => dispatch({ type: 'SKIP_EXERCISE', payload: { currentBlock } })}
-                    disabled={state.isTimerActive || savingSession}
-                    className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
-                >
-                    <SkipForward size={16} /> Pular Exercício
-                </button>
-            )}
-        </div>
-
         {/* Session Exercise List */}
-        <div className="mt-12 space-y-4">
+        <div className="mt-12 space-y-4 pb-32">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Exercícios da Sessão</h3>
             {state.blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
                 const isDone = (bIdx < state.currentBlockIndex) ||
