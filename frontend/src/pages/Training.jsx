@@ -278,7 +278,12 @@ function trainingReducer(state, action) {
         return { ...state, executionMode: state.executionMode === 'alternated' ? 'isolated' : 'alternated' };
 
     case 'SHOW_CHECKOUT':
-        return { ...state, showCheckoutModal: true, status: 'IDLE' };
+        return {
+            ...state,
+            showCheckoutModal: true,
+            status: 'IDLE',
+            skippedExercises: action.payload || state.skippedExercises
+        };
 
     case 'CLOSE_CHECKOUT':
         return { ...state, showCheckoutModal: false, status: 'IDLE' };
@@ -554,8 +559,23 @@ const Training = () => {
   // Sync state.status to checkout modal
   useEffect(() => {
     if (state.status === 'COMPLETED') {
-        if (state.skippedExercises.length > 0 && !state.isCatchupPhase) {
-            dispatch({ type: 'SHOW_CHECKOUT' });
+        if (!state.isCatchupPhase) {
+            // Robust check for pending series across all exercises
+            const pendingExercises = [];
+            state.originalBlocos.forEach(block => {
+                block.forEach(ex => {
+                    const doneSeries = state.exerciseTimes[ex.exercicio_id]?.length || 0;
+                    if (doneSeries < ex.series_alvo) {
+                        pendingExercises.push({ ...ex, partialSerie: doneSeries + 1 });
+                    }
+                });
+            });
+
+            if (pendingExercises.length > 0) {
+                dispatch({ type: 'SHOW_CHECKOUT', payload: pendingExercises });
+            } else {
+                finishWorkout();
+            }
         } else {
             finishWorkout();
         }
@@ -907,13 +927,16 @@ const Training = () => {
                                     }`}>
                                         <button
                                             onClick={() => {
-                                                if (!isDone && !isCurrentS) {
+                                                if (!isCurrentS) {
                                                     dispatch({ type: 'MANUAL_OVERRIDE', bIdx, eIdx, sNum });
                                                     showToast(`Foco alterado para Série ${sNum}`, 'info');
                                                 }
                                             }}
-                                            disabled={isDone || isCurrentS}
-                                            className={`font-black text-[9px] uppercase mb-2 hover:underline cursor-pointer ${isCurrentS ? 'opacity-100' : 'opacity-40'}`}
+                                            className={`font-black text-[9px] uppercase mb-2 px-2 py-0.5 rounded-md transition-all ${
+                                                isCurrentS
+                                                    ? 'bg-white/20 text-white opacity-100'
+                                                    : 'hover:bg-white/10 text-white/60 hover:text-white cursor-pointer active:scale-95'
+                                            }`}
                                         >
                                             Série {sNum}
                                         </button>
