@@ -8,6 +8,7 @@ import WorkoutManager from '../components/WorkoutManager';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('onboarding');
+  const [subTab, setSubTab] = useState('workouts');
   const [moldeUserId, setMoldeUserId] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -17,16 +18,31 @@ const Admin = () => {
 
   const fetchMoldeUser = async () => {
     setLoading(true);
-    // Note: In a real scenario with Supabase Auth, we can't search auth.users by email from the client
-    // unless we use a custom Edge Function or a public mapping table.
-    // For now, we assume the 'usuarios' table has the entry for the molde user.
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id')
-      .eq('email_referencia', 'molde@treinofisico.com.br')
-      .maybeSingle();
+    // Note: The 'email_referencia' column might not exist yet in the database.
+    // We try to find the template user by name 'Tone Ely' (legacy system owner)
+    // or fallback to the provided molde email if the column is added.
+    try {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('nome', 'Tone Ely')
+          .limit(1)
+          .maybeSingle();
 
-    setMoldeUserId(data?.id);
+        if (data) {
+            setMoldeUserId(data.id);
+        } else {
+            // Fallback for when email_referencia is implemented
+            const { data: byEmail } = await supabase
+                .from('usuarios')
+                .select('id')
+                .eq('email_referencia', 'molde@treinofisico.com.br')
+                .maybeSingle();
+            setMoldeUserId(byEmail?.id);
+        }
+    } catch (e) {
+        console.warn('Could not fetch molde user:', e);
+    }
     setLoading(false);
   };
 
