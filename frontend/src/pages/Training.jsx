@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   Play, Pause, RotateCcw, ChevronLeft, ChevronRight,
@@ -10,6 +10,286 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
+// --- State Machine Helpers ---
+
+const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+};
+
+const parseTime = (timeStr) => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const [mins, secs] = timeStr.split(':').map(Number);
+    return (mins * 60) + (secs || 0);
+};
+
+const initialState = {
+  currentBlockIndex: 0,
+  currentExerciseInBlock: 0,
+  currentSerie: 1,
+  executionMode: 'alternated',
+
+  isTimerActive: false,
+  timer: 0,
+  status: 'IDLE', // IDLE, EXECUTING, RESTING, COMPLETED
+
+  exerciseTimes: {},    // { exercicio_id: [s1, s2...] }
+  restTimes: {},        // { exercicio_id: [s1, s2...] }
+  activeRestTimers: {}, // { exercicio_id: { seconds: number, title: string, nome: string } }
+
+  cargas: {},           // { exercicio_id: last_used_load }
+  exerciseLoads: {},    // { exercicio_id: [s1, s2...] }
+  repsFeitas: {},       // { exercicio_id: current_input_reps }
+  exerciseReps: {},     // { exercicio_id: [s1, s2...] }
+
+  skippedExercises: [],
+  isCatchupPhase: false,
+  showCheckoutModal: false,
+  blocos: [],
+  originalBlocos: []
+};
+
+function trainingReducer(state, action) {
+  switch (action.type) {
+    case 'INIT_SESSION':
+      return {
+        ...state,
+        ...action.payload,
+        status: 'IDLE'
+      };
+
+    case 'TICK': {
+      const nextActiveRestTimers = { ...state.activeRestTimers };
+      Object.keys(nextActiveRestTimers).forEach(id => {
+        nextActiveRestTimers[id] = { ...nextActiveRestTimers[id], seconds: nextActiveRestTimers[id].seconds + 1 };
+      });
+
+      return {
+        ...state,
+        timer: state.isTimerActive ? state.timer + 1 : state.timer,
+        activeRestTimers: nextActiveRestTimers
+      };
+    }
+
+    case 'START_SERIES': {
+      const exId = action.exercicio_id;
+      const idStr = String(exId);
+      const nextRestTimes = { ...state.restTimes };
+      const nextActiveRestTimers = { ...state.activeRestTimers };
+
+      if (nextActiveRestTimers[idStr]) {
+        nextRestTimes[idStr] = [...(nextRestTimes[idStr] || []), nextActiveRestTimers[idStr].seconds];
+        delete nextActiveRestTimers[idStr];
+      }
+
+      return {
+        ...state,
+        timer: 0,
+        isTimerActive: true,
+        status: 'EXECUTING',
+        restTimes: nextRestTimes,
+        activeRestTimers: nextActiveRestTimers
+      };
+    }
+
+    case 'STOP_SERIES': {
+      const { exId, currentInputLoad, currentInputReps, nomeEx, seriesAlvo } = action.payload;
+      const isLastSerie = state.currentSerie >= seriesAlvo;
+
+      const nextExerciseLoads = { ...state.exerciseLoads, [exId]: [...(state.exerciseLoads[exId] || []), currentInputLoad] };
+      const nextExerciseReps = { ...state.exerciseReps, [exId]: [...(state.exerciseReps[exId] || []), currentInputReps] };
+      const nextExerciseTimes = { ...state.exerciseTimes, [exId]: [...(state.exerciseTimes[exId] || []), state.timer] };
+
+      const nextActiveRestTimers = { ...state.activeRestTimers };
+      if (!isLastSerie) {
+        nextActiveRestTimers[String(exId)] = {
+          seconds: 0,
+          title: `Descanso ${state.currentSerie}-${seriesAlvo}`,
+          nome: nomeEx
+        };
+      }
+
+      return {
+        ...state,
+        isTimerActive: false,
+        status: 'RESTING',
+        exerciseLoads: nextExerciseLoads,
+        exerciseReps: nextExerciseReps,
+        exerciseTimes: nextExerciseTimes,
+        activeRestTimers: nextActiveRestTimers
+      };
+    }
+
+    case 'ADVANCE_STEP': {
+        const { currentBlock } = action.payload;
+
+        let blockFinished = false;
+        if (state.executionMode === 'isolated' || currentBlock.length === 1) {
+            blockFinished = (state.currentExerciseInBlock === currentBlock.length - 1) &&
+                            (state.currentSerie >= currentBlock[state.currentExerciseInBlock].series_alvo);
+        } else {
+            blockFinished = currentBlock.every(ex => (state.exerciseTimes[ex.exercicio_id]?.length || 0) >= ex.series_alvo);
+        }
+
+        if (blockFinished) {
+            const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
+            if (isLastBlock) return { ...state, status: 'COMPLETED' };
+
+            return {
+                ...state,
+                currentBlockIndex: state.currentBlockIndex + 1,
+                currentExerciseInBlock: 0,
+                currentSerie: 1,
+                timer: 0,
+                status: 'IDLE'
+            };
+        }
+
+        if (state.executionMode === 'alternated' && currentBlock.length > 1) {
+            let nextIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+            for (let i = 0; i < currentBlock.length; i++) {
+                const candidate = currentBlock[nextIdx];
+                const doneSeries = state.exerciseTimes[candidate.exercicio_id]?.length || 0;
+                if (doneSeries < candidate.series_alvo) {
+                    return {
+                        ...state,
+                        currentExerciseInBlock: nextIdx,
+                        currentSerie: doneSeries + 1,
+                        timer: 0,
+                        status: 'IDLE'
+                    };
+                }
+                nextIdx = (nextIdx + 1) % currentBlock.length;
+            }
+        }
+
+        if (state.currentSerie < currentBlock[state.currentExerciseInBlock].series_alvo) {
+            return { ...state, currentSerie: state.currentSerie + 1, timer: 0, status: 'IDLE' };
+        } else {
+            return { ...state, currentExerciseInBlock: state.currentExerciseInBlock + 1, currentSerie: 1, timer: 0, status: 'IDLE' };
+        }
+    }
+
+    case 'SKIP_EXERCISE': {
+        const { currentBlock } = action.payload;
+        const exercise = currentBlock[state.currentExerciseInBlock];
+        const isLastInBlock = state.currentExerciseInBlock === currentBlock.length - 1;
+
+        let nextState = { ...state, isTimerActive: false, timer: 0, status: 'IDLE' };
+
+        if (state.executionMode === 'alternated' && currentBlock.length > 1 && !isLastInBlock) {
+            nextState.currentExerciseInBlock += 1;
+            const nextDone = state.exerciseTimes[currentBlock[nextState.currentExerciseInBlock].exercicio_id]?.length || 0;
+            nextState.currentSerie = nextDone + 1;
+        } else {
+            if (!state.isCatchupPhase) {
+                const alreadySkipped = state.skippedExercises.some(s => s.exercicio_id === exercise.exercicio_id);
+                if (!alreadySkipped) {
+                    nextState.skippedExercises = [...state.skippedExercises, { ...exercise, partialSerie: state.currentSerie }];
+                }
+            }
+
+            if (isLastInBlock) {
+                if (state.currentBlockIndex === state.blocos.length - 1) {
+                    nextState.status = 'COMPLETED';
+                } else {
+                    nextState.currentBlockIndex += 1;
+                    nextState.currentExerciseInBlock = 0;
+                    nextState.currentSerie = 1;
+                }
+            } else {
+                nextState.currentExerciseInBlock += 1;
+                nextState.currentSerie = 1;
+            }
+        }
+        return nextState;
+    }
+
+    case 'MANUAL_OVERRIDE': {
+        return {
+            ...state,
+            currentBlockIndex: action.bIdx,
+            currentExerciseInBlock: action.eIdx,
+            currentSerie: action.sNum,
+            isTimerActive: false,
+            timer: 0,
+            status: 'IDLE'
+        };
+    }
+
+    case 'SET_VALUE': {
+        const { fieldType, exId, sIdx, val, part } = action;
+        const targetMap = {
+            load: 'exerciseLoads', reps: 'exerciseReps',
+            exec: 'exerciseTimes', rest: 'restTimes',
+            currentCarga: 'cargas', currentReps: 'repsFeitas'
+        };
+        const mapKey = targetMap[fieldType];
+
+        if (fieldType === 'currentCarga' || fieldType === 'currentReps') {
+            return { ...state, [mapKey]: { ...state[mapKey], [exId]: val } };
+        }
+
+        const newArr = [...(state[mapKey][exId] || [])];
+        if (fieldType === 'exec' || fieldType === 'rest') {
+            const currentSeconds = newArr[sIdx] || 0;
+            const mins = Math.floor(currentSeconds / 60);
+            const secs = currentSeconds % 60;
+            if (part === 'mins') newArr[sIdx] = (parseInt(val) || 0) * 60 + secs;
+            else if (part === 'secs') newArr[sIdx] = mins * 60 + (parseInt(val) || 0);
+        } else {
+            newArr[sIdx] = val;
+        }
+
+        return { ...state, [mapKey]: { ...state[mapKey], [exId]: newArr } };
+    }
+
+    case 'DISMISS_REST': {
+        const nextActive = { ...state.activeRestTimers };
+        delete nextActive[action.exId];
+        return { ...state, activeRestTimers: nextActive };
+    }
+
+    case 'START_CATCHUP': {
+        const catchupBlocks = state.skippedExercises.map((ex, idx) => ([{
+            ...ex,
+            numero_bloco: 999 + idx
+        }]));
+        const firstPartial = state.skippedExercises[0]?.partialSerie || 1;
+
+        return {
+            ...state,
+            blocos: catchupBlocks,
+            skippedExercises: [],
+            isCatchupPhase: true,
+            showCheckoutModal: false,
+            currentBlockIndex: 0,
+            currentExerciseInBlock: 0,
+            currentSerie: firstPartial,
+            timer: 0,
+            isTimerActive: false
+        };
+    }
+
+    case 'TOGGLE_MODE':
+        return { ...state, executionMode: state.executionMode === 'alternated' ? 'isolated' : 'alternated' };
+
+    case 'SHOW_CHECKOUT':
+        return { ...state, showCheckoutModal: true, status: 'IDLE' };
+
+    case 'CLOSE_CHECKOUT':
+        return { ...state, showCheckoutModal: false, status: 'IDLE' };
+
+    case 'RESET_TIMER':
+        return { ...state, timer: 0, isTimerActive: false, status: 'IDLE' };
+
+    default:
+      return state;
+  }
+}
+
 const Training = () => {
   const { showToast } = useToast();
   const { user: authUser } = useAuth();
@@ -19,33 +299,15 @@ const Training = () => {
   const isResuming = new URLSearchParams(location.search).get('resume') === 'true';
 
   const [user, setUser] = useState(null);
-  const [blocos, setBlocos] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
-  const [currentExerciseInBlock, setCurrentExerciseInBlock] = useState(0);
-  const [currentSerie, setCurrentSerie] = useState(1);
-  const [executionMode, setExecutionMode] = useState('alternated'); // 'alternated' or 'isolated'
-
-  const [timer, setTimer] = useState(0);
-  const [isTimerActive, setIsTimerActive] = useState(false);
-  const [timerMode, setTimerMode] = useState('execution'); // 'execution' or 'rest'
-  const [exerciseTimes, setExerciseTimes] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [restTimes, setRestTimes] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [activeRestTimers, setActiveRestTimers] = useState({}); // { exercicio_id: { seconds: number, title: string, nome: string } }
-  const [lastExecutionTimes, setLastExecutionTimes] = useState({}); // { exercicio_id: seconds }
-
-  const [cargas, setCargas] = useState({}); // { exercicio_id: current_input_value }
-  const [exerciseLoads, setExerciseLoads] = useState({}); // { exercicio_id: [s1, s2...] }
-  const [repsFeitas, setRepsFeitas] = useState({}); // { exercicio_id: current_input_value }
-  const [exerciseReps, setExerciseReps] = useState({}); // { exercicio_id: [s1, s2...] }
   const [savingSession, setSavingSession] = useState(false);
-
-  const [originalBlocos, setOriginalBlocos] = useState([]);
-  const [skippedExercises, setSkippedExercises] = useState([]);
-  const [isCatchupPhase, setIsCatchupPhase] = useState(false);
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
+  const [lastExecutionTimes, setLastExecutionTimes] = useState({});
+  const [metronomeActive, setMetronomeActive] = useState(false);
+  const [bpm, setBpm] = useState(60);
+  const audioContextRef = React.useRef(null);
+
+  const [state, dispatch] = useReducer(trainingReducer, initialState);
 
   // Time conversion helpers
   const formatTime = (seconds) => {
@@ -61,12 +323,8 @@ const Training = () => {
     return (mins * 60) + (secs || 0);
   };
 
-  const [metronomeActive, setMetronomeActive] = useState(false);
-  const [bpm, setBpm] = useState(60);
-  const audioContextRef = React.useRef(null);
-
-  const currentBlock = blocos[currentBlockIndex] || [];
-  const exercise = currentBlock[currentExerciseInBlock] || { exercicios: {}, exercicio_id: null, series_alvo: 0 };
+  const currentBlock = state.blocos[state.currentBlockIndex] || [];
+  const exercise = currentBlock[state.currentExerciseInBlock] || { exercicios: {}, exercicio_id: null, series_alvo: 0 };
 
   useEffect(() => {
     fetchData();
@@ -74,31 +332,10 @@ const Training = () => {
 
   // Persistence Logic
   useEffect(() => {
-    if (!loading && blocos.length > 0) {
-      const stateToSave = {
-        letra,
-        currentBlockIndex,
-        currentExerciseInBlock,
-        currentSerie,
-        exerciseTimes,
-        restTimes,
-        exerciseLoads,
-        exerciseReps,
-        cargas,
-        repsFeitas,
-        executionMode,
-        isCatchupPhase,
-        skippedExercises,
-        originalBlocos
-      };
-      localStorage.setItem('active_training_session', JSON.stringify(stateToSave));
+    if (!loading && state.blocos.length > 0) {
+      localStorage.setItem('active_training_session', JSON.stringify({ ...state, letra }));
     }
-  }, [
-    currentBlockIndex, currentExerciseInBlock, currentSerie,
-    exerciseTimes, restTimes, exerciseLoads, exerciseReps,
-    cargas, repsFeitas, executionMode, isCatchupPhase,
-    skippedExercises, loading, blocos
-  ]);
+  }, [state, loading, letra]);
 
   useEffect(() => {
     let metronomeInterval = null;
@@ -135,34 +372,17 @@ const Training = () => {
   }, [metronomeActive, bpm]);
 
   useEffect(() => {
-    let interval = null;
-    if (isTimerActive) {
-      interval = setInterval(() => {
-        setTimer((prev) => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive]);
+    // Only tick if there is an active execution timer or at least one active rest timer
+    const hasActiveTimers = state.isTimerActive || Object.keys(state.activeRestTimers).length > 0;
 
-  useEffect(() => {
-    let interval = null;
-    const activeIds = Object.keys(activeRestTimers);
-    // Only run interval if there are timers AND they have content
-    if (activeIds.length > 0) {
-      interval = setInterval(() => {
-        setActiveRestTimers(prev => {
-            const next = { ...prev };
-            Object.keys(next).forEach(id => {
-                next[id] = { ...next[id], seconds: next[id].seconds + 1 };
-            });
-            return next;
-        });
-      }, 1000);
-    }
+    if (!hasActiveTimers) return;
+
+    const interval = setInterval(() => {
+        dispatch({ type: 'TICK' });
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [activeRestTimers]);
+  }, [state.isTimerActive, state.activeRestTimers]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -178,25 +398,12 @@ const Training = () => {
     if (isResuming) {
         const saved = localStorage.getItem('active_training_session');
         if (saved) {
-            const state = JSON.parse(saved);
-            setBlocos(state.originalBlocos || []);
-            setOriginalBlocos(state.originalBlocos || []);
-            setCurrentBlockIndex(state.currentBlockIndex);
-            setCurrentExerciseInBlock(state.currentExerciseInBlock);
-            setCurrentSerie(state.currentSerie);
-            setExerciseTimes(state.exerciseTimes);
-            setRestTimes(state.restTimes);
-            setExerciseLoads(state.exerciseLoads);
-            setExerciseReps(state.exerciseReps);
-            setCargas(state.cargas);
-            setRepsFeitas(state.repsFeitas);
-            setExecutionMode(state.executionMode);
-            setIsCatchupPhase(state.isCatchupPhase);
-            setSkippedExercises(state.skippedExercises);
+            const stateData = JSON.parse(saved);
+            dispatch({ type: 'INIT_SESSION', payload: stateData });
             setLoading(false);
 
-            // Also need last execution times for reference
-            const data = (state.originalBlocos || []).flat();
+            // Last execution times
+            const data = (stateData.originalBlocos || []).flat();
             const exerciseIds = data.map(ex => ex.exercicio_id);
             const { data: lastHistory } = await supabase
                 .from('historico_cargas')
@@ -227,26 +434,24 @@ const Training = () => {
     if (error) {
       console.error('Erro ao buscar treino:', error);
     } else {
-      // Fetch last execution data (times and loads) for these exercises
       const exerciseIds = data.map(ex => ex.exercicio_id);
       const { data: lastHistory } = await supabase
         .from('historico_cargas')
-        .select('exercicio_id, tempo_total_segundos, carga_utilizada, repeticoes_feitas, data_treino')
+        .select('exercicio_id, tempo_total_segundos, carga, repeticoes, data_treino')
         .in('exercicio_id', exerciseIds)
         .order('data_treino', { ascending: false });
 
       const lastTimes = {};
       const lastLoads = {};
-      const lastReps = {};
+      const lastRepsArr = {};
 
       if (lastHistory) {
         lastHistory.forEach(h => {
           if (!lastTimes[h.exercicio_id]) {
             lastTimes[h.exercicio_id] = h.tempo_total_segundos;
-            // If it's an array, take the last used value to pre-fill
-            const loadArr = Array.isArray(h.carga_utilizada) ? h.carga_utilizada : [h.carga_utilizada];
+            const loadArr = Array.isArray(h.carga) ? h.carga : [h.carga];
             lastLoads[h.exercicio_id] = loadArr[loadArr.length - 1];
-            lastReps[h.exercicio_id] = h.repeticoes_feitas;
+            lastRepsArr[h.exercicio_id] = Array.isArray(h.repeticoes) ? h.repeticoes : [h.repeticoes];
           }
         });
       }
@@ -258,395 +463,55 @@ const Training = () => {
         return acc;
       }, {});
       const blocksArray = Object.values(grouped);
-      setBlocos(blocksArray);
-      setOriginalBlocos(blocksArray);
 
-      // Initialize cargas and reps using exercicio_id, inheriting from last session if available
       const initialCargas = {};
       const initialReps = {};
       const initialTimes = {};
       const initialRests = {};
       const initialExLoads = {};
       const initialExReps = {};
+
       data.forEach((ex) => {
         initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
-        // For reps, prefer last session, otherwise parse target
-        initialReps[ex.exercicio_id] = lastReps[ex.exercicio_id] ?? (ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10);
+        const lastReps = lastRepsArr[ex.exercicio_id];
+        initialReps[ex.exercicio_id] = (lastReps && lastReps.length > 0) ? lastReps[lastReps.length - 1] : (ex.reps_alvo.includes('-') ? parseInt(ex.reps_alvo.split('-')[1]) : parseInt(ex.reps_alvo) || 10);
         initialTimes[ex.exercicio_id] = [];
         initialRests[ex.exercicio_id] = [];
         initialExLoads[ex.exercicio_id] = [];
         initialExReps[ex.exercicio_id] = [];
       });
-      setCargas(initialCargas);
-      setExerciseLoads(initialExLoads);
-      setExerciseReps(initialExReps);
-      setRepsFeitas(initialReps);
-      setExerciseTimes(initialTimes);
-      setRestTimes(initialRests);
+
+      dispatch({
+        type: 'INIT_SESSION',
+        payload: {
+            blocos: blocksArray,
+            originalBlocos: blocksArray,
+            cargas: initialCargas,
+            repsFeitas: initialReps,
+            exerciseTimes: initialTimes,
+            restTimes: initialRests,
+            exerciseLoads: initialExLoads,
+            exerciseReps: initialExReps
+        }
+      });
     }
     setLoading(false);
   };
 
-  const startTimer = (targetExerciseId = null) => {
-    const exId = targetExerciseId || exercise.exercicio_id;
-    if (!exId) return;
-
-    const idStr = String(exId);
-
-    // Independence Logic: Only stop and record the rest timer for THIS specific exercise.
-    // Other floating timers (e.g. from an alternated exercise) should keep running.
-    setActiveRestTimers(prev => {
-        if (prev[idStr]) {
-            const restDuration = prev[idStr].seconds;
-
-            // Record the rest time for this exercise
-            setRestTimes(rt => ({
-                ...rt,
-                [idStr]: [...(rt[idStr] || []), restDuration]
-            }));
-
-            const newState = { ...prev };
-            delete newState[idStr];
-            return newState;
-        }
-        return prev;
-    });
-
-    // Reset and start execution timer
-    setTimer(0);
-    setTimerMode('execution');
-    setIsTimerActive(true);
-  };
-
-  const stopAndRecordTime = () => {
-    const exId = exercise.exercicio_id;
-    if (!exId) return;
-
-    // Capture current input load and reps for this series
-    const currentInputLoad = parseFloat(cargas[exId]) || 0;
-    const currentInputReps = parseInt(repsFeitas[exId]) || 0;
-
-    setExerciseLoads(prev => ({
-        ...prev,
-        [exId]: [...(prev[exId] || []), currentInputLoad]
-    }));
-
-    setExerciseReps(prev => ({
-        ...prev,
-        [exId]: [...(prev[exId] || []), currentInputReps]
-    }));
-
-    setExerciseTimes(prev => ({
-        ...prev,
-        [exId]: [...(prev[exId] || []), timer]
-    }));
-    setIsTimerActive(false);
-  };
-
-  const stopExecutionAndStartRest = () => {
-    const exId = exercise.exercicio_id;
-    if (!exId) return;
-
-    // Check if it's the last series BEFORE stopAndRecordTime to prevent floating timer trigger
-    const isLastSerie = currentSerie >= exercise.series_alvo;
-
-    stopAndRecordTime();
-
-    // Bug fix 1: Don't spawn rest timer if it's the last series of the exercise
-    if (isLastSerie) {
-        return;
-    }
-
-    // Spawn trigger: Start floating rest for THIS exercise automatically
-    const idStr = String(exId);
-    setActiveRestTimers(prev => ({
-        ...prev,
-        [idStr]: {
-            seconds: 0,
-            title: `Descanso ${currentSerie}-${exercise.series_alvo}`,
-            nome: exercise.exercicios.nome
-        }
-    }));
-  };
-
-  const resetSeriesTimer = () => {
-    const exId = exercise.exercicio_id;
-    if (!exId) return;
-
-    const idStr = String(exId);
-
-    // Reset execution timer
-    setTimer(0);
-    setIsTimerActive(false);
-
-    // Cancel any associated active rest timer if it exists (accidental stop)
-    setActiveRestTimers(prev => {
-        if (prev[idStr]) {
-            const next = { ...prev };
-            delete next[idStr];
-            return next;
-        }
-        return prev;
-    });
-  };
-
-  const completeRestTimer = (exId) => {
-    const idStr = String(exId);
-
-    setActiveRestTimers(prev => {
-        if (!prev[idStr]) return prev;
-
-        const time = prev[idStr].seconds;
-        setRestTimes(rt => ({
-            ...rt,
-            [idStr]: [...(rt[idStr] || []), time]
-        }));
-
-        const next = { ...prev };
-        delete next[idStr];
-        return next;
-    });
-  };
-
-  const dismissRestTimer = (exId) => {
-    const idStr = String(exId);
-    setActiveRestTimers(prev => {
-        const next = { ...prev };
-        delete next[idStr];
-        return next;
-    });
-  };
-
-  const handleCargaChange = (exId, val) => {
-    // 1. Update the current input state
-    setCargas(prev => ({ ...prev, [exId]: val }));
-
-    // 2. If we have already finished a series (stopped timer), update the latest recorded load
-    // so user can correct it during rest.
-    setExerciseLoads(prev => {
-        const loads = [...(prev[exId] || [])];
-        if (loads.length > 0) {
-            loads[loads.length - 1] = val === '' ? null : parseFloat(val);
-        }
-        return { ...prev, [exId]: loads };
-    });
-  };
-
-  const handleRepsChange = (exId, val) => {
-    // 1. Update current input state
-    setRepsFeitas(prev => ({ ...prev, [exId]: val }));
-
-    // 2. Update latest recorded reps if we finished a series
-    setExerciseReps(prev => {
-        const reps = [...(prev[exId] || [])];
-        if (reps.length > 0) {
-            reps[reps.length - 1] = val === '' ? null : parseInt(val);
-        }
-        return { ...prev, [exId]: reps };
-    });
-  };
-
-  const updateSessionValue = (type, exId, sIdx, val, part = 'all') => {
-    const setters = {
-        load: setExerciseLoads,
-        reps: setExerciseReps,
-        exec: setExerciseTimes,
-        rest: setRestTimes
-    };
-
-    setters[type](prev => {
-        const arr = [...(prev[exId] || [])];
-        if (type === 'exec' || type === 'rest') {
-            const currentSeconds = arr[sIdx] || 0;
-            const mins = Math.floor(currentSeconds / 60);
-            const secs = currentSeconds % 60;
-
-            if (part === 'mins') {
-                arr[sIdx] = (parseInt(val) || 0) * 60 + secs;
-            } else if (part === 'secs') {
-                arr[sIdx] = mins * 60 + (parseInt(val) || 0);
-            } else {
-                arr[sIdx] = val === '' ? null : (typeof val === 'string' && val.includes(':') ? parseTime(val) : parseInt(val));
-            }
-        } else if (type === 'load') {
-            arr[sIdx] = val === '' ? null : parseFloat(val);
-        } else {
-            arr[sIdx] = val === '' ? null : parseInt(val);
-        }
-        return { ...prev, [exId]: arr };
-    });
-  };
-
-  const skipExercise = () => {
-    const currentBlock = blocos[currentBlockIndex];
-    const exercise = currentBlock[currentExerciseInBlock];
-
-    if (isTimerActive) stopAndRecordTime();
-
-    // Reset current exercise timer
-    setTimer(0);
-    setIsTimerActive(false);
-
-    const isLastInBlock = currentExerciseInBlock === currentBlock.length - 1;
-
-    if (executionMode === 'alternated' && currentBlock.length > 1 && !isLastInBlock) {
-        // Just move to the next exercise in the block, we'll return to this one later
-        // because nextStep/advanceUI handles the looping.
-        setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-    } else {
-        // Isolated or last in block or already the only one left
-        if (!isCatchupPhase) {
-            setSkippedExercises(prev => {
-                if (prev.find(s => s.exercicio_id === exercise.exercicio_id)) return prev;
-                return [...prev, { ...exercise, partialSerie: currentSerie }];
-            });
-        }
-
-        if (currentExerciseInBlock < currentBlock.length - 1) {
-            setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-            setCurrentSerie(1);
-        } else {
-            goToNextBlock();
-        }
-    }
-  };
-
-  const nextStep = () => {
-    const currentBlock = blocos[currentBlockIndex];
-    const isLastExerciseInBlock = currentExerciseInBlock === currentBlock.length - 1;
-    const isLastSerieOfBlock = currentSerie >= exercise.series_alvo &&
-                               currentBlock.every(ex => {
-                                 // Check if ALL exercises in block are done
-                                 // If we are at the last exercise, we check currentSerie
-                                 // If not, we'd need to know how many series they've done.
-                                 // But simple logic: if executionMode is alternated,
-                                 // they all follow the same series progression mostly.
-                                 return true;
-                               });
-
-    // Determine if the entire BLOCK is finished
-    let blockFinished = false;
-    if (executionMode === 'isolated') {
-        blockFinished = isLastExerciseInBlock && (currentSerie >= exercise.series_alvo);
-    } else {
-        // Alternated: finished when we are at the last exercise AND it's the last serie
-        // AND all other exercises in block have also reached their series_alvo.
-        const allExercisesDone = currentBlock.every(ex => {
-            const isCurrent = ex.exercicio_id === exercise.exercicio_id;
-            const doneSeries = (exerciseTimes[ex.exercicio_id]?.length || 0) + (isCurrent ? 1 : 0);
-            return doneSeries >= ex.series_alvo;
-        });
-        blockFinished = allExercisesDone;
-    }
-
-    if (blockFinished) {
-        if (currentBlockIndex === blocos.length - 1) {
-            handleWorkoutEnd();
-        } else {
-            goToNextBlock();
-        }
-        return;
-    }
-
-    advanceUI(currentBlock, isLastExerciseInBlock);
-    setTimer(0);
-    setIsTimerActive(false);
-  };
-
-  const advanceUI = (currentBlock, isLastExerciseInBlock) => {
-    if (executionMode === 'alternated' && currentBlock.length > 1) {
-        // Alternated Mode Logic:
-        // Try to find the next exercise in the block that still has series to do
-        let nextIdx = (currentExerciseInBlock + 1) % currentBlock.length;
-        let found = false;
-
-        // Loop once through the block to find the next available exercise
-        for (let i = 0; i < currentBlock.length; i++) {
-            const candidate = currentBlock[nextIdx];
-            const doneSeries = exerciseTimes[candidate.exercicio_id]?.length || 0;
-
-            if (doneSeries < candidate.series_alvo) {
-                setCurrentExerciseInBlock(nextIdx);
-                // Important: the global currentSerie should reflect how many series
-                // the focus exercise is about to perform.
-                setCurrentSerie(doneSeries + 1);
-                found = true;
-                break;
-            }
-            nextIdx = (nextIdx + 1) % currentBlock.length;
-        }
-
-        if (!found) {
-            // This should have been caught by blockFinished logic, but as fallback:
-            goToNextBlock();
-        }
-    } else {
-      // isolated mode or single-exercise block
-      if (currentSerie < exercise.series_alvo) {
-        setCurrentSerie(currentSerie + 1);
-      } else {
-        setCurrentExerciseInBlock(currentExerciseInBlock + 1);
-        setCurrentSerie(1);
-      }
-    }
-  };
-
-  const goToNextBlock = () => {
-    if (currentBlockIndex < blocos.length - 1) {
-      setCurrentBlockIndex(currentBlockIndex + 1);
-      setCurrentExerciseInBlock(0);
-      setCurrentSerie(1);
-      setTimer(0);
-      setIsTimerActive(false);
-    } else {
-      handleWorkoutEnd();
-    }
-  };
-
-  const handleWorkoutEnd = () => {
-    if (skippedExercises.length > 0 && !isCatchupPhase) {
-        setShowCheckoutModal(true);
-    } else {
-        finishWorkout();
-    }
-  };
-
-  const startCatchup = () => {
-    const catchupBlocks = skippedExercises.map((ex, idx) => ([{
-        ...ex,
-        numero_bloco: 999 + idx
-    }]));
-
-    if (catchupBlocks.length === 0) return;
-
-    const firstPartialSerie = skippedExercises[0]?.partialSerie || 1;
-
-    setBlocos(catchupBlocks);
-    setSkippedExercises([]);
-    setIsCatchupPhase(true);
-    setShowCheckoutModal(false);
-    setCurrentBlockIndex(0);
-    setCurrentExerciseInBlock(0);
-    setCurrentSerie(firstPartialSerie);
-    setTimer(0);
-    setIsTimerActive(false);
-  };
 
   const finishWorkout = async () => {
     setSavingSession(true);
-    // Record history
     const historyData = [];
     const workoutTimestamp = new Date().toISOString();
 
-    // We iterate through originalBlocos to make sure we don't lose data even if we are in catchup phase
-    originalBlocos.forEach((block) => {
+    state.originalBlocos.forEach((block) => {
       block.forEach((ex) => {
-        const val = cargas[ex.exercicio_id];
-        const execTimes = exerciseTimes[ex.exercicio_id] || [];
-        const rests = restTimes[ex.exercicio_id] || [];
+        const val = state.cargas[ex.exercicio_id];
+        const execTimes = state.exerciseTimes[ex.exercicio_id] || [];
+        const rests = state.restTimes[ex.exercicio_id] || [];
 
-        const exLoads = exerciseLoads[ex.exercicio_id] || [];
-        const exReps = exerciseReps[ex.exercicio_id] || [];
+        const exLoads = state.exerciseLoads[ex.exercicio_id] || [];
+        const exReps = state.exerciseReps[ex.exercicio_id] || [];
 
         if ((val !== '' && parseFloat(val) >= 0) || execTimes.length > 0 || rests.length > 0) {
             const totalExec = execTimes.reduce((a, b) => a + b, 0);
@@ -656,7 +521,7 @@ const Training = () => {
               user_id: authUser.id,
               exercicio_id: ex.exercicio_id,
               carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
-              repeticoes: exReps.length > 0 ? exReps : [parseInt(repsFeitas[ex.exercicio_id]) || 0],
+              repeticoes: exReps.length > 0 ? exReps : [parseInt(state.repsFeitas[ex.exercicio_id]) || 0],
               series_executadas: execTimes.length || ex.series_alvo,
               tempo_total_segundos: totalExec + totalRest,
               tempo_execucao_segundos: execTimes,
@@ -686,13 +551,26 @@ const Training = () => {
   };
 
   if (loading) return <div className="p-10 text-center text-slate-500">Iniciando treino...</div>;
-  if (!blocos.length) return <div className="p-10 text-center text-slate-500">Nenhum exercício encontrado. <Link to="/" className="underline">Voltar</Link></div>;
+  if (!state.blocos.length) return <div className="p-10 text-center text-slate-500">Nenhum exercício encontrado. <Link to="/" className="underline">Voltar</Link></div>;
 
   const isCoringa = currentBlock.some(b => b.is_coringa);
   const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
 
-  // State machine helper for UI highlights
-  const isWaitingForPlay = !isTimerActive && timer === 0;
+  const isWaitingForPlay = !state.isTimerActive && state.timer === 0;
+
+  // Sync state.status to checkout modal
+  useEffect(() => {
+    if (state.status === 'COMPLETED') {
+        if (state.skippedExercises.length > 0 && !state.isCatchupPhase) {
+            dispatch({ type: 'SHOW_CHECKOUT' });
+        } else {
+            finishWorkout();
+        }
+    }
+  }, [state.status]);
+
+  // Manual Timer Dismiss Helper
+  const dismissRestTimer = (exId) => dispatch({ type: 'DISMISS_REST', exId });
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${isCoringa ? 'bg-amber-900 text-amber-50' : 'bg-slate-900 text-white'}`}>
@@ -712,9 +590,9 @@ const Training = () => {
           </div>
           <div className="text-center">
             <span className={`text-[10px] uppercase font-black tracking-[0.2em] block mb-1 ${isCoringa ? 'text-amber-400' : 'text-indigo-400'}`}>
-              {isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !isCatchupPhase && '• CORINGA'}
+              {state.isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !state.isCatchupPhase && '• CORINGA'}
             </span>
-            <span className="font-bold text-lg">Bloco {currentBlockIndex + 1} de {blocos.length}</span>
+            <span className="font-bold text-lg">Bloco {state.currentBlockIndex + 1} de {state.blocos.length}</span>
           </div>
           <div className="flex gap-2">
             {/* Metronome Control */}
@@ -740,8 +618,8 @@ const Training = () => {
         <div className="flex gap-2 mb-8">
            {[...Array(exercise.series_alvo)].map((_, i) => (
              <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-               (i + 1) < currentSerie ? 'bg-emerald-500' :
-               (i + 1) === currentSerie ? (isCoringa ? 'bg-amber-400 animate-pulse' : 'bg-indigo-500 animate-pulse') :
+               (i + 1) < state.currentSerie ? 'bg-emerald-500' :
+               (i + 1) === state.currentSerie ? (isCoringa ? 'bg-amber-400 animate-pulse' : 'bg-indigo-500 animate-pulse') :
                (isCoringa ? 'bg-amber-800' : 'bg-slate-800')
              }`}></div>
            ))}
@@ -753,7 +631,7 @@ const Training = () => {
             <div>
               <div className="flex gap-2 items-center mb-2">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-500 text-white'}`}>
-                    Série {currentSerie} / {exercise.series_alvo}
+                    Série {state.currentSerie} / {exercise.series_alvo}
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-100/20 text-amber-100' : 'bg-rose-500 text-white'}`}>
                     {exercise.exercicios.alvo_principal}
@@ -768,8 +646,8 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
                 <input
                   type="number"
-                  value={cargas[exercise.exercicio_id] ?? ''}
-                  onChange={(e) => handleCargaChange(exercise.exercicio_id, e.target.value)}
+                  value={state.cargas[exercise.exercicio_id] ?? ''}
+                  onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentCarga', exId: exercise.exercicio_id, val: e.target.value })}
                   onFocus={(e) => e.target.select()}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
@@ -778,8 +656,8 @@ const Training = () => {
                 <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({exercise.reps_alvo})</label>
                 <input
                   type="number"
-                  value={repsFeitas[exercise.exercicio_id] ?? ''}
-                  onChange={(e) => handleRepsChange(exercise.exercicio_id, e.target.value)}
+                  value={state.repsFeitas[exercise.exercicio_id] ?? ''}
+                  onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentReps', exId: exercise.exercicio_id, val: e.target.value })}
                   onFocus={(e) => e.target.select()}
                   className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
                 />
@@ -796,7 +674,7 @@ const Training = () => {
 
         {/* Stopwatch & Reference */}
         <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${
-          isTimerActive
+          state.isTimerActive
             ? (isCoringa
                 ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50'
                 : (isPrimaryEx ? 'bg-indigo-600' : 'bg-purple-600') + ' scale-105 shadow-lg ' + (isPrimaryEx ? 'shadow-indigo-900/50' : 'shadow-purple-900/50')
@@ -807,12 +685,12 @@ const Training = () => {
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
               <div className="flex items-baseline gap-3">
                 <p className="text-4xl font-mono font-black">
-                    {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
+                    {formatTime(state.timer)}
                 </p>
                 {lastExecutionTimes[exercise.exercicios.id] > 0 && (
                   <div className="text-[10px] font-bold opacity-40 flex items-center gap-1">
                     <RotateCcw size={10} />
-                    Ref: {Math.floor(lastExecutionTimes[exercise.exercicios.id] / 60)}:{String(lastExecutionTimes[exercise.exercicios.id] % 60).padStart(2, '0')}
+                    Ref: {formatTime(lastExecutionTimes[exercise.exercicios.id])}
                   </div>
                 )}
               </div>
@@ -820,17 +698,16 @@ const Training = () => {
 
            <div className="flex items-center gap-3">
                 <button
-                    onClick={resetSeriesTimer}
+                    onClick={() => dispatch({ type: 'RESET_TIMER' })}
                     className="p-2 opacity-30 hover:opacity-100 transition rounded-lg hover:bg-white/10"
                     title="Reiniciar série"
                 >
                     <RotateCcw size={18} />
                 </button>
 
-                {/* Show Play only if not active AND timer is 0 (prevents resumption after Stop) */}
                 {isWaitingForPlay && (
                     <button
-                        onClick={() => startTimer()}
+                        onClick={() => dispatch({ type: 'START_SERIES', exercicio_id: exercise.exercicio_id })}
                         data-testid="start-timer-btn"
                         className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 ${
                             isCoringa ? 'bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/50' : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/50'
@@ -840,10 +717,18 @@ const Training = () => {
                     </button>
                 )}
 
-                {/* Show Stop button only if active */}
-                {isTimerActive && (
+                {state.isTimerActive && (
                     <button
-                        onClick={stopExecutionAndStartRest}
+                        onClick={() => dispatch({
+                            type: 'STOP_SERIES',
+                            payload: {
+                                exId: exercise.exercicio_id,
+                                currentInputLoad: parseFloat(state.cargas[exercise.exercicio_id]) || 0,
+                                currentInputReps: parseInt(state.repsFeitas[exercise.exercicio_id]) || 0,
+                                nomeEx: exercise.exercicios.nome,
+                                seriesAlvo: exercise.series_alvo
+                            }
+                        })}
                         data-testid="stop-timer-btn"
                         className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
                     >
@@ -859,16 +744,16 @@ const Training = () => {
              <div className="flex justify-between items-center mb-3">
                <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Carga Alternada</span>
                <button
-                  onClick={() => setExecutionMode(prev => prev === 'alternated' ? 'isolated' : 'alternated')}
+                  onClick={() => dispatch({ type: 'TOGGLE_MODE' })}
                   className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors ${
-                    executionMode === 'alternated' ? (isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-600 text-white') : 'bg-white/10 text-white/60'
+                    state.executionMode === 'alternated' ? (isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-600 text-white') : 'bg-white/10 text-white/60'
                   }`}
                >
-                  Modo: {executionMode === 'alternated' ? 'Alternado' : 'Isolado'}
+                  Modo: {state.executionMode === 'alternated' ? 'Alternado' : 'Isolado'}
                </button>
              </div>
              {currentBlock.map((ex, idx) => {
-               if (idx === currentExerciseInBlock) return null;
+               if (idx === state.currentExerciseInBlock) return null;
                return (
                  <div key={idx} className="space-y-2 border-t border-white/5 pt-3 mt-3 first:border-0 first:pt-0 first:mt-0">
                     <div className="flex items-center justify-between">
@@ -883,8 +768,8 @@ const Training = () => {
                             <Dumbbell size={14} className="opacity-40" />
                             <input
                                 type="number"
-                                value={cargas[ex.exercicio_id] ?? ''}
-                                onChange={(e) => handleCargaChange(ex.exercicio_id, e.target.value)}
+                                value={state.cargas[ex.exercicio_id] ?? ''}
+                                onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentCarga', exId: ex.exercicio_id, val: e.target.value })}
                                 onFocus={(e) => e.target.select()}
                                 className="bg-transparent w-12 font-mono font-bold text-right outline-none"
                             />
@@ -898,26 +783,26 @@ const Training = () => {
         )}
 
         <div className="flex flex-col gap-3">
-            {(!isTimerActive && timer > 0) && (
+            {(!state.isTimerActive && state.timer > 0) && (
                 <button
-                    onClick={nextStep}
+                    onClick={() => dispatch({ type: 'ADVANCE_STEP', payload: { currentBlock } })}
                     disabled={savingSession}
                     className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
                         isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
                     }`}
                 >
                     {savingSession ? 'Salvando...' : (
-                        (currentBlockIndex === blocos.length - 1 && currentSerie === exercise.series_alvo && (executionMode === 'isolated' ? currentExerciseInBlock === currentBlock.length - 1 : true))
-                        ? <><Save /> {isCatchupPhase ? 'Finalizar Repescagem' : 'Finalizar Treino'}</>
-                        : <>{executionMode === 'alternated' && currentBlock.length > 1 && currentExerciseInBlock === 0 ? 'Ir para Alternado' : 'Próxima Série'} <ChevronRight /></>
+                        (state.currentBlockIndex === state.blocos.length - 1 && state.currentSerie === exercise.series_alvo && (state.executionMode === 'isolated' ? state.currentExerciseInBlock === currentBlock.length - 1 : true))
+                        ? <><Save /> {state.isCatchupPhase ? 'Finalizar Repescagem' : 'Finalizar Treino'}</>
+                        : <>{state.executionMode === 'alternated' && currentBlock.length > 1 && state.currentExerciseInBlock === 0 ? 'Ir para Alternado' : 'Próxima Série'} <ChevronRight /></>
                     )}
                 </button>
             )}
 
-            {!isCatchupPhase && (
+            {!state.isCatchupPhase && (
                 <button
-                    onClick={skipExercise}
-                    disabled={isTimerActive || savingSession}
+                    onClick={() => dispatch({ type: 'SKIP_EXERCISE', payload: { currentBlock } })}
+                    disabled={state.isTimerActive || savingSession}
                     className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
                 >
                     <SkipForward size={16} /> Pular Exercício
@@ -928,14 +813,14 @@ const Training = () => {
         {/* Session Exercise List */}
         <div className="mt-12 space-y-4">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Exercícios da Sessão</h3>
-            {blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
-                const isDone = (bIdx < currentBlockIndex) ||
-                               (bIdx === currentBlockIndex && currentExerciseInBlock > eIdx) ||
-                               (bIdx === currentBlockIndex && currentExerciseInBlock === eIdx && currentSerie > ex.series_alvo);
+            {state.blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
+                const isDone = (bIdx < state.currentBlockIndex) ||
+                               (bIdx === state.currentBlockIndex && state.currentExerciseInBlock > eIdx) ||
+                               (bIdx === state.currentBlockIndex && state.currentExerciseInBlock === eIdx && state.currentSerie > ex.series_alvo);
 
-                const isCurrent = bIdx === currentBlockIndex && currentExerciseInBlock === eIdx;
-                const isSkipped = skippedExercises.some(s => s.exercicio_id === ex.exercicio_id);
-                const currentExSerie = isCurrent ? currentSerie : (isDone ? ex.series_alvo : (isSkipped ? (skippedExercises.find(s => s.exercicio_id === ex.exercicio_id)?.partialSerie || 0) : 0));
+                const isCurrent = bIdx === state.currentBlockIndex && state.currentExerciseInBlock === eIdx;
+                const isSkipped = state.skippedExercises.some(s => s.exercicio_id === ex.exercicio_id);
+                const currentExSerie = isCurrent ? state.currentSerie : (isDone ? ex.series_alvo : (isSkipped ? (state.skippedExercises.find(s => s.exercicio_id === ex.exercicio_id)?.partialSerie || 0) : 0));
 
                 return (
                     <div key={`${bIdx}_${eIdx}`} className={`relative p-4 rounded-2xl border transition-all ${
@@ -953,9 +838,9 @@ const Training = () => {
                                     <p className="font-bold text-sm">{ex.exercicios.nome}</p>
                                     <div className="flex gap-2 items-center">
                                         <p className="text-[10px] opacity-60 font-medium">Séries: {currentExSerie}/{ex.series_alvo}</p>
-                                        {cargas[ex.exercicio_id] > 0 && (
+                                        {state.cargas[ex.exercicio_id] > 0 && (
                                             <span className="text-[10px] font-black opacity-80 flex items-center gap-1">
-                                                <Dumbbell size={10} /> {cargas[ex.exercicio_id]}kg
+                                                <Dumbbell size={10} /> {state.cargas[ex.exercicio_id]}kg
                                             </span>
                                         )}
                                     </div>
@@ -974,13 +859,8 @@ const Training = () => {
                                     <div className="absolute right-0 bottom-full mb-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
                                         <button
                                             onClick={() => {
-                                                if (isTimerActive) stopAndRecordTime();
-                                                setCurrentBlockIndex(bIdx);
-                                                setCurrentExerciseInBlock(eIdx);
-                                                setCurrentSerie(currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1);
+                                                dispatch({ type: 'MANUAL_OVERRIDE', bIdx, eIdx, sNum: (currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1) });
                                                 setOpenMenuExId(null);
-                                                setTimer(0);
-                                                setIsTimerActive(false);
                                             }}
                                             className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
                                         >
@@ -995,16 +875,16 @@ const Training = () => {
                         <div className="mt-4 grid grid-cols-4 gap-2">
                             {[...Array(ex.series_alvo)].map((_, sIdx) => {
                                 const sNum = sIdx + 1;
-                                const execTime = exerciseTimes[ex.exercicio_id]?.[sIdx];
-                                const restTime = restTimes[ex.exercicio_id]?.[sIdx];
-                                const load = exerciseLoads[ex.exercicio_id]?.[sIdx];
-                                const reps = exerciseReps[ex.exercicio_id]?.[sIdx];
+                                const execTime = state.exerciseTimes[ex.exercicio_id]?.[sIdx];
+                                const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
+                                const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
+                                const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
 
-                                const isCurrentS = isCurrent && sNum === currentSerie;
-                                const liveExec = isCurrentS && isTimerActive ? timer : null;
+                                const isCurrentS = isCurrent && sNum === state.currentSerie;
+                                const liveExec = isCurrentS && state.isTimerActive ? state.timer : null;
 
                                 // Rest occurs AFTER the series. So Rest 1 follows Series 1.
-                                const liveRest = activeRestTimers[ex.exercicio_id] && sNum === (exerciseTimes[ex.exercicio_id]?.length) ? activeRestTimers[ex.exercicio_id].seconds : null;
+                                const liveRest = state.activeRestTimers[ex.exercicio_id] && sNum === (state.exerciseTimes[ex.exercicio_id]?.length) ? state.activeRestTimers[ex.exercicio_id].seconds : null;
 
                                 return (
                                     <div key={sIdx} className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
@@ -1014,12 +894,7 @@ const Training = () => {
                                         <button
                                             onClick={() => {
                                                 if (!isDone && !isCurrentS) {
-                                                    if (isTimerActive) stopAndRecordTime();
-                                                    setCurrentBlockIndex(bIdx);
-                                                    setCurrentExerciseInBlock(eIdx);
-                                                    setCurrentSerie(sNum);
-                                                    setTimer(0);
-                                                    setIsTimerActive(false);
+                                                    dispatch({ type: 'MANUAL_OVERRIDE', bIdx, eIdx, sNum });
                                                     showToast(`Foco alterado para Série ${sNum}`, 'info');
                                                 }
                                             }}
@@ -1035,7 +910,7 @@ const Training = () => {
                                                     type="number"
                                                     value={load || ''}
                                                     placeholder="-"
-                                                    onChange={(e) => updateSessionValue('load', ex.exercicio_id, sIdx, e.target.value)}
+                                                        onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'load', exId: ex.exercicio_id, sIdx, val: e.target.value })}
                                                     className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
                                                 />
                                                 <span className="text-[8px] font-bold opacity-40">kg</span>
@@ -1045,7 +920,7 @@ const Training = () => {
                                                     type="number"
                                                     value={reps || ''}
                                                     placeholder="-"
-                                                    onChange={(e) => updateSessionValue('reps', ex.exercicio_id, sIdx, e.target.value)}
+                                                        onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'reps', exId: ex.exercicio_id, sIdx, val: e.target.value })}
                                                     className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
                                                 />
                                                 <span className="text-[7px] font-bold opacity-30 uppercase">reps</span>
@@ -1066,7 +941,7 @@ const Training = () => {
                                                             value={execTime !== null && execTime !== undefined ? Math.floor(execTime / 60) : ''}
                                                             placeholder="0"
                                                             readOnly={!execTime && execTime !== 0}
-                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value, 'mins')}
+                                                                onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'exec', exId: ex.exercicio_id, sIdx, val: e.target.value, part: 'mins' })}
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
                                                         />
@@ -1076,7 +951,7 @@ const Training = () => {
                                                             value={execTime !== null && execTime !== undefined ? String(execTime % 60).padStart(2, '0') : ''}
                                                             placeholder="00"
                                                             readOnly={!execTime && execTime !== 0}
-                                                            onChange={(e) => updateSessionValue('exec', ex.exercicio_id, sIdx, e.target.value, 'secs')}
+                                                                onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'exec', exId: ex.exercicio_id, sIdx, val: e.target.value, part: 'secs' })}
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
                                                         />
@@ -1095,7 +970,7 @@ const Training = () => {
                                                             value={restTime !== null && restTime !== undefined ? Math.floor(restTime / 60) : ''}
                                                             placeholder="0"
                                                             readOnly={!restTime && restTime !== 0}
-                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value, 'mins')}
+                                                                    onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'rest', exId: ex.exercicio_id, sIdx, val: e.target.value, part: 'mins' })}
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
                                                         />
@@ -1105,7 +980,7 @@ const Training = () => {
                                                             value={restTime !== null && restTime !== undefined ? String(restTime % 60).padStart(2, '0') : ''}
                                                             placeholder="00"
                                                             readOnly={!restTime && restTime !== 0}
-                                                            onChange={(e) => updateSessionValue('rest', ex.exercicio_id, sIdx, e.target.value, 'secs')}
+                                                                    onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'rest', exId: ex.exercicio_id, sIdx, val: e.target.value, part: 'secs' })}
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
                                                         />
@@ -1123,7 +998,7 @@ const Training = () => {
         </div>
 
         {/* Checkout Modal */}
-        {showCheckoutModal && (
+        {state.showCheckoutModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
                     <div className="w-20 h-20 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1131,11 +1006,11 @@ const Training = () => {
                     </div>
                     <h2 className="text-2xl font-black text-white text-center mb-2">Fim de Treino?</h2>
                     <p className="text-slate-400 text-center text-sm mb-6">
-                        Você pulou <strong>{skippedExercises.length}</strong> exercícios durante a sessão. Deseja realizá-los agora na repescagem?
+                        Você possui <strong>{state.skippedExercises.length}</strong> exercícios pendentes. Deseja realizá-los agora na repescagem?
                     </p>
 
-                    <div className="space-y-2 mb-8 max-h-32 overflow-y-auto">
-                        {skippedExercises.map((ex, i) => (
+                    <div className="space-y-2 mb-8 max-h-32 overflow-y-auto scrollbar-hide">
+                        {state.skippedExercises.map((ex, i) => (
                             <div key={i} className="px-4 py-2 bg-white/5 rounded-xl text-xs font-bold text-slate-300 border border-white/5 italic">
                                 {ex.exercicios.nome}
                             </div>
@@ -1144,7 +1019,7 @@ const Training = () => {
 
                     <div className="flex flex-col gap-3">
                         <button
-                            onClick={startCatchup}
+                            onClick={() => dispatch({ type: 'START_CATCHUP' })}
                             className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black shadow-lg shadow-emerald-900/20 hover:bg-emerald-400 transition"
                         >
                             Fazer Agora (Repescagem)
@@ -1166,16 +1041,16 @@ const Training = () => {
       <footer className={`fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
         <div className="max-w-md mx-auto">
             {/* Horizontal Rest Timers */}
-            {Object.keys(activeRestTimers).length > 0 && (
+            {Object.keys(state.activeRestTimers).length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
-                    {Object.entries(activeRestTimers).map(([exId, data]) => {
+                    {Object.entries(state.activeRestTimers).map(([exId, data]) => {
                         const isPrimary = parseInt(exId) === (currentBlock[0]?.exercicio_id);
                         return (
                             <div key={exId} className={`flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[6px] font-black uppercase tracking-widest opacity-70 truncate">{data.nome || 'Exercício'}</span>
                                     <span className="text-sm font-mono font-black leading-tight">
-                                        {Math.floor(data.seconds / 60)}:{String(data.seconds % 60).padStart(2, '0')}
+                                        {formatTime(data.seconds)}
                                     </span>
                                 </div>
                                 <div className="ml-auto flex items-center gap-2">
@@ -1197,8 +1072,8 @@ const Training = () => {
             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">
                 <span>Progresso Geral</span>
                 <span>{(() => {
-                    const totalEx = blocos.reduce((acc, b) => acc + b.length, 0);
-                    const doneEx = blocos.slice(0, currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + currentExerciseInBlock;
+                    const totalEx = state.blocos.reduce((acc, b) => acc + b.length, 0);
+                    const doneEx = state.blocos.slice(0, state.currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + state.currentExerciseInBlock;
                     return Math.round((doneEx / totalEx) * 100);
                 })()}%</span>
             </div>
@@ -1206,8 +1081,8 @@ const Training = () => {
                 <div
                     className={`h-full transition-all duration-1000 ${isCoringa ? 'bg-amber-400' : 'bg-indigo-500'}`}
                     style={{ width: `${(() => {
-                        const totalEx = blocos.reduce((acc, b) => acc + b.length, 0);
-                        const doneEx = blocos.slice(0, currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + currentExerciseInBlock;
+                        const totalEx = state.blocos.reduce((acc, b) => acc + b.length, 0);
+                        const doneEx = state.blocos.slice(0, state.currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + state.currentExerciseInBlock;
                         return Math.round((doneEx / totalEx) * 100);
                     })()}%` }}
                 ></div>
