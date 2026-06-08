@@ -19,11 +19,11 @@ const UserSettings = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <header className="mb-8">
         <Link
-          to="/"
+          to="/inicio"
           className="text-slate-500 flex items-center gap-1 mb-4 hover: transition w-fit"
         >
           <ChevronLeft size={20} />
-          Voltar para Dashboard
+          Voltar para Início
         </Link>
         <h1 className="text-3xl font-bold  tracking-tight">
           Configurações do Plano

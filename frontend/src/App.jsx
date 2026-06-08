@@ -8,7 +8,7 @@ import {
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { AppearanceProvider } from "./context/AppearanceContext";
-import Dashboard from "./pages/Dashboard";
+import Inicio from "./pages/Inicio";
 import Admin from "./pages/Admin";
 import History from "./pages/History";
 import Training from "./pages/Training";
@@ -54,7 +54,7 @@ const AdminRoute = ({ children }) => {
         Carregando...
       </div>
     );
-  if (!user || !admins.includes(user.email)) return <Navigate to="/" />;
+  if (!user || !admins.includes(user.email)) return <Navigate to="/inicio" />;
 
   return children;
 };
@@ -88,9 +88,13 @@ const AppContent = () => {
         <Route path="/login" element={<Login />} />
         <Route
           path="/"
+          element={<Navigate to="/inicio" replace />}
+        />
+        <Route
+          path="/inicio"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Inicio />
             </ProtectedRoute>
           }
         />

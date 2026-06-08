@@ -28,7 +28,7 @@ const Login = () => {
         showToast(error.message, "error");
       } else {
         showToast("Bem-vindo de volta!", "success");
-        navigate("/");
+        navigate("/inicio");
       }
     }
     setLoading(false);

@@ -80,7 +80,7 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   );
 };
 
-const Dashboard = () => {
+const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser } = useAuth();
@@ -311,7 +311,7 @@ const Dashboard = () => {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center">
         <Link
-          to="/"
+          to="/inicio"
           className="flex flex-col items-center gap-1"
           style={{ color: "var(--color-primary-safe)" }}
         >
@@ -337,4 +337,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Inicio;

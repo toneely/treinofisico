@@ -168,7 +168,7 @@ const Profile = () => {
     <div className="p-6 max-w-2xl mx-auto pb-24">
       <header className="mb-8 flex justify-between items-center">
         <Link
-          to="/"
+          to="/inicio"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
         >
           <ChevronLeft size={20} />

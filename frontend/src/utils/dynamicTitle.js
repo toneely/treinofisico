@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 const routeTitles = {
-  "/": "Dashboard",
+  "/inicio": "Início",
+  "/": "Início",
   "/login": "Entrar",
   "/admin": "Painel Administrativo",
   "/configuracoes": "Configurações",

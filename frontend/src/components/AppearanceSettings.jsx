@@ -60,7 +60,7 @@ const AppearanceSettings = () => {
             onChange={(val) =>
               setLocalSettings({ ...localSettings, bg_geral: val })
             }
-            description="Dashboard, Histórico e Perfil"
+            description="Início, Histórico e Perfil"
           />
           <ColorInput
             label="Fundo do Treino (Execução)"

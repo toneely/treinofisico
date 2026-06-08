@@ -619,7 +619,7 @@ const Training = () => {
 
     if (historyData.length === 0) {
       showToast("Nenhum exercício registrado.", "info");
-      navigate("/");
+      navigate("/inicio");
       return;
     }
 
@@ -630,7 +630,7 @@ const Training = () => {
     else {
       localStorage.removeItem("active_training_session");
       showToast("Treino concluído!", "success");
-      navigate("/");
+      navigate("/inicio");
     }
     setSavingSession(false);
   };
@@ -668,7 +668,7 @@ const Training = () => {
     return (
       <div className="p-10 text-center text-slate-500">
         Nenhum exercício encontrado.{" "}
-        <Link to="/" className="underline">
+        <Link to="/inicio" className="underline">
           Voltar
         </Link>
       </div>
@@ -689,7 +689,7 @@ const Training = () => {
         <header className="flex justify-between items-center mb-6">
           <div className="flex gap-2">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/inicio")}
               className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
             >
               <ChevronLeft />
@@ -697,7 +697,7 @@ const Training = () => {
             <button
               onClick={() => {
                 showToast("Treino pausado. Seu progresso foi salvo.", "info");
-                navigate("/");
+                navigate("/inicio");
               }}
               className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
             >
