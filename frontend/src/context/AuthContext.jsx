@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
 
 const AuthContext = createContext({});
 
@@ -15,7 +15,9 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -24,12 +26,16 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signUp = (email, password) => supabase.auth.signUp({ email, password });
-  const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password });
-  const signInWithGoogle = () => supabase.auth.signInWithOAuth({ provider: 'google' });
+  const signIn = (email, password) =>
+    supabase.auth.signInWithPassword({ email, password });
+  const signInWithGoogle = () =>
+    supabase.auth.signInWithOAuth({ provider: "google" });
   const signOut = () => supabase.auth.signOut();
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, signUp, signIn, signInWithGoogle, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
