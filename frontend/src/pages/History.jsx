@@ -152,7 +152,7 @@ const History = () => {
 
   const handleDeleteWorkout = async (letra, date) => {
     if (window.confirm(`Excluir todo o Treino ${letra} registrado em ${new Date(date).toLocaleString()}?`)) {
-        const { error } = await supabase.from('historico_cargas').delete().eq('letra_treino', letra).eq('data_treino', date);
+        const { error } = await supabase.from('historico_cargas').delete().eq('letra_treino', letra).eq('data_treino', date).eq('user_id', authUser.id);
         if (error) showToast('Erro ao excluir: ' + error.message, 'error');
         else {
             showToast('Treino removido do histórico', 'success');
@@ -163,7 +163,7 @@ const History = () => {
 
   const handleDeleteExercise = async (id) => {
     if (window.confirm('Excluir este registro de exercício?')) {
-        const { error } = await supabase.from('historico_cargas').delete().eq('id', id);
+        const { error } = await supabase.from('historico_cargas').delete().eq('id', id).eq('user_id', authUser.id);
         if (error) showToast('Erro ao excluir: ' + error.message, 'error');
         else {
             showToast('Exercício removido', 'success');
@@ -174,7 +174,7 @@ const History = () => {
 
   const handleDeleteExtra = async (id) => {
     if (window.confirm('Excluir esta atividade?')) {
-        const { error } = await supabase.from('registro_atividades').delete().eq('id', id);
+        const { error } = await supabase.from('registro_atividades').delete().eq('id', id).eq('user_id', authUser.id);
         if (error) showToast('Erro ao excluir: ' + error.message, 'error');
         else {
             showToast('Atividade removida', 'success');
@@ -231,13 +231,15 @@ const History = () => {
                 repeticoes: repsVal,
                 series_executadas: parseInt(formData.series)
             })
-            .eq('id', isEditing.item.id);
+            .eq('id', isEditing.item.id)
+            .eq('user_id', authUser.id);
         error = err;
     } else {
         const { error: err } = await supabase
             .from('registro_atividades')
             .update({ nome_atividade: formData.nome })
-            .eq('id', isEditing.item.id);
+            .eq('id', isEditing.item.id)
+            .eq('user_id', authUser.id);
         error = err;
     }
 
@@ -296,7 +298,8 @@ const History = () => {
     const { error } = await supabase
         .from('historico_cargas')
         .update(updatedFields)
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .eq('user_id', authUser.id);
 
     if (error) {
         showToast('Erro ao atualizar: ' + error.message, 'error');

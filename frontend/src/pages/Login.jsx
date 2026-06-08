@@ -46,11 +46,11 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-6">
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
-                <LogIn className="text-white" size={32} />
+            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-100 overflow-hidden">
+                <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-black text-slate-800">SmartTraining</h1>
-            <p className="text-slate-500 text-sm">Entre para continuar sua jornada</p>
+            <h1 className="text-2xl font-black text-slate-800">Treino Físico</h1>
+            <p className="text-slate-500 text-sm">Sua jornada para a excelência</p>
         </div>
 
         <button
