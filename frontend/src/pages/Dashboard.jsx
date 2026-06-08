@@ -108,7 +108,8 @@ const Dashboard = () => {
         <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
           <button
             onClick={() => navigate(`/treino/${savedTraining.letra}?resume=true`)}
-            className="w-full p-6 bg-indigo-600 rounded-[32px] shadow-xl shadow-indigo-200 text-white flex items-center justify-between group active:scale-95 transition-all"
+            className="w-full p-6 rounded-[32px] shadow-xl text-white flex items-center justify-between group active:scale-95 transition-all"
+            style={{ backgroundColor: 'var(--color-primary)' }}
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
@@ -181,7 +182,8 @@ const Dashboard = () => {
                     <button
                         onClick={recordActivity}
                         disabled={isRecording}
-                        className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                        className="flex-1 py-4 text-white rounded-2xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
+                        style={{ backgroundColor: 'var(--color-primary)' }}
                     >
                         {isRecording ? '...' : <><Check size={18} /> Sim</>}
                     </button>
@@ -192,7 +194,7 @@ const Dashboard = () => {
 
       {/* Menu Inferior Fixo */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center">
-        <Link to="/" className="text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/" className="flex flex-col items-center gap-1" style={{ color: 'var(--color-primary)' }}>
           <Dumbbell size={24} />
           <span className="text-[10px] font-bold uppercase">Treinos</span>
         </Link>
@@ -215,14 +217,16 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
       case 'amber':
         return {
           card: 'bg-amber-50 border-amber-100 text-amber-900',
-          iconBg: 'bg-amber-400 text-amber-950 shadow-sm',
-          chevron: 'text-amber-400'
+          iconBg: 'shadow-sm text-white',
+          iconStyle: { backgroundColor: 'var(--color-primary)' },
+          chevron: 'opacity-50'
         };
       case 'indigo':
         return {
           card: 'bg-indigo-50 border-indigo-100 text-indigo-900',
-          iconBg: 'bg-indigo-600 text-white shadow-sm',
-          chevron: 'text-indigo-400'
+          iconBg: 'shadow-sm text-white',
+          iconStyle: { backgroundColor: 'var(--color-secondary)' },
+          chevron: 'opacity-50'
         };
       default:
         return {
@@ -241,7 +245,10 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
       className={`w-full p-5 rounded-3xl shadow-sm border flex items-center justify-between hover:shadow-md transition-all active:scale-[0.98] text-left ${styles.card}`}
     >
       <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${styles.iconBg}`}>
+        <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${styles.iconBg}`}
+            style={styles.iconStyle}
+        >
           {icon}
         </div>
         <div>

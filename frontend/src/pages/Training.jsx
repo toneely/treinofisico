@@ -621,7 +621,7 @@ const Training = () => {
           <div className="text-center">
             <span
                 className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
-                style={{ color: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+                style={{ color: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)' }}
             >
               {state.isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !state.isCatchupPhase && '• CORINGA'}
             </span>
@@ -632,11 +632,11 @@ const Training = () => {
             <div
                 className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? 'text-white' : 'opacity-60'}`}
                 style={{
-                    backgroundColor: metronomeActive ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : 'transparent',
-                    borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                    backgroundColor: metronomeActive ? (isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)') : 'transparent',
+                    borderColor: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)'
                 }}
             >
-                <button onClick={() => setMetronomeActive(!metronomeActive)} className="hover:scale-110 transition">
+                <button onClick={() => setMetronomeActive(!metronomeActive)} className="hover:scale-110 transition text-white">
                     {metronomeActive ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
                 </button>
                 <div className="flex items-center gap-1">
@@ -644,7 +644,7 @@ const Training = () => {
                         type="number"
                         value={bpm}
                         onChange={(e) => setBpm(Math.max(30, Math.min(240, parseInt(e.target.value) || 60)))}
-                        className="bg-transparent w-8 text-center text-xs font-bold outline-none"
+                        className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
                     />
                     <span className="text-[8px] font-bold opacity-60">BPM</span>
                 </div>
@@ -662,8 +662,8 @@ const Training = () => {
                     (i + 1) === state.currentSerie ? 'animate-pulse' : 'opacity-20'
                 }`}
                 style={{
-                    backgroundColor: (i + 1) === state.currentSerie ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') :
-                                    ((i+1) < state.currentSerie ? '#10b981' : (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'))
+                    backgroundColor: (i + 1) === state.currentSerie ? (isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)') :
+                                    ((i+1) < state.currentSerie ? '#10b981' : (isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)'))
                 }}
              ></div>
            ))}
@@ -674,7 +674,7 @@ const Training = () => {
             className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
             style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                borderColor: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)'
             }}
         >
           <div className="flex justify-between items-start mb-6">
@@ -682,7 +682,7 @@ const Training = () => {
               <div className="flex gap-2 items-center mb-2">
                 <span
                     className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
-                    style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+                    style={{ backgroundColor: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)' }}
                 >
                     Série {state.currentSerie} / {exercise.series_alvo}
                 </span>
@@ -702,7 +702,7 @@ const Training = () => {
                   value={state.cargas[exercise.exercicio_id] ?? ''}
                   onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentCarga', exId: exercise.exercicio_id, val: e.target.value })}
                   onFocus={(e) => e.target.select()}
-                  className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
+                  className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                 />
              </div>
              <div className={`p-4 rounded-2xl ${isCoringa ? 'bg-amber-900/50' : 'bg-slate-900/50'}`}>
@@ -712,7 +712,7 @@ const Training = () => {
                   value={state.repsFeitas[exercise.exercicio_id] ?? ''}
                   onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentReps', exId: exercise.exercicio_id, val: e.target.value })}
                   onFocus={(e) => e.target.select()}
-                  className="bg-transparent text-2xl font-mono font-bold outline-none w-full"
+                  className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                 />
              </div>
           </div>
@@ -730,7 +730,7 @@ const Training = () => {
             className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? 'scale-105 shadow-lg' : ''}`}
             style={{
                 backgroundColor: state.isTimerActive
-                    ? (isCoringa ? 'var(--color-alternado-a)' : (isPrimaryEx ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'))
+                    ? (isCoringa ? 'var(--color-primary)' : (isPrimaryEx ? 'var(--color-primary)' : 'var(--color-secondary)'))
                     : 'rgba(255, 255, 255, 0.05)'
             }}
         >
@@ -763,7 +763,7 @@ const Training = () => {
                         onClick={() => dispatch({ type: 'START_SERIES', exercicio_id: exercise.exercicio_id })}
                         data-testid="start-timer-btn"
                         className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
-                        style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : (isPrimaryEx ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') }}
+                        style={{ backgroundColor: isCoringa ? 'var(--color-primary)' : (isPrimaryEx ? 'var(--color-primary)' : 'var(--color-secondary)') }}
                     >
                         <Play fill="currentColor" className="ml-1" />
                     </button>
@@ -799,7 +799,7 @@ const Training = () => {
                     }}
                     disabled={savingSession}
                     className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
-                    style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : '#10b981' }}
+                    style={{ backgroundColor: isCoringa ? 'var(--color-primary)' : '#10b981' }}
                 >
                     {savingSession ? 'Salvando...' : (() => {
                         const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
@@ -839,7 +839,7 @@ const Training = () => {
             className="p-4 rounded-2xl mb-6 border border-dashed"
             style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                borderColor: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)'
             }}
           >
              <div className="flex justify-between items-center mb-3">
@@ -848,7 +848,7 @@ const Training = () => {
                   onClick={() => dispatch({ type: 'TOGGLE_MODE' })}
                   className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
                   style={{
-                    backgroundColor: state.executionMode === 'alternated' ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : 'rgba(255, 255, 255, 0.1)'
+                    backgroundColor: state.executionMode === 'alternated' ? (isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)') : 'rgba(255, 255, 255, 0.1)'
                   }}
                >
                   Modo: {state.executionMode === 'alternated' ? 'Alternado' : 'Isolado'}
@@ -873,7 +873,7 @@ const Training = () => {
                                 value={state.cargas[ex.exercicio_id] ?? ''}
                                 onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'currentCarga', exId: ex.exercicio_id, val: e.target.value })}
                                 onFocus={(e) => e.target.select()}
-                                className="bg-transparent w-12 font-mono font-bold text-right outline-none"
+                                className="bg-transparent w-12 font-mono font-bold text-right outline-none text-white"
                             />
                             <span className="text-[10px] opacity-40">kg</span>
                         </div>
@@ -886,7 +886,7 @@ const Training = () => {
 
         {/* Session Exercise List */}
         <div className="mt-12 space-y-4 pb-32">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Exercícios da Sessão</h3>
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">Exercícios da Sessão</h3>
             {state.blocos.flatMap((block, bIdx) => block.map((ex, eIdx) => {
                 const isDone = (bIdx < state.currentBlockIndex) ||
                                (bIdx === state.currentBlockIndex && state.currentExerciseInBlock > eIdx) ||
@@ -901,7 +901,7 @@ const Training = () => {
                         key={`${bIdx}_${eIdx}`}
                         className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? 'scale-[1.02] text-white' : ''}`}
                         style={{
-                            backgroundColor: isCurrent ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : (isDone ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
+                            backgroundColor: isCurrent ? (isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)') : (isDone ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
                             borderColor: isCurrent ? 'transparent' : (isDone ? '#10b98140' : 'rgba(255, 255, 255, 0.1)')
                         }}
                     >
@@ -913,9 +913,9 @@ const Training = () => {
                                 <div>
                                     <p className="font-bold text-sm">{ex.exercicios.nome}</p>
                                     <div className="flex gap-2 items-center">
-                                        <p className="text-[10px] opacity-60 font-medium">Séries: {currentExSerie}/{ex.series_alvo}</p>
+                                        <p className="text-[10px] opacity-60 font-medium text-white">Séries: {currentExSerie}/{ex.series_alvo}</p>
                                         {state.cargas[ex.exercicio_id] > 0 && (
-                                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1">
+                                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
                                                 <Dumbbell size={10} /> {state.cargas[ex.exercicio_id]}kg
                                             </span>
                                         )}
@@ -980,7 +980,7 @@ const Training = () => {
                                             }}
                                             className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
                                             style={{
-                                                backgroundColor: isCurrentS ? 'rgba(255,255,255,0.2)' : (isNextPending ? 'var(--color-alternado-b)' : 'transparent'),
+                                                backgroundColor: isCurrentS ? 'rgba(255,255,255,0.2)' : (isNextPending ? 'var(--color-secondary)' : 'transparent'),
                                                 opacity: (isCurrentS || isNextPending) ? 1 : 0.4
                                             }}
                                         >
@@ -996,7 +996,7 @@ const Training = () => {
                                                         onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'load', exId: ex.exercicio_id, sIdx, val: e.target.value })}
                                                     className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
                                                 />
-                                                <span className="text-[8px] font-bold opacity-40">kg</span>
+                                                <span className="text-[8px] font-bold opacity-40 text-white">kg</span>
                                             </div>
                                             <div className="flex items-center gap-0.5">
                                                 <input
@@ -1006,13 +1006,13 @@ const Training = () => {
                                                         onChange={(e) => dispatch({ type: 'SET_VALUE', fieldType: 'reps', exId: ex.exercicio_id, sIdx, val: e.target.value })}
                                                     className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
                                                 />
-                                                <span className="text-[7px] font-bold opacity-30 uppercase">reps</span>
+                                                <span className="text-[7px] font-bold opacity-30 uppercase text-white">reps</span>
                                             </div>
                                         </div>
 
                                         <div className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${(!isExecuted && !isCurrentS) ? 'opacity-30' : 'opacity-100'}`}>
                                             <div className="flex items-center gap-1">
-                                                <Clock size={8} className="opacity-30" />
+                                                <Clock size={8} className="opacity-30 text-white" />
                                                 {liveExec !== null ? (
                                                     <span className="font-mono font-bold text-[9px] text-white">
                                                         {formatTime(liveExec)}
@@ -1028,7 +1028,7 @@ const Training = () => {
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
                                                         />
-                                                        <span className="text-[9px] font-bold opacity-30">:</span>
+                                                        <span className="text-[9px] font-bold opacity-30 text-white">:</span>
                                                         <input
                                                             type="number"
                                                             value={execTime !== null && execTime !== undefined ? String(execTime % 60).padStart(2, '0') : ''}
@@ -1057,7 +1057,7 @@ const Training = () => {
                                                             onFocus={(e) => e.target.select()}
                                                             className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
                                                         />
-                                                        <span className="text-[8px] font-bold opacity-30">:</span>
+                                                        <span className="text-[8px] font-bold opacity-30 text-white">:</span>
                                                         <input
                                                             type="number"
                                                             value={restTime !== null && restTime !== undefined ? String(restTime % 60).padStart(2, '0') : ''}
@@ -1135,7 +1135,7 @@ const Training = () => {
                             <div
                                 key={exId}
                                 className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
-                                style={{ backgroundColor: isPrimary ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+                                style={{ backgroundColor: isPrimary ? 'var(--color-primary)' : 'var(--color-secondary)' }}
                             >
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[6px] font-black uppercase tracking-widest opacity-70 truncate">{data.nome || 'Exercício'}</span>
@@ -1159,7 +1159,7 @@ const Training = () => {
                 </div>
             )}
 
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">
+            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3 text-white">
                 <span>Progresso Geral</span>
                 <span>{(() => {
                     const totalEx = state.blocos.reduce((acc, b) => acc + b.length, 0);
@@ -1176,7 +1176,7 @@ const Training = () => {
                             const doneEx = state.blocos.slice(0, state.currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + state.currentExerciseInBlock;
                             return Math.round((doneEx / totalEx) * 100);
                         })()}%`,
-                        backgroundColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                        backgroundColor: isCoringa ? 'var(--color-primary)' : 'var(--color-secondary)'
                     }}
                 ></div>
             </div>

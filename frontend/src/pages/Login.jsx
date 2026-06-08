@@ -100,7 +100,8 @@ const Login = () => {
             <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-200 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 mt-4"
+                className="w-full py-4 text-white rounded-2xl font-black shadow-xl transition-all flex items-center justify-center gap-2 mt-4"
+                style={{ backgroundColor: 'var(--color-primary)' }}
             >
                 {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar na Conta')}
             </button>
@@ -110,7 +111,8 @@ const Login = () => {
             {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'} {' '}
             <span
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-indigo-600 font-bold hover:underline cursor-pointer"
+                className="font-bold hover:underline cursor-pointer"
+                style={{ color: 'var(--color-primary)' }}
             >
                 {isSignUp ? 'Faça Login' : 'Cadastre-se'}
             </span>

@@ -62,9 +62,10 @@ const TabButton = ({ active, onClick, icon, label }) => (
     onClick={onClick}
     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${
       active
-        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-        : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+        ? 'text-white shadow-lg'
+        : 'bg-white text-slate-500 border border-slate-200'
     }`}
+    style={active ? { backgroundColor: 'var(--color-primary)' } : {}}
   >
     {icon}
     {label}

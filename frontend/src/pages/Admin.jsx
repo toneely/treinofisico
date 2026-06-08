@@ -86,19 +86,22 @@ const Admin = () => {
                 <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit mb-8">
                     <button
                         onClick={() => setSubTab('workouts')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'workouts' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                        style={subTab === 'workouts' ? { backgroundColor: 'white', color: 'var(--color-primary)', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' } : { color: '#64748b' }}
                     >
                         Treinos Padrão
                     </button>
                     <button
                         onClick={() => setSubTab('blocks')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'blocks' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                        style={subTab === 'blocks' ? { backgroundColor: 'white', color: 'var(--color-primary)', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' } : { color: '#64748b' }}
                     >
                         Blocos Padrão
                     </button>
                     <button
                         onClick={() => setSubTab('exercises')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${subTab === 'exercises' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                        style={subTab === 'exercises' ? { backgroundColor: 'white', color: 'var(--color-primary)', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' } : { color: '#64748b' }}
                     >
                         Exercícios Globais
                     </button>
@@ -108,7 +111,7 @@ const Admin = () => {
                     <section className="animate-in slide-in-from-bottom-4 duration-500">
                         <div className="mb-6">
                             <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                <LayoutGrid className="text-indigo-600" size={24} />
+                                <LayoutGrid style={{ color: 'var(--color-primary)' }} size={24} />
                                 Categorias de Treino Padrão
                             </h2>
                             <p className="text-sm text-slate-500 mt-1">Defina os treinos que serão copiados para novos usuários.</p>
@@ -121,7 +124,7 @@ const Admin = () => {
                     <section className="animate-in slide-in-from-bottom-4 duration-500">
                         <div className="mb-6">
                             <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                <Dumbbell className="text-indigo-600" size={24} />
+                                <Dumbbell style={{ color: 'var(--color-primary)' }} size={24} />
                                 Catálogo de Exercícios Padrão
                             </h2>
                             <p className="text-sm text-slate-500 mt-1">Biblioteca Global de exercícios disponíveis para todos os usuários.</p>
@@ -134,7 +137,7 @@ const Admin = () => {
                     <section className="animate-in slide-in-from-bottom-4 duration-500">
                         <div className="mb-6">
                             <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                <Settings className="text-indigo-600" size={24} />
+                                <Settings style={{ color: 'var(--color-primary)' }} size={24} />
                                 Estrutura de Blocos (Molde)
                             </h2>
                             <p className="text-sm text-slate-500 mt-1">Configure as séries e repetições padrão.</p>
@@ -168,9 +171,10 @@ const TabButton = ({ active, onClick, icon, label }) => (
     onClick={onClick}
     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${
       active
-        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-        : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+        ? 'text-white shadow-lg'
+        : 'bg-white text-slate-500 border border-slate-200'
     }`}
+    style={active ? { backgroundColor: 'var(--color-primary)' } : {}}
   >
     {icon}
     {label}

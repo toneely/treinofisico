@@ -9,8 +9,8 @@ export const AppearanceProvider = ({ children }) => {
   const [settings, setSettings] = useState({
     bg_geral: '#FFFFFF',
     bg_treino: '#121212',
-    color_ex_a: '#fbbf24', // Default amber-400 equivalent
-    color_ex_b: '#94a3b8', // Default slate-400 equivalent
+    color_ex_a: '#E67E22', // Updated default orange
+    color_ex_b: '#1E3A8A', // Updated default blue
   });
   const [loading, setLoading] = useState(true);
 
@@ -25,10 +25,10 @@ export const AppearanceProvider = ({ children }) => {
   useEffect(() => {
     // Inject CSS variables
     const root = document.documentElement;
-    root.style.setProperty('--bg-geral', settings.bg_geral);
+    root.style.setProperty('--bg-gestao', settings.bg_geral);
     root.style.setProperty('--bg-treino', settings.bg_treino);
-    root.style.setProperty('--color-alternado-a', settings.color_ex_a);
-    root.style.setProperty('--color-alternado-b', settings.color_ex_b);
+    root.style.setProperty('--color-primary', settings.color_ex_a);
+    root.style.setProperty('--color-secondary', settings.color_ex_b);
   }, [settings]);
 
   const fetchAppearance = async () => {
@@ -41,10 +41,10 @@ export const AppearanceProvider = ({ children }) => {
 
       if (data) {
         setSettings({
-          bg_geral: data.bg_geral,
-          bg_treino: data.bg_treino,
-          color_ex_a: data.color_ex_a,
-          color_ex_b: data.color_ex_b,
+          bg_geral: data.cor_fundo_gestao,
+          bg_treino: data.cor_fundo_treino,
+          color_ex_a: data.cor_exercicio_a,
+          color_ex_b: data.cor_exercicio_b,
         });
       }
     } catch (err) {
@@ -63,7 +63,10 @@ export const AppearanceProvider = ({ children }) => {
       .from('configuracoes_aparencia')
       .upsert({
         user_id: user.id,
-        ...newSettings,
+        cor_fundo_gestao: newSettings.bg_geral,
+        cor_fundo_treino: newSettings.bg_treino,
+        cor_exercicio_a: newSettings.color_ex_a,
+        cor_exercicio_b: newSettings.color_ex_b,
         updated_at: new Date().toISOString(),
       });
 

@@ -168,14 +168,20 @@ const Profile = () => {
       {/* Account Info Card */}
       <section className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-200 mb-6 flex flex-col items-center">
         <div className="relative mb-4">
-            <div className="w-24 h-24 bg-indigo-100 rounded-3xl flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+            <div
+                className="w-24 h-24 rounded-3xl flex items-center justify-center overflow-hidden border-4 border-white shadow-lg"
+                style={{ backgroundColor: 'var(--color-secondary)' }}
+            >
                 {user.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                    <User size={40} className="text-indigo-600" />
+                    <User size={40} className="text-white" />
                 )}
             </div>
-            <button className="absolute -bottom-2 -right-2 p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 border-2 border-white">
+            <button
+                className="absolute -bottom-2 -right-2 p-2 text-white rounded-xl shadow-lg border-2 border-white"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+            >
                 <Camera size={14} />
             </button>
         </div>
@@ -272,9 +278,10 @@ const Profile = () => {
                             onClick={() => toggleCoringa(letra)}
                             className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${
                                 coringaWorkouts[letra]
-                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                                    ? 'text-white shadow-lg'
                                     : 'border-slate-50 bg-slate-50 text-slate-300'
                             }`}
+                            style={coringaWorkouts[letra] ? { backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' } : {}}
                         >
                             <span className="text-lg font-black">{letra}</span>
                         </button>
@@ -286,7 +293,8 @@ const Profile = () => {
         <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-black text-lg shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full py-5 text-white rounded-[24px] font-black text-lg shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-primary)' }}
         >
             {saving ? 'Salvando...' : <><Save size={20} /> Salvar Alterações</>}
         </button>

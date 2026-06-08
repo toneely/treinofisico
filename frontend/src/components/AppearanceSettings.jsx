@@ -21,19 +21,20 @@ const AppearanceSettings = () => {
   };
 
   const handleReset = () => {
-    setLocalSettings({
+    const defaults = {
       bg_geral: '#FFFFFF',
       bg_treino: '#121212',
-      color_ex_a: '#fbbf24',
-      color_ex_b: '#94a3b8',
-    });
+      color_ex_a: '#E67E22',
+      color_ex_b: '#1E3A8A',
+    };
+    setLocalSettings(defaults);
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-200">
         <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl" style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-primary)20' }}>
             <Palette size={24} />
           </div>
           <div>
@@ -56,13 +57,13 @@ const AppearanceSettings = () => {
             description="Tela de Treino Ativo"
           />
           <ColorInput
-            label="Cor Exercício A"
+            label="Cor Primária / Exercício A"
             value={localSettings.color_ex_a}
             onChange={(val) => setLocalSettings({ ...localSettings, color_ex_a: val })}
-            description="Destaques e Treinos Coringa"
+            description="Botões Principais e Treinos Coringa"
           />
           <ColorInput
-            label="Cor Exercício B"
+            label="Cor Secundária / Exercício B"
             value={localSettings.color_ex_b}
             onChange={(val) => setLocalSettings({ ...localSettings, color_ex_b: val })}
             description="Exercícios Secundários/Alternados"
@@ -73,7 +74,8 @@ const AppearanceSettings = () => {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-4 text-white rounded-2xl font-black shadow-xl transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: 'var(--color-primary)' }}
           >
             {saving ? 'Salvando...' : <><Save size={20} /> Salvar Alterações</>}
           </button>
@@ -120,7 +122,7 @@ const ColorInput = ({ label, value, onChange, description }) => (
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold text-slate-700 transition-all"
+        className="flex-1 p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-orange-500 font-mono font-bold text-slate-700 transition-all"
       />
     </div>
     <p className="text-[10px] text-slate-400 italic px-1">{description}</p>

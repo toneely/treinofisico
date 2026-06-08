@@ -47,7 +47,7 @@ const AppContent = () => {
 
   return (
     <div className={`font-sans antialiased transition-colors duration-500 min-h-screen ${
-      isTrainingRoute ? 'bg-[var(--bg-treino)] text-white' : 'bg-[var(--bg-geral)] text-slate-900'
+      isTrainingRoute ? 'bg-[var(--bg-treino)] text-white' : 'bg-[var(--bg-gestao)] text-slate-900'
     }`}>
       <Routes>
         <Route path="/login" element={<Login />} />

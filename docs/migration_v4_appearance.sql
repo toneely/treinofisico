@@ -4,10 +4,10 @@
 
 CREATE TABLE IF NOT EXISTS configuracoes_aparencia (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    bg_geral TEXT NOT NULL DEFAULT '#FFFFFF',
-    bg_treino TEXT NOT NULL DEFAULT '#121212',
-    color_ex_a TEXT NOT NULL DEFAULT '#fbbf24',
-    color_ex_b TEXT NOT NULL DEFAULT '#94a3b8',
+    cor_fundo_gestao TEXT NOT NULL DEFAULT '#FFFFFF',
+    cor_fundo_treino TEXT NOT NULL DEFAULT '#121212',
+    cor_exercicio_a TEXT NOT NULL DEFAULT '#E67E22',
+    cor_exercicio_b TEXT NOT NULL DEFAULT '#1E3A8A',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
