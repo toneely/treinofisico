@@ -9,6 +9,7 @@ import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import UserSettings from './pages/UserSettings';
+import { useDynamicTitle } from './utils/dynamicTitle';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -29,20 +30,27 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
+const AppContent = () => {
+  useDynamicTitle();
+  return (
+    <div className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+        <Route path="/configuracoes" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
+        <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
+        <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
+        <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      </Routes>
+    </div>
+  );
+};
+
 const App = () => {
   return (
     <Router>
-      <div className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-              <Route path="/configuracoes" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
-          <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
-          <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
-          <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        </Routes>
-      </div>
+      <AppContent />
     </Router>
   );
 };
