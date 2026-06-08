@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { AppearanceProvider } from './context/AppearanceContext';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import History from './pages/History';
@@ -10,6 +11,7 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import UserSettings from './pages/UserSettings';
 import { useDynamicTitle } from './utils/dynamicTitle';
+import { useLocation } from 'react-router-dom';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -32,8 +34,21 @@ const AdminRoute = ({ children }) => {
 
 const AppContent = () => {
   useDynamicTitle();
+  const location = useLocation();
+  const isTrainingRoute = location.pathname.startsWith('/treino');
+
+  React.useEffect(() => {
+    if (isTrainingRoute) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isTrainingRoute]);
+
   return (
-    <div className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen">
+    <div className={`font-sans antialiased transition-colors duration-500 min-h-screen ${
+      isTrainingRoute ? 'bg-[var(--bg-treino)] text-white' : 'bg-[var(--bg-geral)] text-slate-900'
+    }`}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -50,7 +65,13 @@ const AppContent = () => {
 const App = () => {
   return (
     <Router>
-      <AppContent />
+      <AuthProvider>
+        <AppearanceProvider>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </AppearanceProvider>
+      </AuthProvider>
     </Router>
   );
 };

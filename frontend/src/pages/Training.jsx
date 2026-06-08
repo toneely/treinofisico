@@ -600,7 +600,10 @@ const Training = () => {
   const dismissRestTimer = (exId) => dispatch({ type: 'DISMISS_REST', exId });
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 ${isCoringa ? 'bg-amber-900 text-amber-50' : 'bg-slate-900 text-white'}`}>
+    <div
+      className="min-h-screen transition-colors duration-700 text-white"
+      style={{ backgroundColor: 'var(--bg-treino)' }}
+    >
       <div className="p-6 max-w-md mx-auto">
         <header className="flex justify-between items-center mb-6">
           <div className="flex gap-2">
@@ -616,14 +619,23 @@ const Training = () => {
             </button>
           </div>
           <div className="text-center">
-            <span className={`text-[10px] uppercase font-black tracking-[0.2em] block mb-1 ${isCoringa ? 'text-amber-400' : 'text-indigo-400'}`}>
+            <span
+                className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
+                style={{ color: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+            >
               {state.isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !state.isCatchupPhase && '• CORINGA'}
             </span>
             <span className="font-bold text-lg">Bloco {state.currentBlockIndex + 1} de {state.blocos.length}</span>
           </div>
           <div className="flex gap-2">
             {/* Metronome Control */}
-            <div className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950' : 'bg-indigo-500 border-indigo-500 text-white') : (isCoringa ? 'border-amber-700 bg-amber-800' : 'border-slate-700 bg-slate-800')}`}>
+            <div
+                className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? 'text-white' : 'opacity-60'}`}
+                style={{
+                    backgroundColor: metronomeActive ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : 'transparent',
+                    borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                }}
+            >
                 <button onClick={() => setMetronomeActive(!metronomeActive)} className="hover:scale-110 transition">
                     {metronomeActive ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
                 </button>
@@ -644,20 +656,34 @@ const Training = () => {
         {/* Progression */}
         <div className="flex gap-2 mb-8">
            {[...Array(exercise.series_alvo)].map((_, i) => (
-             <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-               (i + 1) < state.currentSerie ? 'bg-emerald-500' :
-               (i + 1) === state.currentSerie ? (isCoringa ? 'bg-amber-400 animate-pulse' : 'bg-indigo-500 animate-pulse') :
-               (isCoringa ? 'bg-amber-800' : 'bg-slate-800')
-             }`}></div>
+             <div key={i}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                    (i + 1) < state.currentSerie ? 'bg-emerald-500' :
+                    (i + 1) === state.currentSerie ? 'animate-pulse' : 'opacity-20'
+                }`}
+                style={{
+                    backgroundColor: (i + 1) === state.currentSerie ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') :
+                                    ((i+1) < state.currentSerie ? '#10b981' : (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'))
+                }}
+             ></div>
            ))}
         </div>
 
         {/* Active Block View */}
-        <div className={`rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden ${isCoringa ? 'bg-amber-800/50 border border-amber-700' : 'bg-slate-800 border border-slate-700'}`}>
+        <div
+            className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
+            style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+            }}
+        >
           <div className="flex justify-between items-start mb-6">
             <div>
               <div className="flex gap-2 items-center mb-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-500 text-white'}`}>
+                <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
+                    style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+                >
                     Série {state.currentSerie} / {exercise.series_alvo}
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${isCoringa ? 'bg-amber-100/20 text-amber-100' : 'bg-rose-500 text-white'}`}>
@@ -700,14 +726,14 @@ const Training = () => {
 
 
         {/* Stopwatch & Reference */}
-        <div className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${
-          state.isTimerActive
-            ? (isCoringa
-                ? 'bg-amber-500 text-amber-950 scale-105 shadow-lg shadow-amber-900/50'
-                : (isPrimaryEx ? 'bg-indigo-600' : 'bg-purple-600') + ' scale-105 shadow-lg ' + (isPrimaryEx ? 'shadow-indigo-900/50' : 'shadow-purple-900/50')
-              )
-            : (isCoringa ? 'bg-amber-800/30' : 'bg-slate-800')
-        }`}>
+        <div
+            className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? 'scale-105 shadow-lg' : ''}`}
+            style={{
+                backgroundColor: state.isTimerActive
+                    ? (isCoringa ? 'var(--color-alternado-a)' : (isPrimaryEx ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'))
+                    : 'rgba(255, 255, 255, 0.05)'
+            }}
+        >
            <div className="flex flex-col">
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
               <div className="flex items-baseline gap-3">
@@ -736,9 +762,8 @@ const Training = () => {
                     <button
                         onClick={() => dispatch({ type: 'START_SERIES', exercicio_id: exercise.exercicio_id })}
                         data-testid="start-timer-btn"
-                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 ${
-                            isCoringa ? 'bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/50' : (isPrimaryEx ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-purple-500 shadow-purple-500/50') + ' text-white shadow-lg'
-                        }`}
+                        className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
+                        style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : (isPrimaryEx ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') }}
                     >
                         <Play fill="currentColor" className="ml-1" />
                     </button>
@@ -773,9 +798,8 @@ const Training = () => {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={savingSession}
-                    className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
-                        isCoringa ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'bg-emerald-500 text-white hover:bg-emerald-400'
-                    }`}
+                    className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
+                    style={{ backgroundColor: isCoringa ? 'var(--color-alternado-a)' : '#10b981' }}
                 >
                     {savingSession ? 'Salvando...' : (() => {
                         const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
@@ -811,14 +835,21 @@ const Training = () => {
 
         {/* Simultaneous Loads (if alternated) */}
         {currentBlock.length > 1 && (
-          <div className={`p-4 rounded-2xl mb-6 border border-dashed ${isCoringa ? 'border-amber-700 bg-amber-800/20' : 'border-slate-700 bg-slate-800/50'}`}>
+          <div
+            className="p-4 rounded-2xl mb-6 border border-dashed"
+            style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+            }}
+          >
              <div className="flex justify-between items-center mb-3">
                <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Carga Alternada</span>
                <button
                   onClick={() => dispatch({ type: 'TOGGLE_MODE' })}
-                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors ${
-                    state.executionMode === 'alternated' ? (isCoringa ? 'bg-amber-400 text-amber-950' : 'bg-indigo-600 text-white') : 'bg-white/10 text-white/60'
-                  }`}
+                  className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
+                  style={{
+                    backgroundColor: state.executionMode === 'alternated' ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : 'rgba(255, 255, 255, 0.1)'
+                  }}
                >
                   Modo: {state.executionMode === 'alternated' ? 'Alternado' : 'Isolado'}
                </button>
@@ -866,12 +897,14 @@ const Training = () => {
                 const currentExSerie = isCurrent ? state.currentSerie : (isDone ? ex.series_alvo : (isSkipped ? (state.skippedExercises.find(s => s.exercicio_id === ex.exercicio_id)?.partialSerie || 0) : 0));
 
                 return (
-                    <div key={`${bIdx}_${eIdx}`} className={`relative p-4 rounded-2xl border transition-all ${
-                        isCurrent ? (isCoringa ? 'bg-amber-400 border-amber-400 text-amber-950 scale-[1.02]' : 'bg-indigo-600 border-indigo-600 text-white scale-[1.02]') :
-                        isSkipped ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-lg shadow-rose-900/20' :
-                        isDone ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                        'bg-white/5 border-white/10 text-white/40'
-                    }`}>
+                    <div
+                        key={`${bIdx}_${eIdx}`}
+                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? 'scale-[1.02] text-white' : ''}`}
+                        style={{
+                            backgroundColor: isCurrent ? (isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)') : (isDone ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
+                            borderColor: isCurrent ? 'transparent' : (isDone ? '#10b98140' : 'rgba(255, 255, 255, 0.1)')
+                        }}
+                    >
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-black/10' : 'bg-white/5'}`}>
@@ -945,14 +978,11 @@ const Training = () => {
                                                     showToast(`Foco alterado para Série ${sNum}`, 'info');
                                                 }
                                             }}
-                                            className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all ${
-                                                isCurrentS
-                                                    ? 'bg-white/20 text-white opacity-100'
-                                                    : (isNextPending
-                                                        ? 'bg-indigo-500/40 hover:bg-indigo-500 text-white cursor-pointer active:scale-95 opacity-100 shadow-sm'
-                                                        : 'text-white/30 cursor-default opacity-40'
-                                                      )
-                                            }`}
+                                            className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
+                                            style={{
+                                                backgroundColor: isCurrentS ? 'rgba(255,255,255,0.2)' : (isNextPending ? 'var(--color-alternado-b)' : 'transparent'),
+                                                opacity: (isCurrentS || isNextPending) ? 1 : 0.4
+                                            }}
                                         >
                                             Série {sNum}
                                         </button>
@@ -1091,7 +1121,10 @@ const Training = () => {
       </div>
 
       {/* Global Progress Footer */}
-      <footer className={`fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50 ${isCoringa ? 'bg-amber-900/90 border-amber-800' : 'bg-slate-950/90 border-slate-800'}`}>
+      <footer
+        className="fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
+      >
         <div className="max-w-md mx-auto">
             {/* Horizontal Rest Timers */}
             {Object.keys(state.activeRestTimers).length > 0 && (
@@ -1099,7 +1132,11 @@ const Training = () => {
                     {Object.entries(state.activeRestTimers).map(([exId, data]) => {
                         const isPrimary = parseInt(exId) === (currentBlock[0]?.exercicio_id);
                         return (
-                            <div key={exId} className={`flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 ${isPrimary ? 'bg-indigo-600 text-white' : 'bg-purple-600 text-white'}`}>
+                            <div
+                                key={exId}
+                                className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
+                                style={{ backgroundColor: isPrimary ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)' }}
+                            >
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[6px] font-black uppercase tracking-widest opacity-70 truncate">{data.nome || 'Exercício'}</span>
                                     <span className="text-sm font-mono font-black leading-tight">
@@ -1132,12 +1169,15 @@ const Training = () => {
             </div>
             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                 <div
-                    className={`h-full transition-all duration-1000 ${isCoringa ? 'bg-amber-400' : 'bg-indigo-500'}`}
-                    style={{ width: `${(() => {
-                        const totalEx = state.blocos.reduce((acc, b) => acc + b.length, 0);
-                        const doneEx = state.blocos.slice(0, state.currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + state.currentExerciseInBlock;
-                        return Math.round((doneEx / totalEx) * 100);
-                    })()}%` }}
+                    className="h-full transition-all duration-1000"
+                    style={{
+                        width: `${(() => {
+                            const totalEx = state.blocos.reduce((acc, b) => acc + b.length, 0);
+                            const doneEx = state.blocos.slice(0, state.currentBlockIndex).reduce((acc, b) => acc + b.length, 0) + state.currentExerciseInBlock;
+                            return Math.round((doneEx / totalEx) * 100);
+                        })()}%`,
+                        backgroundColor: isCoringa ? 'var(--color-alternado-a)' : 'var(--color-alternado-b)'
+                    }}
                 ></div>
             </div>
         </div>

@@ -150,7 +150,7 @@ const Profile = () => {
   if (loading) return <div className="p-10 text-center text-slate-400">Carregando perfil...</div>;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto bg-slate-50 min-h-screen pb-24">
+    <div className="p-6 max-w-2xl mx-auto pb-24">
       <header className="mb-8 flex justify-between items-center">
         <Link to="/" className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition">
           <ChevronLeft size={20} />

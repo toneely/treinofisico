@@ -49,7 +49,7 @@ const Admin = () => {
   if (loading) return <div className="p-10 text-center text-slate-400">Carregando Admin...</div>;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto bg-slate-50 min-h-screen">
+    <div className="p-6 max-w-6xl mx-auto">
       <header className="mb-8">
         <Link to="/" className="text-slate-500 flex items-center gap-1 mb-4 hover:text-slate-800 transition w-fit">
           <ChevronLeft size={20} />

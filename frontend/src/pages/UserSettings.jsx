@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Dumbbell, LayoutGrid, Settings } from 'lucide-react';
+import { ChevronLeft, Dumbbell, LayoutGrid, Settings, Palette } from 'lucide-react';
 import ExerciseManager from '../components/ExerciseManager';
 import BlockConfigurator from '../components/BlockConfigurator';
 import WorkoutManager from '../components/WorkoutManager';
+import AppearanceSettings from '../components/AppearanceSettings';
 
 const UserSettings = () => {
   const [activeTab, setActiveTab] = useState('workouts');
 
   return (
-    <div className="p-6 max-w-4xl mx-auto bg-slate-50 min-h-screen">
+    <div className="p-6 max-w-4xl mx-auto">
       <header className="mb-8">
         <Link to="/" className="text-slate-500 flex items-center gap-1 mb-4 hover:text-slate-800 transition w-fit">
           <ChevronLeft size={20} />
@@ -38,12 +39,19 @@ const UserSettings = () => {
           icon={<Settings size={18} />}
           label="Estrutura de Blocos"
         />
+        <TabButton
+          active={activeTab === 'appearance'}
+          onClick={() => setActiveTab('appearance')}
+          icon={<Palette size={18} />}
+          label="Aparência"
+        />
       </div>
 
       <main className="animate-in fade-in duration-500">
         {activeTab === 'workouts' && <WorkoutManager />}
         {activeTab === 'exercises' && <ExerciseManager />}
         {activeTab === 'blocks' && <BlockConfigurator />}
+        {activeTab === 'appearance' && <AppearanceSettings />}
       </main>
     </div>
   );

@@ -382,7 +382,7 @@ const History = () => {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-slate-50 min-h-screen pb-24">
+    <div className="p-6 max-w-md mx-auto pb-24">
       <header className="mb-6 flex justify-between items-center">
         <Link to="/" className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400"><ChevronLeft size={20} /></Link>
         <h1 className="text-2xl font-bold text-slate-800">Histórico</h1>

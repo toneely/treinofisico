@@ -92,7 +92,7 @@ const Dashboard = () => {
   const coringaWorkout = workouts.find(w => w.is_coringa);
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-slate-50 min-h-screen pb-20">
+    <div className="p-6 max-w-md mx-auto pb-20">
       <header className="flex justify-between items-start mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Olá, {user?.nome?.split(' ')[0]}</h1>
