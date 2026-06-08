@@ -690,7 +690,7 @@ const Training = () => {
                     {exercise.exercicios.alvo_principal}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold leading-tight text-white">{exercise.exercicios.nome}</h2>
+              <h2 className="text-2xl font-bold leading-tight" style={{ color: 'var(--color-primary)' }}>{exercise.exercicios.nome}</h2>
             </div>
           </div>
 
@@ -863,7 +863,7 @@ const Training = () => {
                             <p className="font-bold text-sm truncate">{ex.exercicios.nome}</p>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-[8px] font-bold bg-white/10 px-1.5 py-0.5 rounded uppercase opacity-60">{ex.exercicios.alvo_principal}</span>
-                                <span className="text-[8px] font-bold text-indigo-300 uppercase">{ex.series_alvo}x {ex.reps_alvo}</span>
+                                <span className="text-[8px] font-bold uppercase" style={{ color: 'var(--color-primary)', opacity: 0.8 }}>{ex.series_alvo}x {ex.reps_alvo}</span>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 bg-black/20 p-2 px-3 rounded-xl">

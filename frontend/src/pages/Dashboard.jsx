@@ -98,8 +98,8 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-slate-800">Olá, {user?.nome?.split(' ')[0]}</h1>
           <p className="text-slate-500">Pronto para superar seus limites?</p>
         </div>
-        <Link to="/configuracoes" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 transition" style={{ color: 'var(--color-primary)' }}>
-          <Settings size={20} />
+        <Link to="/configuracoes" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 transition hover:opacity-70">
+          <Settings size={20} style={{ color: 'var(--color-primary)' }} />
         </Link>
       </header>
 
@@ -167,7 +167,7 @@ const Dashboard = () => {
             <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                 <div
                     className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 text-white"
-                    style={{ backgroundColor: 'var(--color-secondary)' }}
+                    style={{ backgroundColor: 'var(--color-primary)' }}
                 >
                     <Shield size={32} />
                 </div>
@@ -226,7 +226,7 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
         };
       case 'indigo':
         return {
-          card: 'bg-indigo-50 border-indigo-100 text-indigo-900',
+          card: 'bg-slate-50 border-slate-100 text-slate-900',
           iconBg: 'shadow-sm text-white',
           iconStyle: { backgroundColor: 'var(--color-secondary)' },
           chevron: 'opacity-50'
@@ -234,7 +234,8 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
       default:
         return {
           card: 'bg-white border-slate-200 text-slate-800',
-          iconBg: 'bg-slate-100 text-indigo-600',
+          iconBg: 'bg-slate-50',
+          iconStyle: { color: 'var(--color-primary)' },
           chevron: 'text-slate-300'
         };
     }

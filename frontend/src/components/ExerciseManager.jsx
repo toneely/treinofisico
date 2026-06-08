@@ -154,7 +154,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="nome"
               value={formData.nome}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
               required
             />
           </div>
@@ -165,7 +165,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="alvo_principal"
               value={formData.alvo_principal}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
               required
             />
           </div>
@@ -175,7 +175,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="tipo_fibra"
               value={formData.tipo_fibra}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             >
               <option value="Tipo I">Tipo I (Resistência)</option>
               <option value="Tipo IIa">Tipo IIa (Mista)</option>
@@ -188,7 +188,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="categoria"
               value={formData.categoria}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             >
               <option value="Empurrar">Empurrar</option>
               <option value="Puxar">Puxar</option>
@@ -202,7 +202,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="modalidade"
               value={formData.modalidade}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             >
               <option value="Musculação">Musculação</option>
               <option value="CrossFit">CrossFit</option>
@@ -220,7 +220,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               name="descanso_passivo_segundos"
               value={formData.descanso_passivo_segundos}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             />
           </div>
           <div className="flex items-center gap-2 mt-4">
@@ -230,7 +230,8 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
               id="depende_peso_corporal"
               checked={formData.depende_peso_corporal}
               onChange={handleInputChange}
-              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+              className="w-4 h-4 border-slate-300 rounded"
+              style={{ color: 'var(--color-primary)' }}
             />
             <label htmlFor="depende_peso_corporal" className="text-sm font-medium text-slate-700">Depende de Peso Corporal</label>
           </div>
@@ -262,7 +263,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
             placeholder="Pesquisar exercícios..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
           />
         </div>
 
@@ -301,7 +302,8 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
                       <div className="flex justify-center gap-2">
                         <button
                           onClick={() => handleEdit(exercise)}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          className="p-1.5 text-slate-400 transition hover:opacity-70"
+                          style={{ color: 'var(--color-primary)' }}
                         >
                           <Edit2 size={16} />
                         </button>

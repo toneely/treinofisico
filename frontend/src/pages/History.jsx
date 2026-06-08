@@ -454,9 +454,9 @@ const History = () => {
           </div>
 
           {showAddForm && (
-            <div className="bg-white p-4 rounded-2xl border-2 border-indigo-100 shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="bg-white p-4 rounded-2xl border-2 shadow-xl animate-in zoom-in-95 duration-200" style={{ borderColor: 'var(--color-primary)' }}>
                 <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-bold text-indigo-900">{showAddForm === 'workout' ? 'Adicionar Exercício' : 'Registrar Atividade'}</h4>
+                    <h4 className="font-bold" style={{ color: 'var(--color-primary)' }}>{showAddForm === 'workout' ? 'Adicionar Exercício' : 'Registrar Atividade'}</h4>
                     <button onClick={() => setShowAddForm(null)}><X size={18} /></button>
                 </div>
                 <form onSubmit={showAddForm === 'workout' ? handleAddWorkoutRecord : handleAddExtraRecord} className="space-y-3">
@@ -514,7 +514,7 @@ const History = () => {
                                                     {Array.isArray(item.carga) ? (item.carga[item.carga.length - 1]) : (item.carga_utilizada || 0)}kg
                                                 </span>
                                                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: Array.isArray(item.carga) ? item.carga.join(', ') : (item.carga_utilizada || 0), reps: Array.isArray(item.repeticoes) ? item.repeticoes.join(', ') : (item.repeticoes_feitas || 0), series: item.series_executadas}); }} className="p-1 text-slate-300 hover:text-indigo-500"><Edit2 size={14}/></button>
+                                                    <button onClick={() => { setIsEditing({type: 'workout', item}); setFormData({carga: Array.isArray(item.carga) ? item.carga.join(', ') : (item.carga_utilizada || 0), reps: Array.isArray(item.repeticoes) ? item.repeticoes.join(', ') : (item.repeticoes_feitas || 0), series: item.series_executadas}); }} className="p-1 text-slate-300 transition-colors" style={{ color: 'var(--color-primary)' }}><Edit2 size={14}/></button>
                                                     <button onClick={() => handleDeleteExercise(item.id)} className="p-1 text-slate-300 hover:text-red-500"><X size={14}/></button>
                                                 </div>
                                             </div>

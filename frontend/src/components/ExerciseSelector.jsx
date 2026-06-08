@@ -143,7 +143,8 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 border border-slate-200 rounded-lg text-left text-sm bg-white hover:border-indigo-300 transition flex justify-between items-center"
+        className="w-full p-2 border border-slate-200 rounded-lg text-left text-sm bg-white transition flex justify-between items-center"
+        style={{ hoverBorderColor: 'var(--color-primary)' }}
       >
         <span className={selectedEx ? 'text-slate-800 font-medium' : 'text-slate-400'}>
           {selectedEx ? selectedEx.nome : 'Selecionar exercício...'}
@@ -157,7 +158,7 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
             <select
               value={modalidade}
               onChange={(e) => setModalidade(e.target.value)}
-              className="p-1.5 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+              className="p-1.5 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             >
               {modalidades.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
@@ -169,14 +170,14 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
                 placeholder="Pesquisar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
               />
             </div>
           </div>
 
           <div className="max-h-60 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center"><Loader2 size={16} className="animate-spin mx-auto text-indigo-500" /></div>
+              <div className="p-4 text-center"><Loader2 size={16} className="animate-spin mx-auto" style={{ color: 'var(--color-primary)' }} /></div>
             ) : results.length > 0 ? (
               results.map(ex => (
                 <button
@@ -189,7 +190,10 @@ const ExerciseSelector = ({ currentExerciseId, onSelect, overrideUserId = null }
                     <p className="text-[10px] text-slate-400">{ex.alvo_principal}</p>
                   </div>
                   {ex.is_global ? (
-                    <span className="text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">Global</span>
+                    <span
+                        className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase"
+                        style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-primary)20' }}
+                    >Global</span>
                   ) : (
                     <Check size={12} className="text-emerald-500" />
                   )}

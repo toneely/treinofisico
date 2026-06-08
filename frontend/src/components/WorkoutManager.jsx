@@ -131,7 +131,7 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="letra"
               value={formData.letra}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
               maxLength={2}
               required
             />
@@ -143,7 +143,7 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="nome"
               value={formData.nome}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
               required
             />
           </div>
@@ -154,7 +154,7 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="subtitulo"
               value={formData.subtitulo}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -164,7 +164,8 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               id="is_coringa_workout"
               checked={formData.is_coringa}
               onChange={handleInputChange}
-              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+              className="w-4 h-4 border-slate-300 rounded"
+              style={{ color: 'var(--color-primary)' }}
             />
             <label htmlFor="is_coringa_workout" className="text-sm font-medium text-slate-700">Marcar como Coringa</label>
           </div>
@@ -198,9 +199,13 @@ const WorkoutManager = ({ overrideUserId = null }) => {
                 workout.is_coringa ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-100 hover:border-slate-200'
               }`}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg ${
-                    workout.is_coringa ? 'bg-amber-200 text-amber-700' : 'bg-slate-100 text-indigo-600'
-                  }`}>
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg"
+                    style={{
+                        backgroundColor: workout.is_coringa ? 'var(--color-primary)20' : 'rgba(0,0,0,0.05)',
+                        color: workout.is_coringa ? 'var(--color-primary)' : 'var(--color-secondary)'
+                    }}
+                  >
                     {workout.letra}
                   </div>
                   <div>
@@ -211,7 +216,8 @@ const WorkoutManager = ({ overrideUserId = null }) => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleEdit(workout)}
-                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                    className="p-2 text-slate-400 transition hover:opacity-70"
+                    style={{ color: 'var(--color-primary)' }}
                   >
                     <Edit2 size={18} />
                   </button>

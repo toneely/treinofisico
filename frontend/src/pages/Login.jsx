@@ -76,7 +76,7 @@ const Login = () => {
                         placeholder="nome@email.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-600/10 transition-all"
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-700 outline-none focus:ring-2 transition-all shadow-[0_0_0_0_rgba(0,0,0,0)] focus:shadow-[0_0_0_2px_var(--color-primary)]"
                         required
                     />
                 </div>
@@ -91,7 +91,7 @@ const Login = () => {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-600/10 transition-all"
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-700 outline-none focus:ring-2 transition-all shadow-[0_0_0_0_rgba(0,0,0,0)] focus:shadow-[0_0_0_2px_var(--color-primary)]"
                         required
                     />
                 </div>

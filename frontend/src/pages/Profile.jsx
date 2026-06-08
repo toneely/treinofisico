@@ -216,7 +216,7 @@ const Profile = () => {
                             name="nome"
                             value={formData.nome}
                             onChange={handleInputChange}
-                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"
+                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold text-slate-700 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
                         />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -226,7 +226,7 @@ const Profile = () => {
                             name="massa_corporea_atual"
                             value={formData.massa_corporea_atual}
                             onChange={handleInputChange}
-                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"
+                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold text-slate-700 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
                         />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -236,25 +236,26 @@ const Profile = () => {
                             name="atividade_alternativa"
                             value={formData.atividade_alternativa}
                             onChange={handleInputChange}
-                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"
+                            className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold text-slate-700 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
                         />
                     </div>
                 </div>
 
-                <div className="bg-indigo-50/30 p-6 rounded-2xl border border-indigo-100">
-                    <h4 className="text-xs font-black text-indigo-900 mb-4 flex items-center gap-2 tracking-widest uppercase">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <h4 className="text-xs font-black mb-4 flex items-center gap-2 tracking-widest uppercase" style={{ color: 'var(--color-secondary)' }}>
                         <Ruler size={16} /> Medidas (cm)
                     </h4>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                         {Object.keys(formData.medidas).map(key => (
                             <div key={key} className="flex flex-col gap-0.5">
-                                <label className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter">{key.replace('_', ' ')}</label>
+                                <label className="text-[8px] font-black uppercase tracking-tighter" style={{ color: 'var(--color-secondary)', opacity: 0.6 }}>{key.replace('_', ' ')}</label>
                                 <input
                                     type="number"
                                     name={key}
                                     value={formData.medidas[key]}
                                     onChange={handleMedidaChange}
-                                    className="p-1.5 bg-white border-none rounded-lg text-xs font-bold text-indigo-900 shadow-sm"
+                                    className="p-1.5 bg-white border-none rounded-lg text-xs font-bold shadow-sm"
+                                    style={{ color: 'var(--color-secondary)' }}
                                 />
                             </div>
                         ))}
