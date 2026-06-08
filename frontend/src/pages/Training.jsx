@@ -683,7 +683,7 @@ const Training = () => {
   return (
     <div
       className="min-h-screen transition-colors duration-700 text-white"
-      style={{ backgroundColor: "var(--bg-treino)" }}
+      style={{ color: metronomeActive ? (isCoringa ? "var(--text-on-primary)" : "var(--text-on-secondary)") : "inherit", backgroundColor: "var(--bg-treino)" }}
     >
       <div className="p-6 max-w-md mx-auto">
         <header className="flex justify-between items-center mb-6">
@@ -796,9 +796,8 @@ const Training = () => {
                 <span
                   className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
                   style={{
-                    backgroundColor: isCoringa
-                      ? "var(--color-primary)"
-                      : "var(--color-secondary)",
+                    backgroundColor: isCoringa ? "var(--color-primary)" : "var(--color-secondary)",
+                    color: isCoringa ? "var(--text-on-primary)" : "var(--text-on-secondary)"
                   }}
                 >
                   Série {state.currentSerie} / {exercise.series_alvo}
@@ -811,7 +810,7 @@ const Training = () => {
               </div>
               <h2
                 className="text-2xl font-bold leading-tight"
-                style={{ color: "var(--color-primary-safe)" }}
+                style={{ color: isCoringa || isPrimaryEx ? "var(--color-primary-safe)" : "var(--color-secondary-safe)" }}
               >
                 {exercise.exercicios.nome}
               </h2>
@@ -873,12 +872,11 @@ const Training = () => {
           className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? "scale-105 shadow-lg text-white" : ""}`}
           style={{
             backgroundColor: state.isTimerActive
-              ? isCoringa
-                ? "var(--color-primary)"
-                : isPrimaryEx
-                  ? "var(--color-primary)"
-                  : "var(--color-secondary)"
+              ? (isCoringa || isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)")
               : "rgba(255, 255, 255, 0.05)",
+            color: state.isTimerActive
+              ? (isCoringa || isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)")
+              : "white"
           }}
         >
           <div className="flex flex-col text-white">
@@ -916,11 +914,8 @@ const Training = () => {
                 data-testid="start-timer-btn"
                 className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
                 style={{
-                  backgroundColor: isCoringa
-                    ? "var(--color-primary)"
-                    : isPrimaryEx
-                      ? "var(--color-primary)"
-                      : "var(--color-secondary)",
+                  backgroundColor: isCoringa || isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)",
+                  color: isCoringa || isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)"
                 }}
               >
                 <Play fill="currentColor" className="ml-1" />
@@ -962,6 +957,7 @@ const Training = () => {
               className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
               style={{
                 backgroundColor: isCoringa ? "var(--color-primary)" : "#10b981",
+                color: isCoringa ? "var(--text-on-primary)" : "white"
               }}
             >
               {savingSession
@@ -1043,12 +1039,8 @@ const Training = () => {
                 onClick={() => dispatch({ type: "TOGGLE_MODE" })}
                 className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
                 style={{
-                  backgroundColor:
-                    state.executionMode === "alternated"
-                      ? isCoringa
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)"
-                      : "rgba(255, 255, 255, 0.1)",
+                  backgroundColor: state.executionMode === "alternated" ? (isCoringa ? "var(--color-primary)" : "var(--color-secondary)") : "rgba(255, 255, 255, 0.1)",
+                  color: state.executionMode === "alternated" ? (isCoringa ? "var(--text-on-primary)" : "var(--text-on-secondary)") : "white"
                 }}
               >
                 Modo:{" "}
@@ -1141,18 +1133,9 @@ const Training = () => {
                   key={`${bIdx}_${eIdx}`}
                   className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : ""}`}
                   style={{
-                    backgroundColor: isCurrent
-                      ? isCoringa
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)"
-                      : isDone
-                        ? "rgba(16, 185, 129, 0.1)"
-                        : "rgba(255, 255, 255, 0.05)",
-                    borderColor: isCurrent
-                      ? "transparent"
-                      : isDone
-                        ? "#10b98140"
-                        : "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: isCurrent ? (isCoringa ? "var(--color-primary)" : "var(--color-secondary)") : (isDone ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)"),
+                    color: isCurrent ? (isCoringa ? "var(--text-on-primary)" : "var(--text-on-secondary)") : "white",
+                    borderColor: isCurrent ? "transparent" : (isDone ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
                   }}
                 >
                   <div className="flex justify-between items-center">
@@ -1519,9 +1502,8 @@ const Training = () => {
                     key={exId}
                     className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
                     style={{
-                      backgroundColor: isPrimary
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)",
+                      backgroundColor: isPrimary ? "var(--color-primary)" : "var(--color-secondary)",
+                      color: isPrimary ? "var(--text-on-primary)" : "var(--text-on-secondary)"
                     }}
                   >
                     <div className="flex flex-col min-w-0">

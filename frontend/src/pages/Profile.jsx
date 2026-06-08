@@ -187,7 +187,7 @@ const Profile = () => {
         <div className="relative mb-4">
           <div
             className="w-24 h-24 rounded-3xl flex items-center justify-center overflow-hidden border-4 border-white shadow-lg"
-            style={{ backgroundColor: "var(--color-secondary)" }}
+            style={{ backgroundColor: "var(--color-secondary)", color: "var(--text-on-secondary)" }}
           >
             {user.user_metadata?.avatar_url ? (
               <img

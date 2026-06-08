@@ -1021,7 +1021,7 @@ const History = () => {
                 ) : (
                   <div
                     className="rounded-2xl p-4 flex justify-between items-center text-white shadow-lg"
-                    style={{ backgroundColor: "var(--color-secondary)" }}
+                    style={{ backgroundColor: "var(--color-secondary)", color: "var(--text-on-secondary)" }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
