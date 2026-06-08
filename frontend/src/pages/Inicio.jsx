@@ -17,6 +17,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import BodyEvolution from "../components/BodyEvolution";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -90,6 +91,7 @@ const Inicio = () => {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [savedTraining, setSavedTraining] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [activeTab, setActiveTab] = useState("treinos");
 
   useEffect(() => {
     if (authUser) {
@@ -172,7 +174,7 @@ const Inicio = () => {
     <div className="p-6 max-w-md mx-auto pb-20">
       <header className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold ">
+          <h1 className="text-3xl font-bold " style={{ color: "var(--text-on-gestao)" }}>
             Olá, {user?.nome?.split(" ")[0]}
           </h1>
           <p className="text-slate-500">Pronto para superar seus limites?</p>
@@ -185,81 +187,123 @@ const Inicio = () => {
         </Link>
       </header>
 
-      {savedTraining && (
-        <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
-          <button
-            onClick={() =>
-              navigate(`/treino/${savedTraining.letra}?resume=true`)
-            }
-            className="w-full p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all"
-            style={{
-              backgroundColor: "var(--color-primary)",
-              color: "var(--text-on-primary)",
-            }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
-                <Play fill="currentColor" size={20} />
-              </div>
-              <div className="text-left">
-                <h4 className="font-black text-lg leading-tight uppercase">
-                  Continuar Treino
-                </h4>
-                <p className="text-xs font-bold opacity-70 uppercase tracking-widest">
-                  Treino {savedTraining.letra} Interrompido
-                </p>
-              </div>
+      {/* Tabs Navigation */}
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-full mb-8">
+        <button
+          onClick={() => setActiveTab("treinos")}
+          className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+          style={
+            activeTab === "treinos"
+              ? {
+                  backgroundColor: "white",
+                  color: "var(--color-primary)",
+                  boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+                }
+              : { color: "#64748b" }
+          }
+        >
+          Treinos
+        </button>
+        <button
+          onClick={() => setActiveTab("evolucao")}
+          className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+          style={
+            activeTab === "evolucao"
+              ? {
+                  backgroundColor: "white",
+                  color: "var(--color-primary)",
+                  boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+                }
+              : { color: "#64748b" }
+          }
+        >
+          Evolução
+        </button>
+      </div>
+
+      {activeTab === "treinos" ? (
+        <div className="animate-in fade-in duration-500">
+          {savedTraining && (
+            <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
+              <button
+                onClick={() =>
+                  navigate(`/treino/${savedTraining.letra}?resume=true`)
+                }
+                className="w-full p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  color: "var(--text-on-primary)",
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
+                    <Play fill="currentColor" size={20} />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-black text-lg leading-tight uppercase">
+                      Continuar Treino
+                    </h4>
+                    <p className="text-xs font-bold opacity-70 uppercase tracking-widest">
+                      Treino {savedTraining.letra} Interrompido
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="opacity-50 group-hover:opacity-100" />
+              </button>
             </div>
-            <ChevronRight className="opacity-50 group-hover:opacity-100" />
-          </button>
+          )}
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
+              Treinos Disponíveis
+            </h3>
+
+            {workouts
+              .filter((w) => !w.is_coringa)
+              .map((workout) => (
+                <WorkoutCard
+                  key={workout.id}
+                  title={workout.nome}
+                  subtitle={workout.subtitulo}
+                  icon={
+                    workout.letra === "A" ? (
+                      <Dumbbell />
+                    ) : workout.letra === "B" ? (
+                      <List />
+                    ) : workout.letra === "C" ? (
+                      <RotateCcw />
+                    ) : (
+                      <Bike />
+                    )
+                  }
+                  onClick={() => startTraining(workout.letra)}
+                />
+              ))}
+
+            {coringaWorkout && (
+              <WorkoutCard
+                title={coringaWorkout.nome}
+                subtitle={coringaWorkout.subtitulo}
+                icon={<Zap size={24} fill="currentColor" />}
+                onClick={() => startTraining(coringaWorkout.letra)}
+                variant="amber"
+              />
+            )}
+
+            <WorkoutCard
+              title={atividadeAlt}
+              subtitle="Registrar atividade de hoje"
+              icon={<Shield size={24} />}
+              onClick={() => setShowActivityModal(true)}
+              variant="indigo"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="animate-in fade-in duration-500">
+          <BodyEvolution />
         </div>
       )}
-
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
-          Treinos Disponíveis
-        </h3>
-
-        {workouts
-          .filter((w) => !w.is_coringa)
-          .map((workout) => (
-            <WorkoutCard
-              key={workout.id}
-              title={workout.nome}
-              subtitle={workout.subtitulo}
-              icon={
-                workout.letra === "A" ? (
-                  <Dumbbell />
-                ) : workout.letra === "B" ? (
-                  <List />
-                ) : workout.letra === "C" ? (
-                  <RotateCcw />
-                ) : (
-                  <Bike />
-                )
-              }
-              onClick={() => startTraining(workout.letra)}
-            />
-          ))}
-
-        {coringaWorkout && (
-          <WorkoutCard
-            title={coringaWorkout.nome}
-            subtitle={coringaWorkout.subtitulo}
-            icon={<Zap size={24} fill="currentColor" />}
-            onClick={() => startTraining(coringaWorkout.letra)}
-            variant="amber"
-          />
-        )}
-
-        <WorkoutCard
-          title={atividadeAlt}
-          subtitle="Registrar atividade de hoje"
-          icon={<Shield size={24} />}
-          onClick={() => setShowActivityModal(true)}
-          variant="indigo"
-        />
-      </div>
 
       {showActivityModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
