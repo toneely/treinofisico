@@ -386,14 +386,20 @@ const History = () => {
       <header className="mb-6 flex justify-between items-center">
         <Link to="/" className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400"><ChevronLeft size={20} /></Link>
         <h1 className="text-2xl font-bold text-slate-800">Histórico</h1>
-        <button onClick={() => setShowExportModal(true)} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200"><FileDown size={18} /></button>
+        <button
+            onClick={() => setShowExportModal(true)}
+            className="p-2 text-white rounded-xl shadow-lg"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+        >
+            <FileDown size={18} />
+        </button>
       </header>
 
       {/* Calendário */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-bold text-slate-700 flex items-center gap-2">
-            <CalendarIcon size={18} className="text-indigo-600" />
+            <CalendarIcon size={18} style={{ color: 'var(--color-primary)' }} />
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </h2>
           <div className="flex gap-2">
@@ -414,8 +420,9 @@ const History = () => {
                 key={idx}
                 onClick={() => setSelectedDay(day)}
                 className={`aspect-square rounded-xl flex items-center justify-center text-sm font-bold transition-all relative ${
-                    !day ? 'invisible' : selectedDay === day ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-50'
+                    !day ? 'invisible' : selectedDay === day ? 'text-white' : 'text-slate-400 hover:bg-slate-50'
                 }`}
+                style={selectedDay === day ? { backgroundColor: 'var(--color-primary)' } : {}}
               >
                 {day}
                 {day && (
@@ -471,7 +478,13 @@ const History = () => {
                     ) : (
                         <input type="text" placeholder="Nome da Atividade" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full p-2 border border-slate-200 rounded-lg text-sm" />
                     )}
-                    <button type="submit" className="w-full py-2 bg-indigo-600 text-white rounded-xl font-bold">Salvar Registro</button>
+                    <button
+                        type="submit"
+                        className="w-full py-2 text-white rounded-xl font-bold"
+                        style={{ backgroundColor: 'var(--color-primary)' }}
+                    >
+                        Salvar Registro
+                    </button>
                 </form>
             </div>
           )}
@@ -497,7 +510,7 @@ const History = () => {
                                                 <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">Total: {item.series_executadas} séries</p>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-lg font-mono font-black text-indigo-600">
+                                                <span className="text-lg font-mono font-black" style={{ color: 'var(--color-primary)' }}>
                                                     {Array.isArray(item.carga) ? (item.carga[item.carga.length - 1]) : (item.carga_utilizada || 0)}kg
                                                 </span>
                                                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
@@ -534,9 +547,10 @@ const History = () => {
                                                                     value={reps || ''}
                                                                     placeholder="-"
                                                                     onChange={(e) => updateHistorySeriesValue(item, 'reps', sIdx, e.target.value)}
-                                                                    className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-indigo-500 placeholder:text-slate-300"
+                                                                    className="bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:text-slate-300"
+                                                                    style={{ color: 'var(--color-primary)' }}
                                                                 />
-                                                                <span className="text-[7px] font-bold text-indigo-300 uppercase">reps</span>
+                                                                <span className="text-[7px] font-bold uppercase" style={{ color: 'var(--color-primary)', opacity: 0.6 }}>reps</span>
                                                             </div>
                                                         </div>
 
@@ -663,7 +677,8 @@ const History = () => {
                     <button
                         onClick={handleGenerateFilteredPDF}
                         disabled={isExporting}
-                        className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full py-4 text-white rounded-2xl font-bold shadow-lg mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--color-primary)' }}
                     >
                         {isExporting ? <RotateCcw size={18} className="animate-spin"/> : <FileDown size={18}/>}
                         {isExporting ? 'Processando...' : 'Gerar PDF'}
@@ -707,7 +722,13 @@ const History = () => {
                     )}
                     <div className="flex gap-2 pt-4">
                         <button type="button" onClick={() => setIsEditing(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold">Cancelar</button>
-                        <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200">Salvar</button>
+                        <button
+                            type="submit"
+                            className="flex-1 py-4 text-white rounded-2xl font-bold shadow-lg"
+                            style={{ backgroundColor: 'var(--color-primary)' }}
+                        >
+                            Salvar
+                        </button>
                     </div>
                 </form>
             </div>
@@ -716,13 +737,13 @@ const History = () => {
 
       {/* Footer Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
-        <Link to="/" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/" className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1">
           <Dumbbell size={24} /><span className="text-[10px] font-bold uppercase">Treinos</span>
         </Link>
-        <Link to="/historico" className="text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/historico" className="flex flex-col items-center gap-1" style={{ color: 'var(--color-primary)' }}>
           <HistoryIcon size={24} /><span className="text-[10px] font-bold uppercase">Histórico</span>
         </Link>
-        <Link to="/perfil" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/perfil" className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1">
           <UserIcon size={24} /><span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>

@@ -167,7 +167,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-6 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <GripVertical size={20} className="text-indigo-600" />
+          <GripVertical size={20} style={{ color: 'var(--color-primary)' }} />
           Configurador de Blocos
         </h2>
         <div className="flex flex-wrap gap-2">
@@ -176,8 +176,9 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
               key={w.letra}
               onClick={() => setSelectedWorkout(w.letra)}
               className={`w-10 h-10 rounded-lg font-bold transition ${
-                selectedWorkout === w.letra ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
+                selectedWorkout === w.letra ? 'text-white' : 'bg-white text-slate-500 border border-slate-200'
               }`}
+              style={selectedWorkout === w.letra ? { backgroundColor: 'var(--color-primary)' } : {}}
             >
               {w.letra}
             </button>
@@ -198,7 +199,8 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                     {block.exercicios.length < 2 && (
                       <button
                         onClick={() => addExerciseToBlock(bIdx)}
-                        className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1"
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                        style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-primary)10' }}
                       >
                         <Plus size={14} /> Adicionar Alternado
                       </button>
@@ -281,7 +283,8 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
 
             <button
               onClick={addBlock}
-              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-indigo-300 hover:text-indigo-600 transition flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold transition flex items-center justify-center gap-2"
+              style={{ color: 'var(--color-primary)' }}
             >
               <Plus size={20} /> Novo Bloco
             </button>

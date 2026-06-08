@@ -107,22 +107,33 @@ const AppearanceSettings = () => {
 
 const ColorInput = ({ label, value, onChange, description }) => (
   <div className="space-y-3">
-    <div className="flex justify-between items-end">
-        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">{label}</label>
-        <span className="text-[10px] font-mono font-bold text-slate-300">{value.toUpperCase()}</span>
+    <div className="flex justify-between items-end px-1">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+        <span className="text-[9px] font-mono font-bold text-slate-300 tracking-wider">{value.toUpperCase()}</span>
     </div>
-    <div className="flex gap-3">
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-16 h-16 rounded-2xl border-none p-0 cursor-pointer overflow-hidden bg-transparent"
-      />
+    <div className="flex gap-2">
+      <div className="relative group">
+        <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-14 h-14 rounded-2xl border-none p-0 cursor-pointer overflow-hidden bg-transparent"
+        />
+        <div className="absolute inset-0 rounded-2xl border-2 border-slate-100 pointer-events-none group-hover:border-slate-200 transition-colors"></div>
+      </div>
       <input
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-orange-500 font-mono font-bold text-slate-700 transition-all"
+        onChange={(e) => {
+            const val = e.target.value;
+            if (val.startsWith('#') && val.length <= 7) {
+                onChange(val);
+            } else if (!val.startsWith('#') && val.length <= 6) {
+                onChange('#' + val);
+            }
+        }}
+        placeholder="#000000"
+        className="flex-1 px-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-slate-200 focus:bg-white font-mono font-bold text-slate-700 transition-all uppercase text-sm"
       />
     </div>
     <p className="text-[10px] text-slate-400 italic px-1">{description}</p>

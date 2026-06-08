@@ -98,7 +98,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-slate-800">Olá, {user?.nome?.split(' ')[0]}</h1>
           <p className="text-slate-500">Pronto para superar seus limites?</p>
         </div>
-        <Link to="/configuracoes" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 hover:text-indigo-600 transition">
+        <Link to="/configuracoes" className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 transition" style={{ color: 'var(--color-primary)' }}>
           <Settings size={20} />
         </Link>
       </header>
@@ -165,7 +165,10 @@ const Dashboard = () => {
       {showActivityModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <div
+                    className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 text-white"
+                    style={{ backgroundColor: 'var(--color-secondary)' }}
+                >
                     <Shield size={32} />
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 text-center mb-2">Registrar Atividade</h2>
@@ -198,11 +201,11 @@ const Dashboard = () => {
           <Dumbbell size={24} />
           <span className="text-[10px] font-bold uppercase">Treinos</span>
         </Link>
-        <Link to="/historico" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/historico" className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1">
           <HistoryIcon size={24} />
           <span className="text-[10px] font-bold uppercase">Histórico</span>
         </Link>
-        <Link to="/perfil" className="text-slate-400 hover:text-indigo-600 flex flex-col items-center gap-1">
+        <Link to="/perfil" className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1">
           <UserIcon size={24} />
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>

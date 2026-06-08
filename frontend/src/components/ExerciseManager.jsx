@@ -140,7 +140,7 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-6 border-b border-slate-100 bg-slate-50">
         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Search size={20} className="text-indigo-600" />
+          <Search size={20} style={{ color: 'var(--color-primary)' }} />
           Gerenciar Exercícios
         </h2>
       </div>
@@ -246,7 +246,8 @@ const ExerciseManager = ({ overrideUserId = null, targetTable = 'exercicios' }) 
             )}
             <button
               type="submit"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition flex items-center gap-2"
+              className="px-4 py-2 text-white rounded-lg font-medium transition flex items-center gap-2"
+              style={{ backgroundColor: 'var(--color-primary)' }}
             >
               {isEditing ? <Check size={18} /> : <Plus size={18} />}
               {isEditing ? 'Atualizar Exercício' : 'Adicionar Exercício'}

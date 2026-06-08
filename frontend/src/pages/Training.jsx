@@ -625,7 +625,7 @@ const Training = () => {
             >
               {state.isCatchupPhase ? 'REPESCAGEM' : `Treino ${letra}`} {isCoringa && !state.isCatchupPhase && '• CORINGA'}
             </span>
-            <span className="font-bold text-lg">Bloco {state.currentBlockIndex + 1} de {state.blocos.length}</span>
+            <span className="font-bold text-lg text-white">Bloco {state.currentBlockIndex + 1} de {state.blocos.length}</span>
           </div>
           <div className="flex gap-2">
             {/* Metronome Control */}
@@ -690,7 +690,7 @@ const Training = () => {
                     {exercise.exercicios.alvo_principal}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold leading-tight">{exercise.exercicios.nome}</h2>
+              <h2 className="text-2xl font-bold leading-tight text-white">{exercise.exercicios.nome}</h2>
             </div>
           </div>
 
@@ -727,17 +727,17 @@ const Training = () => {
 
         {/* Stopwatch & Reference */}
         <div
-            className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? 'scale-105 shadow-lg' : ''}`}
+            className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? 'scale-105 shadow-lg text-white' : ''}`}
             style={{
                 backgroundColor: state.isTimerActive
                     ? (isCoringa ? 'var(--color-primary)' : (isPrimaryEx ? 'var(--color-primary)' : 'var(--color-secondary)'))
                     : 'rgba(255, 255, 255, 0.05)'
             }}
         >
-           <div className="flex flex-col">
+           <div className="flex flex-col text-white">
               <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
               <div className="flex items-baseline gap-3">
-                <p className="text-4xl font-mono font-black">
+                <p className="text-4xl font-mono font-black text-white">
                     {formatTime(state.timer)}
                 </p>
                 {lastExecutionTimes[exercise.exercicios.id] > 0 && (
@@ -907,11 +907,11 @@ const Training = () => {
                     >
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-black/10' : 'bg-white/5'}`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-black/10 text-white' : 'bg-white/5 text-white/40'}`}>
                                     {isDone ? <CheckCircle2 size={16}/> : <Dumbbell size={16}/>}
                                 </div>
                                 <div>
-                                    <p className="font-bold text-sm">{ex.exercicios.nome}</p>
+                                    <p className="font-bold text-sm text-white">{ex.exercicios.nome}</p>
                                     <div className="flex gap-2 items-center">
                                         <p className="text-[10px] opacity-60 font-medium text-white">Séries: {currentExSerie}/{ex.series_alvo}</p>
                                         {state.cargas[ex.exercicio_id] > 0 && (

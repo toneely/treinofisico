@@ -204,7 +204,7 @@ const Profile = () => {
         {/* Biometria */}
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
             <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-                <Scale className="text-indigo-600" size={18} />
+                <Scale style={{ color: 'var(--color-primary)' }} size={18} />
                 <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">Biometria e Foco</h3>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -266,7 +266,7 @@ const Profile = () => {
         {/* Configurações de Treino */}
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
             <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-                <Shield className="text-indigo-600" size={18} />
+                <Shield style={{ color: 'var(--color-primary)' }} size={18} />
                 <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">Configuração de Treinos</h3>
             </div>
             <div className="p-6">
