@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -15,18 +15,28 @@ import {
   X,
   Save,
   Loader2,
+  Camera,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
+import imageCompression from "browser-image-compression";
 
 const BodyEvolution = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [measurementTypes, setMeasurementTypes] = useState([]);
   const [history, setHistory] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeasurement, setSelectedMeasurement] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     tipo_medida_id: null,
@@ -34,9 +44,15 @@ const BodyEvolution = () => {
     data_medida: new Date().toISOString().split("T")[0],
   });
 
+  const [photoData, setPhotoData] = useState({
+    anotacao: "",
+    data_foto: new Date().toISOString().split("T")[0],
+  });
+
   useEffect(() => {
     if (user) {
       fetchData();
+      fetchPhotos();
     }
   }, [user]);
 
@@ -45,7 +61,7 @@ const BodyEvolution = () => {
     const { data: types } = await supabase
       .from("tipos_medida")
       .select("*")
-      .order("ordem");
+      .order("ordem", { ascending: true });
 
     const { data: measures } = await supabase
       .from("historico_medidas")
@@ -56,6 +72,25 @@ const BodyEvolution = () => {
     setMeasurementTypes(types || []);
     setHistory(measures || []);
     setLoading(false);
+  };
+
+  const fetchPhotos = async () => {
+    const { data } = await supabase
+      .from("fotos_progresso")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("data_foto", { ascending: false });
+
+    // Group photos by day
+    if (data) {
+      const grouped = data.reduce((acc, curr) => {
+        const day = new Date(curr.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' });
+        if (!acc[day]) acc[day] = [];
+        acc[day].push(curr);
+        return acc;
+      }, {});
+      setPhotos(Object.entries(grouped).map(([day, items]) => ({ day, items })));
+    }
   };
 
   const handleOpenAdd = (type) => {
@@ -93,6 +128,60 @@ const BodyEvolution = () => {
     }
   };
 
+  const handleUploadPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      // 1. Compression
+      const optionsMedia = { maxSizeMB: 0.8, maxWidthOrHeight: 1080, useWebWorker: true };
+      const optionsThumb = { maxSizeMB: 0.1, maxWidthOrHeight: 200, useWebWorker: true };
+
+      const [compressedMedia, compressedThumb] = await Promise.all([
+        imageCompression(file, optionsMedia),
+        imageCompression(file, optionsThumb)
+      ]);
+
+      const timestamp = Date.now();
+      const fileNameMedia = `${user.id}/${timestamp}_media.webp`;
+      const fileNameThumb = `${user.id}/${timestamp}_thumb.webp`;
+
+      // 2. Storage Upload
+      const [uploadMedia, uploadThumb] = await Promise.all([
+        supabase.storage.from("fotos_evolucao").upload(fileNameMedia, compressedMedia),
+        supabase.storage.from("fotos_evolucao").upload(fileNameThumb, compressedThumb)
+      ]);
+
+      if (uploadMedia.error) throw uploadMedia.error;
+      if (uploadThumb.error) throw uploadThumb.error;
+
+      // 3. Get Public URLs
+      const urlMedia = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameMedia).data.publicUrl;
+      const urlThumb = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameThumb).data.publicUrl;
+
+      // 4. Save to DB
+      const { error: dbError } = await supabase.from("fotos_progresso").insert([{
+        user_id: user.id,
+        url_foto_media: urlMedia,
+        url_miniatura: urlThumb,
+        anotacao: photoData.anotacao,
+        data_foto: new Date(photoData.data_foto).toISOString()
+      }]);
+
+      if (dbError) throw dbError;
+
+      showToast("Foto enviada com sucesso!", "success");
+      setShowPhotoModal(false);
+      setPhotoData({ anotacao: "", data_foto: new Date().toISOString().split("T")[0] });
+      fetchPhotos();
+    } catch (err) {
+      showToast("Erro no upload: " + err.message, "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading)
     return (
       <div className="p-10 text-center text-slate-400">
@@ -101,7 +190,50 @@ const BodyEvolution = () => {
     );
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-8 pb-24">
+      {/* Photo Evolution Section */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Evolução com Fotos</h3>
+          <button
+            onClick={() => setShowPhotoModal(true)}
+            className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400 hover:text-slate-600 transition"
+          >
+            <Camera size={18} style={{ color: 'var(--color-primary)' }} />
+          </button>
+        </div>
+
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+          {photos.length === 0 ? (
+            <button
+              onClick={() => setShowPhotoModal(true)}
+              className="w-32 h-40 rounded-[32px] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
+            >
+              <Plus size={24} />
+              <span className="text-[10px] font-black uppercase">Adicionar</span>
+            </button>
+          ) : (
+            photos.map((group, idx) => (
+              <div key={idx} className="flex flex-col gap-2 shrink-0 snap-start">
+                <div className="flex gap-2">
+                  {group.items.map(photo => (
+                    <button
+                      key={photo.id}
+                      onClick={() => setShowLightbox(photo)}
+                      className="w-24 h-24 rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform"
+                    >
+                      <img src={photo.url_miniatura} alt="Progresso" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10px] font-black text-slate-400 uppercase text-center">{group.day}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* Measurements Grid */}
       <div className="grid grid-cols-2 gap-4">
         {measurementTypes.map((type) => {
           const typeHistory = history.filter((h) => h.tipo_medida_id === type.id);
@@ -185,7 +317,7 @@ const BodyEvolution = () => {
         })}
       </div>
 
-      {/* Add Modal */}
+      {/* Add Measurement Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -257,7 +389,104 @@ const BodyEvolution = () => {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* Add Photo Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <Camera size={20} style={{ color: "var(--color-primary)" }} />
+              Nova Foto de Progresso
+            </h2>
+            <div className="space-y-4">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full aspect-video rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all overflow-hidden relative"
+              >
+                {uploading ? (
+                  <Loader2 className="animate-spin" size={32} />
+                ) : (
+                  <>
+                    <Upload size={32} />
+                    <span className="text-[10px] font-black uppercase">Selecionar Imagem</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleUploadPhoto}
+                />
+              </button>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Anotação (Opcional)</label>
+                <textarea
+                  value={photoData.anotacao}
+                  onChange={e => setPhotoData({...photoData, anotacao: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold text-sm transition-all"
+                  placeholder="Ex: Pós treino de pernas"
+                  rows={2}
+                  style={{ '--tw-ring-color': 'var(--color-primary)' }}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
+                <input
+                  type="date"
+                  value={photoData.data_foto}
+                  onChange={e => setPhotoData({...photoData, data_foto: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' }}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowPhotoModal(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {showLightbox && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 p-4">
+          <button
+            onClick={() => setShowLightbox(null)}
+            className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="w-full max-w-lg flex flex-col gap-6">
+            <div className="rounded-[40px] overflow-hidden shadow-2xl border border-white/10 relative aspect-square bg-slate-900">
+              <img src={showLightbox.url_foto_media} alt="Progresso" className="w-full h-full object-contain" />
+
+              {showLightbox.anotacao && (
+                <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent">
+                  <p className="text-white text-sm font-bold leading-relaxed">{showLightbox.anotacao}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="text-center">
+              <span className="text-white/40 text-xs font-black uppercase tracking-[0.3em]">
+                {new Date(showLightbox.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Measurement Detail Modal */}
       {showDetailModal && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-500 max-h-[90vh] overflow-y-auto">

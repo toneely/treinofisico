@@ -22,7 +22,7 @@ export const ToastProvider = ({ children }) => {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border min-w-[280px] animate-in slide-in-from-right-4 duration-300 ${toast.type === "success" ? " " : toast.type === "error" ? "bg-red-50 border-red-100 text-red-800" : "bg-slate-50 border-slate-100 "}`}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border min-w-[280px] animate-in slide-in-from-right-4 duration-300 ${toast.type === "success" ? "bg-white border-emerald-100" : toast.type === "error" ? "bg-red-50 border-red-100 text-red-800" : "bg-white border-slate-100 "}`}
           >
             {" "}
             {toast.type === "success" && (
