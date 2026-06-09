@@ -17,7 +17,8 @@ export const AuthProvider = ({ children }) => {
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth State Change:", event, session?.user?.email);
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -29,7 +30,12 @@ export const AuthProvider = ({ children }) => {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password });
   const signInWithGoogle = () =>
-    supabase.auth.signInWithOAuth({ provider: "google" });
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/inicio",
+      },
+    });
   const signOut = () => supabase.auth.signOut();
 
   return (

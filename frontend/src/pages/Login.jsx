@@ -4,9 +4,16 @@ import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 import { LogIn, Mail, Lock, Chrome, Loader2 } from "lucide-react";
 const Login = () => {
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user && !authLoading) {
+      console.log("Usuário já autenticado, redirecionando...");
+      navigate("/inicio");
+    }
+  }, [user, authLoading, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +35,8 @@ const Login = () => {
         showToast(error.message, "error");
       } else {
         showToast("Bem-vindo de volta!", "success");
-        navigate("/inicio");
+        console.log("Login efetuado, redirecionando para /inicio...");
+        window.location.href = "/inicio";
       }
     }
     setLoading(false);
