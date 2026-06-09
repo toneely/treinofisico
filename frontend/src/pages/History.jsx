@@ -72,7 +72,7 @@ const History = () => {
   }, [currentDate]);
 
   const fetchWorkoutsMetadata = async () => {
-    const { data } = await supabase.from("treinos").select("letra, is_coringa");
+    const { data } = await supabase.from("treinos").select("letra, letra");
     setWorkoutsMetadata(data || []);
   };
 
@@ -183,7 +183,7 @@ const History = () => {
           time: timeKey,
           fullDate: curr.data_treino,
           items: [],
-          isCoringa: meta ? meta.is_coringa : false,
+          isCoringa: meta ? meta.letra : false,
         };
       }
       acc[key].items.push(curr);
@@ -760,7 +760,7 @@ const History = () => {
                     <div
                       className="px-4 py-2 flex justify-between items-center"
                       style={{
-                        backgroundColor: act.isCoringa
+                        backgroundColor: "var(--color-primary)"
                           ? "var(--color-primary)"
                           : "#1e293b",
                         color: "white",

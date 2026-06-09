@@ -22,16 +22,6 @@ import BodyEvolution from "../components/BodyEvolution";
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
     switch (variant) {
-      case "amber":
-        return {
-          card: "bg-white border-slate-200 ",
-          iconBg: "shadow-sm",
-          iconStyle: {
-            backgroundColor: "var(--color-primary)",
-            color: "var(--text-on-primary)",
-          },
-          chevron: "opacity-50",
-        };
       case "indigo":
         return {
           card: "bg-white border-slate-200 ",
@@ -168,7 +158,6 @@ const Inicio = () => {
     );
 
   const atividadeAlt = user?.atividade_alternativa || "Capoeira";
-  const coringaWorkout = workouts.find((w) => w.is_coringa);
 
   return (
     <div className="p-6 max-w-md mx-auto pb-20">
@@ -258,37 +247,25 @@ const Inicio = () => {
               Treinos Disponíveis
             </h3>
 
-            {workouts
-              .filter((w) => !w.is_coringa)
-              .map((workout) => (
-                <WorkoutCard
-                  key={workout.id}
-                  title={workout.nome}
-                  subtitle={workout.subtitulo}
-                  icon={
-                    workout.letra === "A" ? (
-                      <Dumbbell />
-                    ) : workout.letra === "B" ? (
-                      <List />
-                    ) : workout.letra === "C" ? (
-                      <RotateCcw />
-                    ) : (
-                      <Bike />
-                    )
-                  }
-                  onClick={() => startTraining(workout.letra)}
-                />
-              ))}
-
-            {coringaWorkout && (
+            {workouts.map((workout) => (
               <WorkoutCard
-                title={coringaWorkout.nome}
-                subtitle={coringaWorkout.subtitulo}
-                icon={<Zap size={24} fill="currentColor" />}
-                onClick={() => startTraining(coringaWorkout.letra)}
-                variant="amber"
+                key={workout.id}
+                title={workout.nome}
+                subtitle={workout.subtitulo}
+                icon={
+                  workout.letra === "A" ? (
+                    <Dumbbell />
+                  ) : workout.letra === "B" ? (
+                    <List />
+                  ) : workout.letra === "C" ? (
+                    <RotateCcw />
+                  ) : (
+                    <Bike />
+                  )
+                }
+                onClick={() => startTraining(workout.letra)}
               />
-            )}
+            ))}
 
             <WorkoutCard
               title={atividadeAlt}

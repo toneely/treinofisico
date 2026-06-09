@@ -9,9 +9,9 @@ import {
   LogOut,
   Camera,
   Save,
-  Scale,
-  Ruler,
-  Shield,
+  Lock,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -21,33 +21,22 @@ const Profile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [coringaWorkouts, setCoringaWorkouts] = useState([]);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     nome: "",
-    massa_corporea_atual: 0,
     foco_treino: "",
     atividade_alternativa: "Capoeira",
-    medidas: {
-      pescoco: 0,
-      torax: 0,
-      braco_dir: 0,
-      braco_esq: 0,
-      antebraco_dir: 0,
-      antebraco_esq: 0,
-      cintura: 0,
-      abdomen: 0,
-      quadril: 0,
-      coxa_dir: 0,
-      coxa_esq: 0,
-      panturrilha_dir: 0,
-      panturrilha_esq: 0,
-    },
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
     if (user) {
       fetchUserData();
-      fetchCoringaStatus();
     }
   }, [user]);
 
@@ -64,25 +53,8 @@ const Profile = () => {
     } else if (data) {
       setFormData({
         nome: data.nome || user.user_metadata?.full_name || "",
-        massa_corporea_atual: data.massa_corporea_atual || 0,
         foco_treino: data.foco_treino || "",
         atividade_alternativa: data.atividade_alternativa || "Capoeira",
-        medidas: {
-          pescoco: 0,
-          torax: 0,
-          braco_dir: 0,
-          braco_esq: 0,
-          antebraco_dir: 0,
-          antebraco_esq: 0,
-          cintura: 0,
-          abdomen: 0,
-          quadril: 0,
-          coxa_dir: 0,
-          coxa_esq: 0,
-          panturrilha_dir: 0,
-          panturrilha_esq: 0,
-          ...(data.medidas || {}),
-        },
       });
     } else {
       setFormData((prev) => ({
@@ -93,45 +65,14 @@ const Profile = () => {
     setLoading(false);
   };
 
-  const fetchCoringaStatus = async () => {
-    const { data } = await supabase
-      .from("blocos_treino")
-      .select("letra_treino, is_coringa")
-      .eq("user_id", user.id);
-
-    if (data) {
-      const map = data.reduce((acc, curr) => {
-        acc[curr.letra_treino] = curr.is_coringa;
-        return acc;
-      }, {});
-      setCoringaWorkouts(map);
-    }
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleMedidaChange = (e) => {
+  const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      medidas: { ...prev.medidas, [name]: parseFloat(value) || 0 },
-    }));
-  };
-
-  const toggleCoringa = async (letra) => {
-    const newValue = !coringaWorkouts[letra];
-    const { error } = await supabase
-      .from("blocos_treino")
-      .update({ is_coringa: newValue })
-      .eq("letra_treino", letra)
-      .eq("user_id", user.id);
-
-    if (!error) {
-      setCoringaWorkouts((prev) => ({ ...prev, [letra]: newValue }));
-    }
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -139,16 +80,39 @@ const Profile = () => {
     const { error } = await supabase.from("usuarios").upsert({
       id: user.id,
       nome: formData.nome,
-      massa_corporea_atual: parseFloat(formData.massa_corporea_atual),
       foco_treino: formData.foco_treino,
       atividade_alternativa: formData.atividade_alternativa,
-      medidas: formData.medidas,
-      data_atualizacao_peso: new Date().toISOString(),
     });
 
     if (error) showToast("Erro ao salvar: " + error.message, "error");
     else showToast("Perfil atualizado!", "success");
     setSaving(false);
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      showToast("As senhas não coincidem", "error");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      showToast("A senha deve ter pelo menos 6 caracteres", "error");
+      return;
+    }
+
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({
+      password: passwordData.newPassword,
+    });
+
+    if (error) {
+      showToast("Erro ao atualizar senha: " + error.message, "error");
+    } else {
+      showToast("Senha alterada com sucesso!", "success");
+      setPasswordData({ newPassword: "", confirmPassword: "" });
+    }
+    setUpdatingPassword(false);
   };
 
   const handleLogout = async () => {
@@ -176,7 +140,7 @@ const Profile = () => {
         <h1 className="text-2xl font-black ">Meu Perfil</h1>
         <button
           onClick={handleLogout}
-          className="p-2 rounded-xl hover:opacity-70 transition"
+          className="p-2 rounded-xl hover:opacity-70 transition text-slate-400"
           title="Sair"
         >
           <LogOut size={20} />
@@ -187,7 +151,10 @@ const Profile = () => {
         <div className="relative mb-4">
           <div
             className="w-24 h-24 rounded-3xl flex items-center justify-center overflow-hidden border-4 border-white shadow-lg"
-            style={{ backgroundColor: "var(--color-secondary)", color: "var(--text-on-secondary)" }}
+            style={{
+              backgroundColor: "var(--color-secondary)",
+              color: "var(--text-on-secondary)",
+            }}
           >
             {user.user_metadata?.avatar_url ? (
               <img
@@ -226,135 +193,124 @@ const Profile = () => {
       <div className="space-y-6">
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-            <Scale style={{ color: "var(--color-primary)" }} size={18} />
+            <User style={{ color: "var(--color-primary)" }} size={18} />
             <h3 className="font-bold  uppercase text-xs tracking-widest">
-              Biometria e Foco
+              Dados da Conta
             </h3>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Nome de Exibição
-                </label>
-                <input
-                  type="text"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleInputChange}
-                  className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Massa Corpórea (kg)
-                </label>
-                <input
-                  type="number"
-                  name="massa_corporea_atual"
-                  value={formData.massa_corporea_atual}
-                  onChange={handleInputChange}
-                  className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Atividade Alternativa
-                </label>
-                <input
-                  type="text"
-                  name="atividade_alternativa"
-                  value={formData.atividade_alternativa}
-                  onChange={handleInputChange}
-                  className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-                />
-              </div>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Nome de Exibição
+              </label>
+              <input
+                type="text"
+                name="nome"
+                value={formData.nome}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              />
             </div>
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-              <h4
-                className="text-xs font-black mb-4 flex items-center gap-2 tracking-widest uppercase"
-                style={{ color: "var(--color-secondary)" }}
-              >
-                <Ruler size={16} /> Medidas (cm)
-              </h4>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                {Object.keys(formData.medidas).map((key) => (
-                  <div key={key} className="flex flex-col gap-0.5">
-                    <label
-                      className="text-[8px] font-black uppercase tracking-tighter"
-                      style={{ color: "var(--color-secondary)", opacity: 0.6 }}
-                    >
-                      {key.replace("_", " ")}
-                    </label>
-                    <input
-                      type="number"
-                      name={key}
-                      value={formData.medidas[key]}
-                      onChange={handleMedidaChange}
-                      className="p-1.5 bg-white border-none rounded-lg text-xs font-bold shadow-sm"
-                      style={{ color: "var(--color-secondary)" }}
-                    />
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Foco de Treino
+              </label>
+              <input
+                type="text"
+                name="foco_treino"
+                value={formData.foco_treino}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+                placeholder="Ex: Calistenia / Musculação"
+              />
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Atividade Alternativa
+              </label>
+              <input
+                type="text"
+                name="atividade_alternativa"
+                value={formData.atividade_alternativa}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              />
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                color: "var(--text-on-primary)",
+              }}
+            >
+              {saving ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Save size={18} /> Salvar Dados
+                </>
+              )}
+            </button>
           </div>
         </section>
 
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-            <Shield style={{ color: "var(--color-primary)" }} size={18} />
-            <h3 className="font-bold  uppercase text-xs tracking-widest">
-              Configuração de Treinos
+            <Lock style={{ color: "var(--color-secondary)" }} size={18} />
+            <h3 className="font-bold uppercase text-xs tracking-widest">
+              Segurança
             </h3>
           </div>
-          <div className="p-6">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">
-              Definir Treinos Coringa (Complementares)
-            </p>
-            <div className="grid grid-cols-4 gap-3">
-              {["A", "B", "C", "D"].map((letra) => (
-                <button
-                  key={letra}
-                  onClick={() => toggleCoringa(letra)}
-                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${
-                    coringaWorkouts[letra]
-                      ? "text-white shadow-lg"
-                      : "border-slate-50 bg-slate-50 text-slate-300"
-                  }`}
-                  style={
-                    coringaWorkouts[letra]
-                      ? {
-                          backgroundColor: "var(--color-primary)",
-                          borderColor: "var(--color-primary)",
-                        }
-                      : {}
-                  }
-                >
-                  <span className="text-lg font-black">{letra}</span>
-                </button>
-              ))}
+          <form onSubmit={handleUpdatePassword} className="p-6 space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Nova Senha
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
+                placeholder="••••••••"
+                required
+              />
             </div>
-          </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Confirmar Nova Senha
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={updatingPassword}
+              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
+              style={{
+                backgroundColor: "var(--color-secondary)",
+                color: "var(--text-on-secondary)",
+              }}
+            >
+              {updatingPassword ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Check size={18} /> Atualizar Senha
+                </>
+              )}
+            </button>
+          </form>
         </section>
-
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-5 rounded-[24px] font-black text-lg shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-          style={{
-            backgroundColor: "var(--color-primary)",
-            color: "var(--text-on-primary)",
-          }}
-        >
-          {saving ? (
-            "Salvando..."
-          ) : (
-            <>
-              <Save size={20} /> Salvar Alterações
-            </>
-          )}
-        </button>
       </div>
     </div>
   );
