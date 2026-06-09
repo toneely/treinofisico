@@ -69,7 +69,9 @@ const BodyEvolution = () => {
       .eq("user_id", user.id)
       .order("data_medida", { ascending: true });
 
-    setMeasurementTypes(types || []);
+    setMeasurementTypes(
+      (types || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)),
+    );
     setHistory(measures || []);
     setLoading(false);
   };
