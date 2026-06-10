@@ -219,13 +219,17 @@ const BodyEvolution = () => {
             photos.map((group, idx) => (
               <div key={idx} className="flex flex-col gap-2 shrink-0 snap-start">
                 <div className="flex gap-2">
-                  {group.items.map(photo => (
+                  {group.items.map((photo) => (
                     <button
                       key={photo.id}
                       onClick={() => setShowLightbox(photo)}
-                      className="w-24 h-24 rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform"
+                      className="h-[80px] rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform flex items-center justify-center"
                     >
-                      <img src={photo.url_miniatura} alt="Progresso" className="w-full h-full object-cover" />
+                      <img
+                        src={photo.url_miniatura}
+                        alt="Progresso"
+                        style={{ height: "80px", width: "auto", objectFit: "contain" }}
+                      />
                     </button>
                   ))}
                 </div>
@@ -266,7 +270,7 @@ const BodyEvolution = () => {
                       type="monotone"
                       dataKey="valor"
                       stroke="var(--color-primary)"
-                      strokeWidth={3}
+                      strokeWidth={4}
                       strokeOpacity={0.8}
                       dot={false}
                     />
@@ -569,7 +573,8 @@ const BodyEvolution = () => {
                     type="monotone"
                     dataKey="valor"
                     stroke="var(--color-primary)"
-                    strokeWidth={4}
+                    strokeWidth={5}
+                    strokeOpacity={0.8}
                     dot={{
                       fill: "var(--color-primary)",
                       strokeWidth: 2,
