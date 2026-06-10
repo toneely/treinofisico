@@ -37,6 +37,7 @@ const BodyEvolution = () => {
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     tipo_medida_id: null,
@@ -265,7 +266,8 @@ const BodyEvolution = () => {
                       type="monotone"
                       dataKey="valor"
                       stroke="var(--color-primary)"
-                      strokeWidth={2}
+                      strokeWidth={3}
+                      strokeOpacity={0.8}
                       dot={false}
                     />
                   </LineChart>
@@ -274,7 +276,7 @@ const BodyEvolution = () => {
 
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <div className="invisible">
                     <IconRenderer name={type.icone} size={20} />
                   </div>
                   <button
@@ -400,27 +402,46 @@ const BodyEvolution = () => {
               Nova Foto de Progresso
             </h2>
             <div className="space-y-4">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full aspect-video rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all overflow-hidden relative"
-              >
-                {uploading ? (
-                  <Loader2 className="animate-spin" size={32} />
-                ) : (
-                  <>
-                    <Upload size={32} />
-                    <span className="text-[10px] font-black uppercase">Selecionar Imagem</span>
-                  </>
-                )}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleUploadPhoto}
-                />
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="p-4 rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  <ImageIcon size={24} />
+                  <span className="text-[8px] font-black uppercase">Galeria</span>
+                </button>
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploading}
+                  className="p-4 rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  <Camera size={24} />
+                  <span className="text-[8px] font-black uppercase">Câmera</span>
+                </button>
+              </div>
+
+              {uploading && (
+                <div className="flex items-center justify-center py-4 text-slate-400 gap-2 text-xs font-bold">
+                  <Loader2 className="animate-spin" size={16} /> Processando imagem...
+                </div>
+              )}
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleUploadPhoto}
+              />
+              <input
+                type="file"
+                ref={cameraInputRef}
+                className="hidden"
+                accept="image/*"
+                capture="environment"
+                onChange={handleUploadPhoto}
+              />
 
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Anotação (Opcional)</label>

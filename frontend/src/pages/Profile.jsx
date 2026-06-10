@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -12,8 +12,11 @@ import {
   Lock,
   Loader2,
   Check,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import imageCompression from "browser-image-compression";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -22,11 +25,17 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     nome: "",
     foco_treino: "",
     atividade_alternativa: "Capoeira",
+    avatar_url: null,
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -55,11 +64,13 @@ const Profile = () => {
         nome: data.nome || user.user_metadata?.full_name || "",
         foco_treino: data.foco_treino || "",
         atividade_alternativa: data.atividade_alternativa || "Capoeira",
+        avatar_url: data.avatar_url || user.user_metadata?.avatar_url || null,
       });
     } else {
       setFormData((prev) => ({
         ...prev,
         nome: user.user_metadata?.full_name || "",
+        avatar_url: user.user_metadata?.avatar_url || null,
       }));
     }
     setLoading(false);
@@ -87,6 +98,40 @@ const Profile = () => {
     if (error) showToast("Erro ao salvar: " + error.message, "error");
     else showToast("Perfil atualizado!", "success");
     setSaving(false);
+  };
+
+  const handleUploadAvatar = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const options = { maxSizeMB: 0.5, maxWidthOrHeight: 400, useWebWorker: true };
+      const compressedFile = await imageCompression(file, options);
+      const fileName = `${user.id}/${Date.now()}_avatar.webp`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatares")
+        .upload(fileName, compressedFile);
+
+      if (uploadError) throw uploadError;
+
+      const publicUrl = supabase.storage.from("avatares").getPublicUrl(fileName).data.publicUrl;
+
+      const { error: dbError } = await supabase
+        .from("usuarios")
+        .upsert({ id: user.id, avatar_url: publicUrl });
+
+      if (dbError) throw dbError;
+
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      showToast("Foto de perfil atualizada!", "success");
+      setShowAvatarModal(false);
+    } catch (err) {
+      showToast("Erro no upload: " + err.message, "error");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleUpdatePassword = async (e) => {
@@ -156,9 +201,9 @@ const Profile = () => {
               color: "var(--text-on-secondary)",
             }}
           >
-            {user.user_metadata?.avatar_url ? (
+            {formData.avatar_url ? (
               <img
-                src={user.user_metadata.avatar_url}
+                src={formData.avatar_url}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
@@ -167,6 +212,7 @@ const Profile = () => {
             )}
           </div>
           <button
+            onClick={() => setShowAvatarModal(true)}
             className="absolute -bottom-2 -right-2 p-2 rounded-xl shadow-lg border-2 border-white"
             style={{
               backgroundColor: "var(--color-primary)",
@@ -312,6 +358,53 @@ const Profile = () => {
           </form>
         </section>
       </div>
+
+      {/* Avatar Upload Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <Camera size={20} style={{ color: "var(--color-primary)" }} />
+              Atualizar Foto
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="p-4 rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  <ImageIcon size={24} />
+                  <span className="text-[8px] font-black uppercase">Galeria</span>
+                </button>
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="p-4 rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  <Camera size={24} />
+                  <span className="text-[8px] font-black uppercase">Câmera</span>
+                </button>
+              </div>
+
+              {uploadingAvatar && (
+                <div className="flex items-center justify-center py-4 text-slate-400 gap-2 text-xs font-bold">
+                  <Loader2 className="animate-spin" size={16} /> Processando...
+                </div>
+              )}
+
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUploadAvatar} />
+              <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleUploadAvatar} />
+
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setShowAvatarModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

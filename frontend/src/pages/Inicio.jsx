@@ -161,12 +161,17 @@ const Inicio = () => {
 
   return (
     <div className="p-6 max-w-md mx-auto pb-20">
-      <header className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-3xl font-bold " style={{ color: "var(--text-on-gestao)" }}>
-            Olá, {user?.nome?.split(" ")[0]}
-          </h1>
-          <p className="text-slate-500">Pronto para superar seus limites?</p>
+      <header className="flex justify-between items-center mb-8 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden shrink-0">
+            <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
+              Olá, {user?.nome?.split(" ")[0]}
+            </h1>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
+          </div>
         </div>
         <Link
           to="/configuracoes"
