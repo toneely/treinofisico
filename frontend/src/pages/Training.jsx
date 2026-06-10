@@ -721,11 +721,11 @@ const Training = () => {
               className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
               style={{
                 backgroundColor: metronomeActive
-                  ? isCoringa
+                  ? false
                     ? "var(--color-primary)"
                     : "var(--color-secondary)"
                   : "transparent",
-                borderColor: isCoringa
+                borderColor: false
                   ? "var(--color-primary)"
                   : "var(--color-secondary)",
               }}
@@ -768,12 +768,12 @@ const Training = () => {
               style={{
                 backgroundColor:
                   i + 1 === state.currentSerie
-                    ? isCoringa
+                    ? false
                       ? "var(--color-primary)"
                       : "var(--color-secondary)"
                     : i + 1 < state.currentSerie
                       ? "#10b981"
-                      : isCoringa
+                      : false
                         ? "var(--color-primary)"
                         : "var(--color-secondary)",
               }}
@@ -785,7 +785,7 @@ const Training = () => {
           className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
           style={{
             backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderColor: isCoringa
+            borderColor: false
               ? "var(--color-primary)"
               : "var(--color-secondary)",
           }}
@@ -818,7 +818,7 @@ const Training = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div
-              className={`p-4 rounded-2xl ${isCoringa ? "/50" : "bg-black/50"}`}
+              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
             >
               <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
                 Carga (kg)
@@ -839,7 +839,7 @@ const Training = () => {
               />
             </div>
             <div
-              className={`p-4 rounded-2xl ${isCoringa ? "/50" : "bg-black/50"}`}
+              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
             >
               <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
                 Reps ({exercise.reps_alvo})
@@ -1026,7 +1026,7 @@ const Training = () => {
             className="p-4 rounded-2xl mb-6 border border-dashed"
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderColor: isCoringa
+              borderColor: false
                 ? "var(--color-primary)"
                 : "var(--color-secondary)",
             }}
@@ -1565,7 +1565,7 @@ const Training = () => {
                     state.currentExerciseInBlock;
                   return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
                 })()}%`,
-                backgroundColor: isCoringa
+                backgroundColor: false
                   ? "var(--color-primary)"
                   : "var(--color-secondary)",
               }}
