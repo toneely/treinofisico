@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
 import imageCompression from "browser-image-compression";
+import { CardCarousel } from "./ui/CardCarousel";
 
 const BodyEvolution = () => {
   const { user } = useAuth();
@@ -235,6 +236,23 @@ const BodyEvolution = () => {
     }
   };
 
+  const handleUpdateDate = async (photoId, newDate) => {
+    try {
+      const { error } = await supabase
+        .from("fotos_progresso")
+        .update({ data_foto: new Date(newDate).toISOString() })
+        .eq("id", photoId);
+
+      if (error) throw error;
+
+      showToast("Data atualizada!", "success");
+      setShowLightbox({ ...showLightbox, data_foto: newDate });
+      fetchPhotos();
+    } catch (err) {
+      showToast("Erro ao atualizar data: " + err.message, "error");
+    }
+  };
+
   if (loading)
     return (
       <div className="p-10 text-center text-slate-400">
@@ -256,36 +274,27 @@ const BodyEvolution = () => {
           </button>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+        <div className="w-full">
           {photos.length === 0 ? (
             <button
               onClick={() => setShowPhotoModal(true)}
-              className="w-32 h-40 rounded-none border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
+              className="w-32 h-40 rounded-none border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0 mx-auto"
             >
               <Plus size={24} />
               <span className="text-[10px] font-black uppercase">Adicionar</span>
             </button>
           ) : (
-            photos.map((group, idx) => (
-              <div key={idx} className="flex flex-col gap-2 shrink-0 snap-start">
-                <div className="flex gap-2">
-                  {group.items.map((photo) => (
-                    <button
-                      key={photo.id}
-                      onClick={() => setShowLightbox(photo)}
-                      className="h-[80px] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform flex items-center justify-center"
-                    >
-                      <img
-                        src={photo.url_miniatura}
-                        alt="Progresso"
-                        style={{ height: "80px", width: "auto", objectFit: "contain" }}
-                      />
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[10px] font-black text-slate-400 uppercase text-center">{group.day}</span>
-              </div>
-            ))
+            <CardCarousel
+              images={photos.flatMap(group => group.items).map(photo => ({
+                id: photo.id,
+                src: photo.url_miniatura,
+                alt: "Foto de Progresso",
+                date: new Date(photo.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' }),
+                annotation: photo.anotacao,
+                raw: photo
+              }))}
+              onImageClick={(img) => setShowLightbox(img.raw)}
+            />
           )}
         </div>
       </section>
@@ -596,8 +605,17 @@ const BodyEvolution = () => {
               </div>
             </div>
 
-            <div className="text-center">
-              <span className="text-white/40 text-xs font-black uppercase tracking-[0.3em]">
+            <div className="text-center space-y-2">
+              <div className="flex flex-col items-center gap-2">
+                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest">Data da Foto</label>
+                <input
+                  type="date"
+                  value={new Date(showLightbox.data_foto).toISOString().split('T')[0]}
+                  onChange={(e) => handleUpdateDate(showLightbox.id, e.target.value)}
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition-all"
+                />
+              </div>
+              <span className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em] block">
                 {new Date(showLightbox.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })}
               </span>
             </div>
