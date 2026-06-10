@@ -72,7 +72,7 @@ const History = () => {
   }, [currentDate]);
 
   const fetchWorkoutsMetadata = async () => {
-    const { data } = await supabase.from("treinos").select("letra, letra");
+    const { data } = await supabase.from("treinos").select("letra");
     setWorkoutsMetadata(data || []);
   };
 

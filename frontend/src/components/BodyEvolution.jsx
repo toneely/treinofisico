@@ -274,11 +274,11 @@ const BodyEvolution = () => {
           </button>
         </div>
 
-        <div className="w-full">
+        <div className="w-full overflow-hidden">
           {photos.length === 0 ? (
             <button
               onClick={() => setShowPhotoModal(true)}
-              className="w-32 h-40 rounded-none border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0 mx-auto"
+              className="w-32 h-40 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0 mx-auto"
             >
               <Plus size={24} />
               <span className="text-[10px] font-black uppercase">Adicionar</span>
