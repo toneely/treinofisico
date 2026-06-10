@@ -120,7 +120,8 @@ const Profile = () => {
 
       const { error: dbError } = await supabase
         .from("usuarios")
-        .upsert({ id: user.id, avatar_url: publicUrl });
+        .update({ avatar_url: publicUrl })
+        .eq("id", user.id);
 
       if (dbError) throw dbError;
 
