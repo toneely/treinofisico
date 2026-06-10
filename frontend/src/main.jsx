@@ -4,13 +4,16 @@ import App from "./App.jsx";
 import "./index.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { AppearanceProvider } from "./context/AppearanceContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <AppearanceProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </AppearanceProvider>
     </AuthProvider>
   </React.StrictMode>,
 );

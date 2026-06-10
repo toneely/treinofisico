@@ -18,6 +18,8 @@ import {
   Camera,
   Image as ImageIcon,
   Upload,
+  Trash2,
+  Edit2,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
 import imageCompression from "browser-image-compression";
@@ -49,6 +51,9 @@ const BodyEvolution = () => {
     anotacao: "",
     data_foto: new Date().toISOString().split("T")[0],
   });
+
+  const [isEditingAnnotation, setIsEditingAnnotation] = useState(false);
+  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -185,6 +190,51 @@ const BodyEvolution = () => {
     }
   };
 
+  const handleDeletePhoto = async (photo) => {
+    try {
+      // 1. Delete from Storage
+      const pathMedia = photo.url_foto_media.split("/").slice(-2).join("/");
+      const pathThumb = photo.url_miniatura.split("/").slice(-2).join("/");
+
+      await Promise.all([
+        supabase.storage.from("fotos_evolucao").remove([pathMedia]),
+        supabase.storage.from("fotos_evolucao").remove([pathThumb])
+      ]);
+
+      // 2. Delete from DB
+      const { error } = await supabase
+        .from("fotos_progresso")
+        .delete()
+        .eq("id", photo.id);
+
+      if (error) throw error;
+
+      showToast("Foto excluída!", "success");
+      setShowLightbox(null);
+      fetchPhotos();
+    } catch (err) {
+      showToast("Erro ao excluir: " + err.message, "error");
+    }
+  };
+
+  const handleUpdateAnnotation = async (photoId) => {
+    try {
+      const { error } = await supabase
+        .from("fotos_progresso")
+        .update({ anotacao: editingText })
+        .eq("id", photoId);
+
+      if (error) throw error;
+
+      showToast("Anotação atualizada!", "success");
+      setIsEditingAnnotation(false);
+      setShowLightbox({ ...showLightbox, anotacao: editingText });
+      fetchPhotos();
+    } catch (err) {
+      showToast("Erro ao atualizar: " + err.message, "error");
+    }
+  };
+
   if (loading)
     return (
       <div className="p-10 text-center text-slate-400">
@@ -210,7 +260,7 @@ const BodyEvolution = () => {
           {photos.length === 0 ? (
             <button
               onClick={() => setShowPhotoModal(true)}
-              className="w-32 h-40 rounded-[32px] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
+              className="w-32 h-40 rounded-none border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
             >
               <Plus size={24} />
               <span className="text-[10px] font-black uppercase">Adicionar</span>
@@ -223,7 +273,7 @@ const BodyEvolution = () => {
                     <button
                       key={photo.id}
                       onClick={() => setShowLightbox(photo)}
-                      className="h-[80px] rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform flex items-center justify-center"
+                      className="h-[80px] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-50 shrink-0 active:scale-95 transition-transform flex items-center justify-center"
                     >
                       <img
                         src={photo.url_miniatura}
@@ -263,7 +313,7 @@ const BodyEvolution = () => {
               }}
             >
               {/* Sparkline Background */}
-              <div className="absolute inset-0 opacity-10 pointer-events-none -bottom-2">
+              <div className="absolute inset-0 opacity-30 pointer-events-none -bottom-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={typeHistory.slice(-5)} margin={{ top: 40, right: 0, left: 0, bottom: 0 }}>
                     <Line
@@ -486,22 +536,64 @@ const BodyEvolution = () => {
       {/* Lightbox Modal */}
       {showLightbox && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 p-4">
-          <button
-            onClick={() => setShowLightbox(null)}
-            className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition"
-          >
-            <X size={24} />
-          </button>
+          <div className="absolute top-6 right-6 flex gap-3">
+            <button
+              onClick={() => {
+                if(window.confirm("Deseja realmente excluir esta foto?")) {
+                  handleDeletePhoto(showLightbox);
+                }
+              }}
+              className="p-3 bg-rose-500/20 rounded-full text-rose-500 hover:bg-rose-500/40 transition"
+            >
+              <Trash2 size={24} />
+            </button>
+            <button
+              onClick={() => setShowLightbox(null)}
+              className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
 
           <div className="w-full max-w-lg flex flex-col gap-6">
             <div className="rounded-[40px] overflow-hidden shadow-2xl border border-white/10 relative aspect-square bg-slate-900">
               <img src={showLightbox.url_foto_media} alt="Progresso" className="w-full h-full object-contain" />
 
-              {showLightbox.anotacao && (
-                <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent">
-                  <p className="text-white text-sm font-bold leading-relaxed">{showLightbox.anotacao}</p>
-                </div>
-              )}
+              <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 to-transparent group">
+                {isEditingAnnotation ? (
+                  <div className="flex gap-2">
+                    <input
+                      autoFocus
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      onBlur={() => handleUpdateAnnotation(showLightbox.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleUpdateAnnotation(showLightbox.id)}
+                      className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                    />
+                    <button
+                      onClick={() => handleUpdateAnnotation(showLightbox.id)}
+                      className="p-2 bg-emerald-500 rounded-lg text-white"
+                    >
+                      <Save size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-start gap-4">
+                    <p className="text-white text-sm font-bold leading-relaxed italic">
+                      {showLightbox.anotacao || "Sem anotação..."}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setEditingText(showLightbox.anotacao || "");
+                        setIsEditingAnnotation(true);
+                      }}
+                      className="p-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition shrink-0"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="text-center">

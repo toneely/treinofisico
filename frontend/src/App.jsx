@@ -1,158 +1,40 @@
-import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { ToastProvider } from "./context/ToastContext";
-import { AppearanceProvider } from "./context/AppearanceContext";
-import Inicio from "./pages/Inicio";
-import Admin from "./pages/Admin";
-import History from "./pages/History";
-import Training from "./pages/Training";
-import Login from "./pages/Login";
-import Profile from "./pages/Profile";
-import UserSettings from "./pages/UserSettings";
-import { useDynamicTitle } from "./utils/dynamicTitle";
-import { useLocation } from "react-router-dom";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { AppearanceProvider } from './context/AppearanceContext';
+import Inicio from './pages/Inicio';
+import Admin from './pages/Admin';
+import History from './pages/History';
+import Training from './pages/Training';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
+import UserSettings from './pages/UserSettings';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading)
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center text-white"
-        style={{
-          backgroundColor: "var(--bg-gestao)",
-          color: "var(--text-on-gestao)",
-        }}
-      >
-        Carregando...
-      </div>
-    );
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Carregando...</div>;
   if (!user) return <Navigate to="/login" />;
 
   return children;
 };
 
-const AdminRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  const admins = ["tone.mendes@gmail.com"];
-
-  if (loading)
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center text-white"
-        style={{
-          backgroundColor: "var(--bg-gestao)",
-          color: "var(--text-on-gestao)",
-        }}
-      >
-        Carregando...
-      </div>
-    );
-  if (!user || !admins.includes(user.email)) return <Navigate to="/inicio" />;
-
-  return children;
-};
-
-const AppContent = () => {
-  useDynamicTitle();
-  const location = useLocation();
-  const isTrainingRoute = location.pathname.startsWith("/treino");
-
-  React.useEffect(() => {
-    if (isTrainingRoute) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isTrainingRoute]);
-
-  return (
-    <div
-      className="font-sans antialiased transition-colors duration-500 min-h-screen"
-      style={{
-        backgroundColor: isTrainingRoute
-          ? "var(--bg-treino)"
-          : "var(--bg-gestao)",
-        color: isTrainingRoute
-          ? "var(--text-on-treino)"
-          : "var(--text-on-gestao)",
-      }}
-    >
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/"
-          element={<Navigate to="/inicio" replace />}
-        />
-        <Route
-          path="/inicio"
-          element={
-            <ProtectedRoute>
-              <Inicio />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/configuracoes"
-          element={
-            <ProtectedRoute>
-              <UserSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/historico"
-          element={
-            <ProtectedRoute>
-              <History />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/treino/:letra"
-          element={
-            <ProtectedRoute>
-              <Training />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </div>
-  );
-};
-
 const App = () => {
   return (
     <Router>
-      <AuthProvider>
-        <AppearanceProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
-        </AppearanceProvider>
-      </AuthProvider>
+      <div className="font-sans antialiased transition-colors duration-500 min-h-screen" style={{ backgroundColor: "var(--bg-gestao)", color: "var(--text-on-gestao)" }}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Navigate to="/inicio" replace />} />
+          <Route path="/inicio" element={<ProtectedRoute><Inicio /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/historico" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/treino/:letra" element={<ProtectedRoute><Training /></ProtectedRoute>} />
+          <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/configuracoes" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
+        </Routes>
+      </div>
     </Router>
   );
 };
