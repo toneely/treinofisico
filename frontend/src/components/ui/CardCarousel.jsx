@@ -83,7 +83,7 @@ export const CardCarousel = ({
                   alt={image.alt}
                   className="flex-1 min-h-0"
                 />
-                <p className="text-center mt-1 text-[8px] font-black uppercase tracking-widest text-slate-400">{image.date}</p>
+                <p className="text-center mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{image.date}</p>
               </div>
             </SwiperSlide>
           ))}
