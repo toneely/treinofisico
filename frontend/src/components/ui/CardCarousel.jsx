@@ -16,7 +16,7 @@ export const CardCarousel = ({
   const css = `
   .swiper {
     width: 100%;
-    padding-bottom: 50px;
+    padding-bottom: 40px !important;
     --swiper-theme-color: var(--color-primary);
     --swiper-navigation-color: var(--color-primary);
     --swiper-pagination-color: var(--color-primary);
@@ -31,22 +31,21 @@ export const CardCarousel = ({
     font-size: 24px !important;
   }
   .swiper-slide {
-    background-position: center;
-    background-size: cover;
-    width: auto;
-    height: 260px;
+    width: auto !important;
+    height: 100px !important;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
+    transition: transform 0.3s ease;
   }
   .swiper-slide img {
-    display: block;
-    height: 260px;
-    max-height: 260px;
-    width: auto;
+    height: 100% !important;
+    width: auto !important;
     object-fit: contain !important;
-    border-radius: 24px;
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+  }
+  .swiper-pagination {
+    bottom: -5px !important;
   }
   .swiper-3d .swiper-slide-shadow-left { background-image: none; }
   .swiper-3d .swiper-slide-shadow-right{ background: none; }
@@ -58,30 +57,24 @@ export const CardCarousel = ({
         <Swiper
           key={images.length}
           initialSlide={images.length - 1}
-          spaceBetween={10}
-          effect={"coverflow"}
+          spaceBetween={15}
           grabCursor={true}
           centeredSlides={true}
           loop={false}
           slidesPerView={"auto"}
-          coverflowEffect={{
-            rotate: 0,
-            stretch: 10,
-            depth: 150,
-            modifier: 1.5,
-          }}
           pagination={showPagination ? { clickable: true } : false}
           navigation={showNavigation}
-          modules={[EffectCoverflow, Pagination, Navigation]}
+          modules={[Pagination, Navigation]}
         >
           {images.map((image) => (
             <SwiperSlide key={image.id} onClick={() => onImageClick && onImageClick(image)}>
-              <div className="cursor-pointer transition-transform duration-300">
+              <div className="cursor-pointer transition-transform duration-300 h-full flex flex-col items-center">
                 <img
                   src={image.src}
                   alt={image.alt}
+                  className="flex-1 min-h-0"
                 />
-                <p className="text-center mt-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{image.date}</p>
+                <p className="text-center mt-1 text-[8px] font-black uppercase tracking-widest text-slate-400">{image.date}</p>
               </div>
             </SwiperSlide>
           ))}
