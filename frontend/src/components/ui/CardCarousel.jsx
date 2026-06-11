@@ -24,9 +24,7 @@ export const CardCarousel = ({
   .swiper-pagination-bullet-active {
     background-color: var(--color-primary) !important;
   }
-  .swiper-button-next, .swiper-button-prev {
-    height: 80px;
-  }
+  .swiper-button-next, .swiper-button-prev { display: none !important; }
   .swiper-button-next::after, .swiper-button-prev::after {
     font-size: 24px !important;
   }
@@ -57,13 +55,13 @@ export const CardCarousel = ({
         <Swiper
           key={images.length}
           initialSlide={images.length - 1}
-          spaceBetween={15}
+          spaceBetween={0}
           grabCursor={true}
           centeredSlides={true}
           loop={false}
           slidesPerView={"auto"}
           pagination={showPagination ? { clickable: true } : false}
-          navigation={showNavigation}
+          navigation={false}
           modules={[Pagination, Navigation]}
         >
           {images.map((image) => (
