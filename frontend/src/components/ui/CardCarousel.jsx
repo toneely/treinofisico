@@ -4,7 +4,7 @@ import "swiper/css"
 import "swiper/css/effect-coverflow"
 import "swiper/css/pagination"
 import "swiper/css/navigation"
-import { EffectCoverflow, Navigation, Pagination } from "swiper/modules"
+import { EffectCoverflow, Pagination } from "swiper/modules"
 
 export const CardCarousel = ({
   images,
@@ -16,7 +16,7 @@ export const CardCarousel = ({
   const css = `
   .swiper {
     width: 100%;
-    padding-bottom: 40px !important;
+    padding-bottom: 30px !important;
     --swiper-theme-color: var(--color-primary);
     --swiper-navigation-color: var(--color-primary);
     --swiper-pagination-color: var(--color-primary);
@@ -30,17 +30,21 @@ export const CardCarousel = ({
   }
   .swiper-slide {
     width: auto !important;
-    height: 100px !important;
+    height: 120px !important;
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: transform 0.3s ease;
   }
   .swiper-slide img {
     height: 100% !important;
     width: auto !important;
     object-fit: contain !important;
     border-radius: 8px;
+  }
+  .swiper-pagination-bullet {
+    width: 6px !important;
+    height: 6px !important;
+    margin: 0 4px !important;
   }
   .swiper-pagination {
     bottom: -5px !important;
@@ -55,14 +59,21 @@ export const CardCarousel = ({
         <Swiper
           key={images.length}
           initialSlide={images.length - 1}
-          spaceBetween={0}
+          effect={"coverflow"}
           grabCursor={true}
           centeredSlides={true}
-          loop={false}
           slidesPerView={"auto"}
+          spaceBetween={-20}
+          coverflowEffect={{
+            rotate: 0,
+            stretch: 0,
+            depth: 150,
+            modifier: 2.5,
+            slideShadows: false,
+          }}
           pagination={showPagination ? { clickable: true } : false}
           navigation={false}
-          modules={[Pagination, Navigation]}
+          modules={[EffectCoverflow, Pagination]}
         >
           {images.map((image) => (
             <SwiperSlide key={image.id} onClick={() => onImageClick && onImageClick(image)}>
