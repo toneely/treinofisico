@@ -22,7 +22,11 @@ export const exportHistoryToPDF = (userData, history) => {
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Gerado em: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 20, 32);
+  doc.text(
+    `Gerado em: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+    20,
+    32,
+  );
 
   // Informações do Usuário
   doc.setTextColor(dark);
@@ -43,7 +47,8 @@ export const exportHistoryToPDF = (userData, history) => {
 
   // Seção de Medidas Corporais (Condicional)
   let currentY = 100;
-  const hasMedidas = userData?.medidas && Object.values(userData.medidas).some(v => v > 0);
+  const hasMedidas =
+    userData?.medidas && Object.values(userData.medidas).some((v) => v > 0);
 
   if (hasMedidas) {
     doc.setFontSize(14);
@@ -61,12 +66,12 @@ export const exportHistoryToPDF = (userData, history) => {
     const midPoint = Math.ceil(entries.length / 2);
 
     entries.forEach(([key, val], idx) => {
-        const x = idx < midPoint ? 20 : 110;
-        const y = currentY + (idx < midPoint ? idx : idx - midPoint) * 6;
-        doc.text(`${key.replace(/_/g, " ").toUpperCase()}: ${val} cm`, x, y);
+      const x = idx < midPoint ? 20 : 110;
+      const y = currentY + (idx < midPoint ? idx : idx - midPoint) * 6;
+      doc.text(`${key.replace(/_/g, " ").toUpperCase()}: ${val} cm`, x, y);
     });
 
-    currentY += (midPoint * 6) + 10;
+    currentY += midPoint * 6 + 10;
   }
 
   // Histórico de Cargas
@@ -81,7 +86,7 @@ export const exportHistoryToPDF = (userData, history) => {
   // Agrupamento por Treino e Data
   const grouped = history.reduce((acc, curr) => {
     const date = new Date(curr.data_treino).toLocaleDateString();
-    const letra = curr.letra_treino || 'X';
+    const letra = curr.letra_treino || "X";
     const key = `${date}_${letra}`;
     if (!acc[key]) acc[key] = { date, letra, items: [] };
     acc[key].items.push(curr);
@@ -103,12 +108,13 @@ export const exportHistoryToPDF = (userData, history) => {
     return y + 10;
   };
 
-  const formatValue = (val) => (val === null || val === undefined || val === "" ? "-" : val);
+  const formatValue = (val) =>
+    val === null || val === undefined || val === "" ? "-" : val;
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined || seconds === "") return "-";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   sortedGroups.forEach((group) => {
@@ -127,9 +133,18 @@ export const exportHistoryToPDF = (userData, history) => {
 
     // Obter hora exata se disponível
     const firstItem = group.items[0];
-    const timeStr = firstItem.created_at ? new Date(firstItem.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+    const timeStr = firstItem.created_at
+      ? new Date(firstItem.created_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
 
-    doc.text(`${group.date} ${timeStr ? `- ${timeStr}` : ""} - TREINO ${group.letra}`, 25, currentY + 6.5);
+    doc.text(
+      `${group.date} ${timeStr ? `- ${timeStr}` : ""} - TREINO ${group.letra}`,
+      25,
+      currentY + 6.5,
+    );
     currentY += 12;
 
     currentY = drawTableHeader(currentY);
@@ -138,9 +153,9 @@ export const exportHistoryToPDF = (userData, history) => {
       // Estimar altura necessária (Nome do exercício + linhas das séries)
       const seriesCount = Math.max(
         item.series_executadas || 0,
-        Array.isArray(item.carga) ? item.carga.length : 0
+        Array.isArray(item.carga) ? item.carga.length : 0,
       );
-      const estimatedHeight = 6 + (seriesCount * 5) + 4;
+      const estimatedHeight = 6 + seriesCount * 5 + 4;
 
       if (currentY + estimatedHeight > 280) {
         doc.addPage();
@@ -155,15 +170,27 @@ export const exportHistoryToPDF = (userData, history) => {
       doc.text(item.exercicios.nome, 25, currentY);
       doc.setTextColor(secondary);
       doc.setFont("helvetica", "normal");
-      doc.text((item.series_executadas || seriesCount).toString(), 180, currentY);
+      doc.text(
+        (item.series_executadas || seriesCount).toString(),
+        180,
+        currentY,
+      );
 
       currentY += 5;
 
       // Detalhar Séries
-      const loads = Array.isArray(item.carga) ? item.carga : [item.carga_utilizada];
-      const reps = Array.isArray(item.repeticoes) ? item.repeticoes : [item.repeticoes_feitas];
-      const execTimes = Array.isArray(item.tempo_execucao_segundos) ? item.tempo_execucao_segundos : [];
-      const restTimes = Array.isArray(item.tempo_descanso_segundos) ? item.tempo_descanso_segundos : [];
+      const loads = Array.isArray(item.carga)
+        ? item.carga
+        : [item.carga_utilizada];
+      const reps = Array.isArray(item.repeticoes)
+        ? item.repeticoes
+        : [item.repeticoes_feitas];
+      const execTimes = Array.isArray(item.tempo_execucao_segundos)
+        ? item.tempo_execucao_segundos
+        : [];
+      const restTimes = Array.isArray(item.tempo_descanso_segundos)
+        ? item.tempo_descanso_segundos
+        : [];
 
       for (let i = 0; i < seriesCount; i++) {
         doc.setFontSize(8);
@@ -194,7 +221,12 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(secondary);
-    doc.text(`Página ${i} de ${pageCount} - SmartTraining System`, pageWidth / 2, 290, { align: "center" });
+    doc.text(
+      `Página ${i} de ${pageCount} - SmartTraining System`,
+      pageWidth / 2,
+      290,
+      { align: "center" },
+    );
   }
 
   doc.save(`Historico_Treino_${userData?.nome?.replace(/\s+/g, "_")}.pdf`);

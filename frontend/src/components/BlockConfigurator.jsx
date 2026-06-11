@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { Plus, Trash2, GripVertical, Save, AlertCircle, X } from 'lucide-react';
-import { useToast } from '../context/ToastContext';
+import React, { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
+import { Plus, Trash2, GripVertical, Save, X, AlertCircle } from "lucide-react";
+import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
+import ExerciseSelector from "./ExerciseSelector";
 
-const BlockConfigurator = () => {
+const BlockConfigurator = ({ overrideUserId = null }) => {
+  const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
@@ -19,58 +22,79 @@ const BlockConfigurator = () => {
 
   useEffect(() => {
     if (selectedWorkout) {
-        fetchBlocks(selectedWorkout);
+      fetchBlocks(selectedWorkout);
     }
   }, [selectedWorkout]);
 
   const fetchWorkouts = async () => {
-    const { data } = await supabase.from('treinos').select('*').order('letra');
+    const { data } = await supabase
+      .from("treinos")
+      .select("*")
+      .eq("user_id", overrideUserId || authUser.id)
+      .order("letra");
+
     if (data && data.length > 0) {
-        setWorkouts(data);
-        if (!selectedWorkout) setSelectedWorkout(data[0].letra);
+      setWorkouts(data);
+      if (!selectedWorkout) setSelectedWorkout(data[0].letra);
     }
   };
 
   const fetchExercises = async () => {
-    const { data } = await supabase.from('exercicios').select('id, nome, descanso_passivo_segundos').order('nome');
+    const { data } = await supabase
+      .from("exercicios")
+      .select("id, nome, descanso_passivo_segundos")
+      .order("nome");
     setExercises(data || []);
   };
 
   const fetchBlocks = async (letra) => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('blocos_treino')
-      .select('*')
-      .eq('letra_treino', letra)
-      .order('numero_bloco', { ascending: true })
-      .order('ordem_execucao', { ascending: true });
+      .from("blocos_treino")
+      .select("*")
+      .eq("letra_treino", letra)
+      .eq("user_id", overrideUserId || authUser.id)
+      .order("numero_bloco", { ascending: true })
+      .order("ordem_execucao", { ascending: true });
 
     if (error) console.error(error);
     else {
-      // Group by numero_bloco
       const grouped = data.reduce((acc, curr) => {
         if (!acc[curr.numero_bloco]) acc[curr.numero_bloco] = [];
         acc[curr.numero_bloco].push(curr);
         return acc;
       }, {});
 
-      const blocksArray = Object.keys(grouped).sort((a, b) => a - b).map(num => ({
-        numero: parseInt(num),
-        exercicios: grouped[num]
-      }));
+      const blocksArray = Object.keys(grouped)
+        .sort((a, b) => a - b)
+        .map((num) => ({
+          numero: parseInt(num),
+          exercicios: grouped[num],
+        }));
       setBlocks(blocksArray);
     }
     setLoading(false);
   };
 
   const addBlock = () => {
-    const nextNumber = blocks.length > 0 ? Math.max(...blocks.map(b => b.numero)) + 1 : 1;
-    setBlocks([...blocks, {
-      numero: nextNumber,
-      exercicios: [
-        { exercicio_id: exercises[0]?.id, ordem_execucao: 1, series_alvo: 3, reps_alvo: '10', letra_treino: selectedWorkout, numero_bloco: nextNumber }
-      ]
-    }]);
+    const nextNumber =
+      blocks.length > 0 ? Math.max(...blocks.map((b) => b.numero)) + 1 : 1;
+    setBlocks([
+      ...blocks,
+      {
+        numero: nextNumber,
+        exercicios: [
+          {
+            exercicio_id: exercises[0]?.id,
+            ordem_execucao: 1,
+            series_alvo: 3,
+            reps_alvo: "10",
+            letra_treino: selectedWorkout,
+            numero_bloco: nextNumber,
+          },
+        ],
+      },
+    ]);
   };
 
   const addExerciseToBlock = (blockIndex) => {
@@ -81,9 +105,9 @@ const BlockConfigurator = () => {
         exercicio_id: exercises[0]?.id,
         ordem_execucao: 2,
         series_alvo: 3,
-        reps_alvo: '10',
+        reps_alvo: "10",
         letra_treino: selectedWorkout,
-        numero_bloco: block.numero
+        numero_bloco: block.numero,
       });
       setBlocks(newBlocks);
     }
@@ -92,12 +116,9 @@ const BlockConfigurator = () => {
   const removeExerciseFromBlock = (blockIndex, exerciseIndex) => {
     const newBlocks = [...blocks];
     newBlocks[blockIndex].exercicios.splice(exerciseIndex, 1);
-
-    // Se o bloco ficar vazio, remove o bloco
     if (newBlocks[blockIndex].exercicios.length === 0) {
       newBlocks.splice(blockIndex, 1);
     } else {
-      // Reordena execucao
       newBlocks[blockIndex].exercicios.forEach((ex, idx) => {
         ex.ordem_execucao = idx + 1;
       });
@@ -113,58 +134,79 @@ const BlockConfigurator = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    // 1. Delete all existing for this workout
+    const userId = overrideUserId || authUser.id;
+
     const { error: deleteError } = await supabase
-      .from('blocos_treino')
+      .from("blocos_treino")
       .delete()
-      .eq('letra_treino', selectedWorkout);
+      .eq("letra_treino", selectedWorkout)
+      .eq("user_id", userId);
 
     if (deleteError) {
-      showToast('Erro ao limpar blocos antigos: ' + deleteError.message, 'error');
+      showToast(
+        "Erro ao limpar blocos antigos: " + deleteError.message,
+        "error",
+      );
       setSaving(false);
       return;
     }
 
-    // 2. Insert new blocks
-    const toInsert = blocks.flatMap(b => b.exercicios.map(ex => ({
-      letra_treino: selectedWorkout,
-      numero_bloco: b.numero,
-      exercicio_id: ex.exercicio_id,
-      ordem_execucao: ex.ordem_execucao,
-      series_alvo: parseInt(ex.series_alvo),
-      reps_alvo: ex.reps_alvo
-    })));
+    const toInsert = blocks.flatMap((b) =>
+      b.exercicios.map((ex) => ({
+        user_id: userId,
+        letra_treino: selectedWorkout,
+        numero_bloco: b.numero,
+        exercicio_id: ex.exercicio_id,
+        ordem_execucao: ex.ordem_execucao,
+        series_alvo: parseInt(ex.series_alvo),
+        reps_alvo: ex.reps_alvo,
+      })),
+    );
 
     if (toInsert.length > 0) {
       const { error: insertError } = await supabase
-        .from('blocos_treino')
+        .from("blocos_treino")
         .insert(toInsert);
 
-      if (insertError) showToast('Erro ao salvar novos blocos: ' + insertError.message, 'error');
-      else showToast('Treino ' + selectedWorkout + ' salvo com sucesso!', 'success');
+      if (insertError)
+        showToast(
+          "Erro ao salvar novos blocos: " + insertError.message,
+          "error",
+        );
+      else
+        showToast(
+          "Treino " + selectedWorkout + " salvo com sucesso!",
+          "success",
+        );
     } else {
-        showToast('Treino ' + selectedWorkout + ' limpo com sucesso!', 'info');
+      showToast("Treino " + selectedWorkout + " limpo com sucesso!", "info");
     }
-
     setSaving(false);
     fetchBlocks(selectedWorkout);
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <GripVertical size={20} className="text-indigo-600" />
+      <div className="p-6 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <h2 className="text-xl font-bold  flex items-center gap-2">
+          <GripVertical size={20} style={{ color: "var(--color-primary)" }} />{" "}
           Configurador de Blocos
         </h2>
-        <div className="flex gap-2">
-          {workouts.map(w => (
+        <div className="flex flex-wrap gap-2">
+          {workouts.map((w) => (
             <button
               key={w.letra}
               onClick={() => setSelectedWorkout(w.letra)}
               className={`w-10 h-10 rounded-lg font-bold transition ${
-                selectedWorkout === w.letra ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
+                selectedWorkout === w.letra
+                  ? "text-white"
+                  : "bg-white text-slate-500 border border-slate-200"
               }`}
+              style={
+                selectedWorkout === w.letra
+                  ? { backgroundColor: "var(--color-primary)" }
+                  : {}
+              }
             >
               {w.letra}
             </button>
@@ -174,29 +216,38 @@ const BlockConfigurator = () => {
 
       <div className="p-6">
         {loading ? (
-          <div className="text-center py-10 text-slate-400">Carregando estrutura...</div>
+          <div className="text-center py-10 text-slate-400">
+            Carregando estrutura...
+          </div>
         ) : (
           <div className="space-y-6">
             {blocks.map((block, bIdx) => (
-              <div key={bIdx} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+              <div
+                key={bIdx}
+                className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+              >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-slate-700">Bloco {block.numero}</h3>
+                  <h3 className="font-bold ">Bloco {block.numero}</h3>
                   <div className="flex gap-2">
                     {block.exercicios.length < 2 && (
                       <button
                         onClick={() => addExerciseToBlock(bIdx)}
-                        className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1"
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                        style={{
+                          color: "var(--color-primary)",
+                          backgroundColor: "var(--color-primary)10",
+                        }}
                       >
                         <Plus size={14} /> Adicionar Alternado
                       </button>
                     )}
                     <button
-                       onClick={() => {
-                         const newBlocks = [...blocks];
-                         newBlocks.splice(bIdx, 1);
-                         setBlocks(newBlocks);
-                       }}
-                       className="text-slate-400 hover:text-red-500 p-1"
+                      onClick={() => {
+                        const newBlocks = [...blocks];
+                        newBlocks.splice(bIdx, 1);
+                        setBlocks(newBlocks);
+                      }}
+                      className="text-slate-400 hover:text-red-500 p-1"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -205,59 +256,91 @@ const BlockConfigurator = () => {
 
                 <div className="space-y-3">
                   {block.exercicios.map((ex, eIdx) => (
-                    <div key={eIdx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+                    <div
+                      key={eIdx}
+                      className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end"
+                    >
                       <div className="flex-1 w-full flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {eIdx === 0 ? 'Exercício Principal' : 'Exercício Alternado'}
+                          {eIdx === 0
+                            ? "Exercício Principal"
+                            : "Exercício Alternado"}
                         </label>
-                        <select
-                          value={ex.exercicio_id}
-                          onChange={(e) => updateExercise(bIdx, eIdx, 'exercicio_id', e.target.value)}
-                          className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                        >
-                          {exercises.map(item => (
-                            <option key={item.id} value={item.id}>{item.nome}</option>
-                          ))}
-                        </select>
+                        <ExerciseSelector
+                          currentExerciseId={ex.exercicio_id}
+                          onSelect={(newId) =>
+                            updateExercise(bIdx, eIdx, "exercicio_id", newId)
+                          }
+                          overrideUserId={overrideUserId}
+                        />
                       </div>
-
                       <div className="w-20 flex flex-col gap-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase">Séries</label>
-                         <input
-                            type="number"
-                            value={ex.series_alvo}
-                            onChange={(e) => updateExercise(bIdx, eIdx, 'series_alvo', e.target.value)}
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                         />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                          Séries
+                        </label>
+                        <input
+                          type="number"
+                          value={ex.series_alvo}
+                          onChange={(e) =>
+                            updateExercise(
+                              bIdx,
+                              eIdx,
+                              "series_alvo",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                        />
                       </div>
-
                       <div className="w-24 flex flex-col gap-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase">Reps</label>
-                         <input
-                            type="text"
-                            value={ex.reps_alvo}
-                            onChange={(e) => updateExercise(bIdx, eIdx, 'reps_alvo', e.target.value)}
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                            placeholder="Ex: 8-10"
-                         />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                          Reps
+                        </label>
+                        <input
+                          type="text"
+                          value={ex.reps_alvo}
+                          onChange={(e) =>
+                            updateExercise(
+                              bIdx,
+                              eIdx,
+                              "reps_alvo",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                          placeholder="Ex: 8-10"
+                        />
                       </div>
-
                       <div className="w-20 flex flex-col gap-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase">Desc (s)</label>
-                         <input
-                            type="number"
-                            value={exercises.find(e => e.id == ex.exercicio_id)?.descanso_passivo_segundos || 60}
-                            onChange={async (e) => {
-                               const newVal = parseInt(e.target.value);
-                               // Update local exercises state for immediate UI feedback
-                               setExercises(prev => prev.map(item => item.id == ex.exercicio_id ? {...item, descanso_passivo_segundos: newVal} : item));
-                               // Persist to DB
-                               await supabase.from('exercicios').update({descanso_passivo_segundos: newVal}).eq('id', ex.exercicio_id);
-                            }}
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                         />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                          Desc (s)
+                        </label>
+                        <input
+                          type="number"
+                          value={
+                            exercises.find((e) => e.id == ex.exercicio_id)
+                              ?.descanso_passivo_segundos || 60
+                          }
+                          onChange={async (e) => {
+                            const newVal = parseInt(e.target.value);
+                            setExercises((prev) =>
+                              prev.map((item) =>
+                                item.id == ex.exercicio_id
+                                  ? {
+                                      ...item,
+                                      descanso_passivo_segundos: newVal,
+                                    }
+                                  : item,
+                              ),
+                            );
+                            await supabase
+                              .from("exercicios")
+                              .update({ descanso_passivo_segundos: newVal })
+                              .eq("id", ex.exercicio_id);
+                          }}
+                          className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                        />
                       </div>
-
                       <button
                         onClick={() => removeExerciseFromBlock(bIdx, eIdx)}
                         className="p-2 text-slate-300 hover:text-red-500 transition"
@@ -272,7 +355,8 @@ const BlockConfigurator = () => {
 
             <button
               onClick={addBlock}
-              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-indigo-300 hover:text-indigo-600 transition flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold transition flex items-center justify-center gap-2"
+              style={{ color: "var(--color-primary)" }}
             >
               <Plus size={20} /> Novo Bloco
             </button>
@@ -281,19 +365,31 @@ const BlockConfigurator = () => {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-600 transition flex items-center gap-2 disabled:opacity-50"
+                className="px-8 py-3 rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-lg"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  color: "var(--text-on-primary)",
+                }}
               >
-                {saving ? 'Salvando...' : <><Save size={20} /> Salvar Treino {selectedWorkout}</>}
+                {saving ? (
+                  "Salvando..."
+                ) : (
+                  <>
+                    <Save size={20} /> Salvar Treino {selectedWorkout}
+                  </>
+                )}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      <div className="p-4 bg-amber-50 border-t border-amber-100 flex gap-3">
-        <AlertCircle className="text-amber-500 shrink-0" size={20} />
-        <p className="text-xs text-amber-700">
-          <strong>Atenção:</strong> Ao salvar, a estrutura atual do Treino {selectedWorkout} será substituída. Certifique-se de que todos os blocos estão corretos.
+      <div className="p-4 border-t flex gap-3 bg-slate-50 text-slate-600">
+        <AlertCircle className="shrink-0" size={20} />
+        <p className="text-xs">
+          <strong>Atenção:</strong> Ao salvar, a estrutura atual do Treino{" "}
+          {selectedWorkout} será substituída. Certifique-se de que todos os
+          blocos estão corretos.
         </p>
       </div>
     </div>
