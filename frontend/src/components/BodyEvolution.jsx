@@ -88,12 +88,13 @@ const BodyEvolution = () => {
       .from("fotos_progresso")
       .select("*")
       .eq("user_id", user.id)
-      .order("data_foto", { ascending: false });
+      .order("data_foto", { ascending: true });
 
     // Group photos by day
     if (data) {
       const grouped = data.reduce((acc, curr) => {
-        const day = new Date(curr.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' });
+        const dayString = curr.data_foto.split('T')[0];
+        const day = new Date(dayString + 'T00:00:00').toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' });
         if (!acc[day]) acc[day] = [];
         acc[day].push(curr);
         return acc;
@@ -285,14 +286,17 @@ const BodyEvolution = () => {
             </button>
           ) : (
             <CardCarousel
-              images={photos.flatMap(group => group.items).map(photo => ({
-                id: photo.id,
-                src: photo.url_miniatura,
-                alt: "Foto de Progresso",
-                date: new Date(photo.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' }),
-                annotation: photo.anotacao,
-                raw: photo
-              }))}
+              images={photos.flatMap(group => group.items).map(photo => {
+                const dayString = photo.data_foto.split('T')[0];
+                return {
+                  id: photo.id,
+                  src: photo.url_miniatura,
+                  alt: "Foto de Progresso",
+                  date: new Date(dayString + 'T00:00:00').toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' }),
+                  annotation: photo.anotacao,
+                  raw: photo
+                };
+              })}
               onImageClick={(img) => setShowLightbox(img.raw)}
             />
           )}
@@ -610,13 +614,13 @@ const BodyEvolution = () => {
                 <label className="text-[10px] font-black text-white/20 uppercase tracking-widest">Data da Foto</label>
                 <input
                   type="date"
-                  value={new Date(showLightbox.data_foto).toISOString().split('T')[0]}
+                  value={showLightbox.data_foto.split('T')[0]}
                   onChange={(e) => handleUpdateDate(showLightbox.id, e.target.value)}
                   className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition-all"
                 />
               </div>
               <span className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em] block">
-                {new Date(showLightbox.data_foto).toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })}
+                {new Date(showLightbox.data_foto.split('T')[0] + 'T00:00:00').toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })}
               </span>
             </div>
           </div>

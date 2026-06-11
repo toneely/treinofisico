@@ -13,15 +13,6 @@ export const CardCarousel = ({
   showNavigation = true,
   onImageClick
 }) => {
-  // Sort images descending (most recent first)
-  const sortedImages = React.useMemo(() => {
-    return [...images].sort((a, b) => {
-      const dateA = a.raw?.data_foto ? new Date(a.raw.data_foto) : new Date(0);
-      const dateB = b.raw?.data_foto ? new Date(b.raw.data_foto) : new Date(0);
-      return dateB - dateA;
-    });
-  }, [images]);
-
   const css = `
   .swiper {
     width: 100%;
@@ -33,19 +24,27 @@ export const CardCarousel = ({
   .swiper-pagination-bullet-active {
     background-color: var(--color-primary) !important;
   }
+  .swiper-button-next, .swiper-button-prev {
+    height: 80px;
+  }
+  .swiper-button-next::after, .swiper-button-prev::after {
+    font-size: 24px !important;
+  }
   .swiper-slide {
     background-position: center;
     background-size: cover;
     width: auto;
+    height: 260px;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
   .swiper-slide img {
     display: block;
-    max-height: 40vh;
+    height: 260px;
+    max-height: 260px;
     width: auto;
-    object-fit: contain;
+    object-fit: contain !important;
     border-radius: 24px;
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
   }
@@ -57,6 +56,8 @@ export const CardCarousel = ({
       <style>{css}</style>
       <div className="w-full">
         <Swiper
+          key={images.length}
+          initialSlide={images.length - 1}
           spaceBetween={10}
           effect={"coverflow"}
           grabCursor={true}
@@ -73,7 +74,7 @@ export const CardCarousel = ({
           navigation={showNavigation}
           modules={[EffectCoverflow, Pagination, Navigation]}
         >
-          {sortedImages.map((image) => (
+          {images.map((image) => (
             <SwiperSlide key={image.id} onClick={() => onImageClick && onImageClick(image)}>
               <div className="cursor-pointer transition-transform duration-300">
                 <img
