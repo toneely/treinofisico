@@ -292,7 +292,7 @@ const BodyEvolution = () => {
                   id: photo.id,
                   src: photo.url_miniatura,
                   alt: "Foto de Progresso",
-                  date: new Date(dayString + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+                  date: dayString,
                   annotation: photo.anotacao,
                   raw: photo
                 };

@@ -74,22 +74,29 @@ export const CardCarousel = ({
           pagination={showPagination ? { clickable: true } : false}
           navigation={false}
           modules={[EffectCoverflow, Pagination]}
-          onClick={(swiper) => {
-            if (onImageClick && swiper.clickedIndex !== undefined) {
-              onImageClick(images[swiper.clickedIndex]);
-            }
-          }}
+          slideToClickedSlide={true}
         >
           {images.map((image) => (
             <SwiperSlide key={image.id}>
-              <div className="cursor-pointer transition-transform duration-300 h-full flex flex-col items-center">
-                <img
-                  src={image.src}
-                  alt={image.alt}
-                  className="flex-1 min-h-0"
-                />
-                <p className="text-center mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{image.date}</p>
-              </div>
+              {({ isActive }) => (
+                <div
+                  className="cursor-pointer transition-transform duration-300 h-full flex flex-col items-center"
+                  onClick={() => {
+                    if (isActive && onImageClick) {
+                      onImageClick(image);
+                    }
+                  }}
+                >
+                  <img
+                    src={image.src}
+                    alt={image.alt}
+                    className="flex-1 min-h-0 rounded-xl"
+                  />
+                  <p className="text-center mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {new Date(image.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                  </p>
+                </div>
+              )}
             </SwiperSlide>
           ))}
         </Swiper>
