@@ -27,19 +27,18 @@ export const CardCarousel = ({
   .swiper-button-next, .swiper-button-prev { display: none !important; }
   .swiper-slide {
     width: auto !important;
-    height: 120px !important;
+    height: 180px !important; /* Altura total aumentada */
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
     align-items: center;
   }
   .swiper-slide img {
-    height: 95px !important; /* Altura fixa para sobrar 25px exatos para o texto da data */
+    height: 145px !important; /* Imagem maior, sobra 35px para o texto */
     width: auto !important;
     object-fit: contain !important;
     border-radius: 8px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.1); /* Sombra para destacar o 3D */
-    transition: transform 0.3s ease;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
+    pointer-events: auto !important; /* Força a aceitar cliques */
   }
   .swiper-pagination-bullet {
     width: 6px !important;
@@ -63,24 +62,27 @@ export const CardCarousel = ({
           grabCursor={true}
           centeredSlides={true}
           slidesPerView={"auto"}
-          spaceBetween={-15} /* Ajustado para melhor encaixe 3D */
-          slideToClickedSlide={true} /* Habilita clique para centralizar foto lateral */
+          spaceBetween={-15}
+          slideToClickedSlide={true}
           coverflowEffect={{
             rotate: 0,
-            stretch: -10, /* Puxa levemente para o centro */
-            depth: 250, /* Profundidade extrema para o 3D ficar óbvio */
-            modifier: 3, /* Intensidade do redimensionamento lateral */
+            stretch: -10,
+            depth: 250,
+            modifier: 3,
             slideShadows: false,
           }}
           pagination={showPagination ? { clickable: true } : false}
           navigation={false}
           modules={[EffectCoverflow, Pagination]}
+          preventClicks={false}
+          preventClicksPropagation={false}
+          touchStartPreventDefault={false}
         >
           {images.map((image) => (
             <SwiperSlide key={image.id}>
               {({ isActive }) => (
                 <div
-                  className="cursor-pointer h-full flex flex-col items-center justify-start"
+                  className="w-full h-full cursor-pointer flex flex-col items-center"
                   onClick={() => {
                     if (isActive && onImageClick) {
                       onImageClick(image);
@@ -92,7 +94,7 @@ export const CardCarousel = ({
                     alt={image.alt}
                     className="rounded-xl"
                   />
-                  <p className="text-center mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-center mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     {new Date(image.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </p>
                 </div>
