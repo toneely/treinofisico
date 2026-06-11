@@ -74,9 +74,14 @@ export const CardCarousel = ({
           pagination={showPagination ? { clickable: true } : false}
           navigation={false}
           modules={[EffectCoverflow, Pagination]}
+          onClick={(swiper) => {
+            if (onImageClick && swiper.clickedIndex !== undefined) {
+              onImageClick(images[swiper.clickedIndex]);
+            }
+          }}
         >
           {images.map((image) => (
-            <SwiperSlide key={image.id} onClick={() => onImageClick && onImageClick(image)}>
+            <SwiperSlide key={image.id}>
               <div className="cursor-pointer transition-transform duration-300 h-full flex flex-col items-center">
                 <img
                   src={image.src}
