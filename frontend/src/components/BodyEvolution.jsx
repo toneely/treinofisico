@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
 import imageCompression from "browser-image-compression";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { EffectCoverflow, Pagination } from "swiper/modules";
+
+// Import Swiper styles
+import "swiper/css";
+import "swiper/css/effect-coverflow";
+import "swiper/css/pagination";
 
 const BodyEvolution = () => {
   const { user } = useAuth();
@@ -30,6 +37,8 @@ const BodyEvolution = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -46,14 +55,9 @@ const BodyEvolution = () => {
     data_foto: new Date().toISOString().split("T")[0],
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchData();
-      fetchPhotos();
-    }
-  }, [user]);
+  const swiperRef = useRef(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const { data: types } = await supabase
       .from("tipos_medida")
@@ -71,27 +75,35 @@ const BodyEvolution = () => {
     );
     setHistory(measures || []);
     setLoading(false);
-  };
+  }, [user?.id]);
 
-  const fetchPhotos = async () => {
+  const fetchPhotos = useCallback(async () => {
     const { data } = await supabase
       .from("fotos_progresso")
       .select("*")
       .eq("user_id", user.id)
       .order("data_foto", { ascending: true });
 
-    // Group photos by day
     if (data) {
-      const grouped = data.reduce((acc, curr) => {
-        const dayString = curr.data_foto.split('T')[0];
-        const day = new Date(dayString + 'T00:00:00').toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' });
-        if (!acc[day]) acc[day] = [];
-        acc[day].push(curr);
-        return acc;
-      }, {});
-      setPhotos(Object.entries(grouped).map(([day, items]) => ({ day, items })));
+      setPhotos(data);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user) {
+      const load = async () => {
+        await fetchData();
+        await fetchPhotos();
+      };
+      load();
+    }
+  }, [user, fetchData, fetchPhotos]);
+
+  useEffect(() => {
+    if (swiperRef.current && photos.length > 0) {
+      swiperRef.current.slideTo(photos.length - 1, 300);
+    }
+  }, [photos]);
 
   const handleOpenAdd = (type) => {
     const lastValue =
@@ -134,13 +146,23 @@ const BodyEvolution = () => {
 
     setUploading(true);
     try {
-      // 1. Compression
-      const optionsMedia = { maxSizeMB: 0.8, maxWidthOrHeight: 1080, useWebWorker: true };
-      const optionsThumb = { maxSizeMB: 0.1, maxWidthOrHeight: 200, useWebWorker: true };
+      // 1. Compression and format conversion to WebP
+      const optionsMedia = {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1080,
+        useWebWorker: true,
+        fileType: "image/webp",
+      };
+      const optionsThumb = {
+        maxSizeMB: 0.1,
+        maxWidthOrHeight: 240,
+        useWebWorker: true,
+        fileType: "image/webp",
+      };
 
       const [compressedMedia, compressedThumb] = await Promise.all([
         imageCompression(file, optionsMedia),
-        imageCompression(file, optionsThumb)
+        imageCompression(file, optionsThumb),
       ]);
 
       const timestamp = Date.now();
@@ -160,14 +182,16 @@ const BodyEvolution = () => {
       const urlMedia = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameMedia).data.publicUrl;
       const urlThumb = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameThumb).data.publicUrl;
 
-      // 4. Save to DB
-      const { error: dbError } = await supabase.from("fotos_progresso").insert([{
-        user_id: user.id,
-        url_foto_media: urlMedia,
-        url_miniatura: urlThumb,
-        anotacao: photoData.anotacao,
-        data_foto: new Date(photoData.data_foto).toISOString()
-      }]);
+      // 4. Save to DB (ensuring timezone safe date)
+      const { error: dbError } = await supabase.from("fotos_progresso").insert([
+        {
+          user_id: user.id,
+          url_foto_media: urlMedia,
+          url_miniatura: urlThumb,
+          anotacao: photoData.anotacao,
+          data_foto: new Date(photoData.data_foto + "T00:00:00").toISOString(),
+        },
+      ]);
 
       if (dbError) throw dbError;
 
@@ -203,7 +227,7 @@ const BodyEvolution = () => {
           </button>
         </div>
 
-        <div className="w-full">
+        <div className="w-full overflow-visible">
           {photos.length === 0 ? (
             <div className="flex justify-center py-4">
               <button
@@ -211,27 +235,85 @@ const BodyEvolution = () => {
                 className="w-32 h-40 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
               >
                 <Plus size={24} />
-                <span className="text-[10px] font-black uppercase">Adicionar</span>
+                <span className="text-[10px] font-black uppercase">
+                  Adicionar
+                </span>
               </button>
             </div>
           ) : (
-            <div className="p-6 text-center text-slate-400 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-4">
-               <div className="relative">
-                 <ImageIcon className="opacity-10" size={64} />
-                 <div className="absolute inset-0 flex items-center justify-center">
-                   <span className="text-2xl font-black text-slate-200">{photos.reduce((acc, group) => acc + group.items.length, 0)}</span>
-                 </div>
-               </div>
-               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Galeria Desativada</p>
-                 <p className="text-[9px] font-bold text-slate-300">As fotos estão sendo salvas, mas a visualização foi removida.</p>
-               </div>
-               <button
-                  onClick={() => setShowPhotoModal(true)}
-                  className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100 transition"
-                >
-                  Capturar Nova Foto
-                </button>
+            <div className="photo-carousel-container relative py-4">
+              <Swiper
+                effect={"coverflow"}
+                grabCursor={true}
+                centeredSlides={true}
+                slidesPerView={"auto"}
+                initialSlide={photos.length - 1}
+                coverflowEffect={{
+                  rotate: 0,
+                  stretch: -20,
+                  depth: 100,
+                  modifier: 2,
+                  slideShadows: false,
+                }}
+                pagination={{ clickable: true }}
+                modules={[EffectCoverflow, Pagination]}
+                className="w-full !pb-10"
+                onSwiper={(swiper) => {
+                  swiperRef.current = swiper;
+                  setTimeout(() => {
+                    swiper.slideTo(photos.length - 1, 0);
+                  }, 100);
+                }}
+              >
+                {photos.map((photo, index) => (
+                  <SwiperSlide key={photo.id} className="!w-auto flex flex-col items-center">
+                    {({ isActive }) => (
+                      <div
+                        className="flex flex-col items-center"
+                        onClick={(e) => {
+                          const swiper = e.currentTarget.closest(".swiper").swiper;
+                          if (!isActive) {
+                            swiper.slideTo(index);
+                          } else {
+                            setSelectedPhoto(photo);
+                            setShowViewModal(true);
+                          }
+                        }}
+                      >
+                        <div
+                          className={`rounded-2xl overflow-hidden shadow-md transition-all duration-300 border-2 ${
+                            isActive
+                              ? "border-white scale-110"
+                              : "border-transparent scale-100 opacity-60"
+                          }`}
+                          style={{ height: "130px" }}
+                        >
+                          <img
+                            src={photo.url_miniatura}
+                            alt={photo.data_foto}
+                            className="h-full w-auto object-contain bg-slate-100"
+                          />
+                        </div>
+                        <span className="text-[9px] font-black text-slate-400 mt-3 uppercase tracking-tighter">
+                          {new Date(photo.data_foto + "T00:00:00").toLocaleDateString(
+                            "pt-BR",
+                            { day: "2-digit", month: "2-digit", year: "2-digit" }
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+
+              <style>{`
+                .photo-carousel-container .swiper-pagination-bullet-active {
+                  background: var(--color-primary) !important;
+                }
+                .photo-carousel-container .swiper-slide {
+                  transition: transform 0.3s ease;
+                }
+              `}</style>
             </div>
           )}
         </div>
@@ -475,6 +557,55 @@ const BodyEvolution = () => {
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo View Modal */}
+      {showViewModal && selectedPhoto && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative w-full max-w-lg bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setShowViewModal(false)}
+              className="absolute top-6 right-6 z-10 p-2 bg-black/10 hover:bg-black/20 rounded-full transition text-slate-600"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="aspect-[4/5] w-full bg-slate-100 flex items-center justify-center">
+              <img
+                src={selectedPhoto.url_foto_media}
+                alt="Foto de progresso"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar size={16} className="text-slate-400" />
+                <span className="text-sm font-black text-slate-800 uppercase tracking-widest">
+                  {new Date(
+                    selectedPhoto.data_foto + "T00:00:00"
+                  ).toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+
+              {selectedPhoto.anotacao ? (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed italic">
+                    "{selectedPhoto.anotacao}"
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest italic">
+                  Sem anotações para esta foto.
+                </p>
+              )}
             </div>
           </div>
         </div>
