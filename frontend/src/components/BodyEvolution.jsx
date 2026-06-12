@@ -40,6 +40,7 @@ const BodyEvolution = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editPhotoData, setEditPhotoData] = useState({ data_foto: "", anotacao: "" });
   const [savingEdit, setSavingEdit] = useState(false);
@@ -123,9 +124,6 @@ const BodyEvolution = () => {
   const handleDeletePhoto = async () => {
     if (!selectedPhoto || !user) return;
 
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta foto permanentemente?");
-    if (!confirmDelete) return;
-
     setSavingEdit(true);
     try {
       // Step A: Extract relative paths
@@ -160,6 +158,7 @@ const BodyEvolution = () => {
 
       showToast("Foto excluída com sucesso!", "success");
       setPhotos(prev => prev.filter(p => p.id !== selectedPhoto.id));
+      setShowDeleteConfirm(false);
       setShowViewModal(false);
     } catch (err) {
       showToast("Erro ao excluir: " + err.message, "error");
@@ -656,35 +655,44 @@ const BodyEvolution = () => {
       {/* Photo View/Edit Modal */}
       {showViewModal && selectedPhoto && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
-            <button
-              onClick={() => setShowViewModal(false)}
-              className="absolute top-6 right-6 z-10 p-2 bg-white/80 hover:bg-white rounded-full transition text-slate-600 shadow-sm"
-            >
-              <X size={24} />
-            </button>
+          <div className="relative w-full max-w-lg bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
+            <header className="p-4 flex justify-between items-center bg-white border-b border-slate-50">
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition flex items-center gap-1.5"
+              >
+                <Trash2 size={18} />
+                <span className="text-[10px] font-black uppercase tracking-tighter">Excluir</span>
+              </button>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition text-slate-400"
+              >
+                <X size={20} />
+              </button>
+            </header>
 
             <div className="flex-1 overflow-y-auto">
-              <div className="aspect-[4/5] w-full bg-slate-50 flex items-center justify-center p-4">
+              <div className="max-h-[35vh] w-full bg-slate-900 flex items-center justify-center p-2">
                 <img
                   src={selectedPhoto.url_foto_media}
                   alt="Foto de progresso"
-                  className="w-full h-full object-contain rounded-3xl shadow-sm"
+                  className="max-h-full w-auto object-contain rounded-xl"
                 />
               </div>
 
-              <div className="p-8 space-y-6">
+              <div className="p-6 space-y-4">
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                     Data da Foto
                   </label>
                   <div className="relative mt-1">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                     <input
                       type="date"
                       value={editPhotoData.data_foto}
                       onChange={(e) => setEditPhotoData({ ...editPhotoData, data_foto: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all text-sm"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-bold transition-all text-sm"
                       style={{ "--tw-ring-color": "var(--color-primary)" }}
                     />
                   </div>
@@ -697,43 +705,65 @@ const BodyEvolution = () => {
                   <textarea
                     value={editPhotoData.anotacao}
                     onChange={(e) => setEditPhotoData({ ...editPhotoData, anotacao: e.target.value })}
-                    className="w-full p-4 mt-1 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-medium text-sm transition-all italic leading-relaxed"
-                    placeholder="Como você estava se sentindo? Registre seu peso ou observações..."
-                    rows={4}
+                    className="w-full p-4 mt-1 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-medium text-sm transition-all italic leading-relaxed"
+                    placeholder="Peso, medidas ou como se sente..."
+                    rows={2}
                     style={{ "--tw-ring-color": "var(--color-primary)" }}
                   />
                 </div>
               </div>
             </div>
 
-            <div className="p-8 pt-4 bg-white border-t border-slate-50">
-              <div className="grid grid-cols-2 gap-3 mb-3">
+            <footer className="p-6 bg-white border-t border-slate-50">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition"
+                  className="flex-1 h-12 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleUpdatePhoto}
                   disabled={savingEdit}
-                  className="py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2"
+                  className="flex-2 px-8 h-12 rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
                   style={{
                     backgroundColor: "var(--color-primary)",
                     color: "var(--text-on-primary)",
                   }}
                 >
-                  {savingEdit ? <Loader2 className="animate-spin" size={20} /> : <Save size={18} />}
+                  {savingEdit ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                   Salvar
                 </button>
               </div>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={32} />
+            </div>
+            <h2 className="text-xl font-black text-slate-800 mb-2">Excluir foto?</h2>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              Esta ação é irreversível e removerá os arquivos permanentemente do sistema.
+            </p>
+            <div className="flex flex-col gap-2">
               <button
                 onClick={handleDeletePhoto}
                 disabled={savingEdit}
-                className="w-full py-4 text-rose-500 bg-rose-50 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-rose-100 transition active:scale-[0.98]"
+                className="w-full py-4 bg-rose-500 text-white rounded-2xl font-black shadow-lg shadow-rose-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                <Trash2 size={18} />
-                Excluir Foto
+                {savingEdit ? <Loader2 className="animate-spin" size={20} /> : "Sim, excluir"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="w-full py-4 text-slate-400 font-bold hover:bg-slate-50 rounded-2xl transition"
+              >
+                Cancelar
               </button>
             </div>
           </div>
