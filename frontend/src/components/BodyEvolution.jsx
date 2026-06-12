@@ -10,20 +10,14 @@ import {
   Plus,
   TrendingUp,
   TrendingDown,
-  ChevronRight,
   Calendar,
   X,
-  Save,
   Loader2,
   Camera,
   Image as ImageIcon,
-  Upload,
-  Trash2,
-  Edit2,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
 import imageCompression from "browser-image-compression";
-import { CardCarousel } from "./ui/CardCarousel";
 
 const BodyEvolution = () => {
   const { user } = useAuth();
@@ -36,7 +30,6 @@ const BodyEvolution = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showLightbox, setShowLightbox] = useState(null);
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -52,9 +45,6 @@ const BodyEvolution = () => {
     anotacao: "",
     data_foto: new Date().toISOString().split("T")[0],
   });
-
-  const [isEditingAnnotation, setIsEditingAnnotation] = useState(false);
-  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -192,68 +182,6 @@ const BodyEvolution = () => {
     }
   };
 
-  const handleDeletePhoto = async (photo) => {
-    try {
-      // 1. Delete from Storage
-      const pathMedia = photo.url_foto_media.split("/").slice(-2).join("/");
-      const pathThumb = photo.url_miniatura.split("/").slice(-2).join("/");
-
-      await Promise.all([
-        supabase.storage.from("fotos_evolucao").remove([pathMedia]),
-        supabase.storage.from("fotos_evolucao").remove([pathThumb])
-      ]);
-
-      // 2. Delete from DB
-      const { error } = await supabase
-        .from("fotos_progresso")
-        .delete()
-        .eq("id", photo.id);
-
-      if (error) throw error;
-
-      showToast("Foto excluída!", "success");
-      setShowLightbox(null);
-      fetchPhotos();
-    } catch (err) {
-      showToast("Erro ao excluir: " + err.message, "error");
-    }
-  };
-
-  const handleUpdateAnnotation = async (photoId) => {
-    try {
-      const { error } = await supabase
-        .from("fotos_progresso")
-        .update({ anotacao: editingText })
-        .eq("id", photoId);
-
-      if (error) throw error;
-
-      showToast("Anotação atualizada!", "success");
-      setIsEditingAnnotation(false);
-      setShowLightbox({ ...showLightbox, anotacao: editingText });
-      fetchPhotos();
-    } catch (err) {
-      showToast("Erro ao atualizar: " + err.message, "error");
-    }
-  };
-
-  const handleUpdateDate = async (photoId, newDate) => {
-    try {
-      const { error } = await supabase
-        .from("fotos_progresso")
-        .update({ data_foto: new Date(newDate).toISOString() })
-        .eq("id", photoId);
-
-      if (error) throw error;
-
-      showToast("Data atualizada!", "success");
-      setShowLightbox({ ...showLightbox, data_foto: newDate });
-      fetchPhotos();
-    } catch (err) {
-      showToast("Erro ao atualizar data: " + err.message, "error");
-    }
-  };
-
   if (loading)
     return (
       <div className="p-10 text-center text-slate-400">
@@ -275,30 +203,36 @@ const BodyEvolution = () => {
           </button>
         </div>
 
-        <div className="w-full overflow-hidden">
+        <div className="w-full">
           {photos.length === 0 ? (
-            <button
-              onClick={() => setShowPhotoModal(true)}
-              className="w-32 h-40 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0 mx-auto"
-            >
-              <Plus size={24} />
-              <span className="text-[10px] font-black uppercase">Adicionar</span>
-            </button>
+            <div className="flex justify-center py-4">
+              <button
+                onClick={() => setShowPhotoModal(true)}
+                className="w-32 h-40 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-slate-400 hover:border-slate-200 transition-all shrink-0"
+              >
+                <Plus size={24} />
+                <span className="text-[10px] font-black uppercase">Adicionar</span>
+              </button>
+            </div>
           ) : (
-            <CardCarousel
-              images={photos.flatMap(group => group.items).map(photo => {
-                const dayString = photo.data_foto.split('T')[0];
-                return {
-                  id: photo.id,
-                  src: photo.url_miniatura,
-                  alt: "Foto de Progresso",
-                  date: new Date(dayString + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-                  annotation: photo.anotacao,
-                  raw: photo
-                };
-              })}
-              onImageClick={(img) => setShowLightbox(img.raw)}
-            />
+            <div className="p-6 text-center text-slate-400 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-4">
+               <div className="relative">
+                 <ImageIcon className="opacity-10" size={64} />
+                 <div className="absolute inset-0 flex items-center justify-center">
+                   <span className="text-2xl font-black text-slate-200">{photos.reduce((acc, group) => acc + group.items.length, 0)}</span>
+                 </div>
+               </div>
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Galeria Desativada</p>
+                 <p className="text-[9px] font-bold text-slate-300">As fotos estão sendo salvas, mas a visualização foi removida.</p>
+               </div>
+               <button
+                  onClick={() => setShowPhotoModal(true)}
+                  className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100 transition"
+                >
+                  Capturar Nova Foto
+                </button>
+            </div>
           )}
         </div>
       </section>
@@ -541,87 +475,6 @@ const BodyEvolution = () => {
                   Fechar
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lightbox Modal */}
-      {showLightbox && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 p-4">
-          <div className="absolute top-6 right-6 flex gap-3">
-            <button
-              onClick={() => {
-                if(window.confirm("Deseja realmente excluir esta foto?")) {
-                  handleDeletePhoto(showLightbox);
-                }
-              }}
-              className="p-3 bg-rose-500/20 rounded-full text-rose-500 hover:bg-rose-500/40 transition"
-            >
-              <Trash2 size={24} />
-            </button>
-            <button
-              onClick={() => setShowLightbox(null)}
-              className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          <div className="w-full max-w-lg flex flex-col gap-6">
-            <div className="rounded-[40px] overflow-hidden shadow-2xl border border-white/10 relative aspect-square bg-slate-900">
-              <img src={showLightbox.url_foto_media} alt="Progresso" className="w-full h-full object-contain" />
-
-              <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 to-transparent group">
-                {isEditingAnnotation ? (
-                  <div className="flex gap-2">
-                    <input
-                      autoFocus
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      onBlur={() => handleUpdateAnnotation(showLightbox.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleUpdateAnnotation(showLightbox.id)}
-                      className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none"
-                    />
-                    <button
-                      onClick={() => handleUpdateAnnotation(showLightbox.id)}
-                      className="p-2 bg-emerald-500 rounded-lg text-white"
-                    >
-                      <Save size={18} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex justify-between items-start gap-4">
-                    <p className="text-white text-sm font-bold leading-relaxed italic">
-                      {showLightbox.anotacao || "Sem anotação..."}
-                    </p>
-                    <button
-                      onClick={() => {
-                        setEditingText(showLightbox.anotacao || "");
-                        setIsEditingAnnotation(true);
-                      }}
-                      className="p-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition shrink-0"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="text-center space-y-2">
-              <div className="flex flex-col items-center gap-2">
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest">Data da Foto</label>
-                <input
-                  type="date"
-                  value={showLightbox.data_foto.split('T')[0]}
-                  onChange={(e) => handleUpdateDate(showLightbox.id, e.target.value)}
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition-all"
-                />
-              </div>
-              <span className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em] block">
-                {new Date(showLightbox.data_foto.split('T')[0] + 'T00:00:00').toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })}
-              </span>
             </div>
           </div>
         </div>
