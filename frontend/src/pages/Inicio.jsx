@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import {
   Dumbbell,
@@ -11,7 +11,6 @@ import {
   Settings,
   History as HistoryIcon,
   User as UserIcon,
-  Zap,
   Play,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -95,7 +94,7 @@ const Inicio = () => {
     if (saved) {
       try {
         setSavedTraining(JSON.parse(saved));
-      } catch (e) {
+      } catch (error) {
         localStorage.removeItem("active_training_session");
       }
     }
