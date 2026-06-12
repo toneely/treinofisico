@@ -656,7 +656,7 @@ const BodyEvolution = () => {
       {showViewModal && selectedPhoto && (
         <div className="fixed inset-0 z-[130] flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
           {/* Header */}
-          <header className="flex justify-end items-center p-4 shrink-0">
+          <header className="flex justify-end items-center p-4 pt-2 shrink-0">
             <button
               onClick={() => setShowViewModal(false)}
               className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition text-slate-500"
