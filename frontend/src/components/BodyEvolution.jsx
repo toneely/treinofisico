@@ -652,80 +652,82 @@ const BodyEvolution = () => {
         </div>
       )}
 
-      {/* Photo View/Edit Modal */}
+      {/* Photo View/Edit Modal - Fullscreen */}
       {showViewModal && selectedPhoto && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
-            <header className="p-4 flex justify-between items-center bg-white border-b border-slate-50">
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition flex items-center gap-1.5"
-              >
-                <Trash2 size={18} />
-                <span className="text-[10px] font-black uppercase tracking-tighter">Excluir</span>
-              </button>
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition text-slate-400"
-              >
-                <X size={20} />
-              </button>
-            </header>
+        <div className="fixed inset-0 z-[130] flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
+          {/* Header */}
+          <header className="flex justify-end items-center p-4 shrink-0">
+            <button
+              onClick={() => setShowViewModal(false)}
+              className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition text-slate-500"
+            >
+              <X size={24} />
+            </button>
+          </header>
 
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-h-[35vh] w-full bg-slate-900 flex items-center justify-center p-2">
-                <img
-                  src={selectedPhoto.url_foto_media}
-                  alt="Foto de progresso"
-                  className="max-h-full w-auto object-contain rounded-xl"
-                />
-              </div>
+          {/* Image Area - Flexible */}
+          <main className="flex-1 min-h-0 bg-black/5 flex items-center justify-center p-4">
+            <img
+              src={selectedPhoto.url_foto_media}
+              alt="Foto de progresso"
+              className="w-full h-full object-contain drop-shadow-lg"
+            />
+          </main>
 
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Data da Foto
-                  </label>
-                  <div className="relative mt-1">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                    <input
-                      type="date"
-                      value={editPhotoData.data_foto}
-                      onChange={(e) => setEditPhotoData({ ...editPhotoData, data_foto: e.target.value })}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-bold transition-all text-sm"
-                      style={{ "--tw-ring-color": "var(--color-primary)" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Anotações
-                  </label>
-                  <textarea
-                    value={editPhotoData.anotacao}
-                    onChange={(e) => setEditPhotoData({ ...editPhotoData, anotacao: e.target.value })}
-                    className="w-full p-4 mt-1 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-medium text-sm transition-all italic leading-relaxed"
-                    placeholder="Peso, medidas ou como se sente..."
-                    rows={2}
+          {/* Form Area - Anchored at bottom */}
+          <footer className="p-6 flex flex-col gap-4 bg-white border-t border-slate-100 shrink-0">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Data da Foto
+                </label>
+                <div className="relative mt-1">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                  <input
+                    type="date"
+                    value={editPhotoData.data_foto}
+                    onChange={(e) => setEditPhotoData({ ...editPhotoData, data_foto: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-bold transition-all text-sm"
                     style={{ "--tw-ring-color": "var(--color-primary)" }}
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Anotações
+                </label>
+                <textarea
+                  value={editPhotoData.anotacao}
+                  onChange={(e) => setEditPhotoData({ ...editPhotoData, anotacao: e.target.value })}
+                  className="w-full p-4 mt-1 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 font-medium text-sm transition-all italic leading-relaxed"
+                  placeholder="Peso, medidas ou como se sente..."
+                  rows={2}
+                  style={{ "--tw-ring-color": "var(--color-primary)" }}
+                />
+              </div>
             </div>
 
-            <footer className="p-6 bg-white border-t border-slate-50">
+            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-50">
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition"
+              >
+                <Trash2 size={18} />
+                <span className="text-[10px] font-black uppercase">Excluir</span>
+              </button>
+
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="flex-1 h-12 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleUpdatePhoto}
                   disabled={savingEdit}
-                  className="flex-2 px-8 h-12 rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
+                  className="px-8 py-3 rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
                   style={{
                     backgroundColor: "var(--color-primary)",
                     color: "var(--text-on-primary)",
@@ -735,8 +737,8 @@ const BodyEvolution = () => {
                   Salvar
                 </button>
               </div>
-            </footer>
-          </div>
+            </div>
+          </footer>
         </div>
       )}
 
