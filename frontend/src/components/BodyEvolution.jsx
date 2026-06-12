@@ -75,9 +75,10 @@ const BodyEvolution = () => {
     );
     setHistory(measures || []);
     setLoading(false);
-  }, [user?.id]);
+  }, [user]);
 
   const fetchPhotos = useCallback(async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("fotos_progresso")
       .select("*")
@@ -87,7 +88,7 @@ const BodyEvolution = () => {
     if (data) {
       setPhotos(data);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -241,16 +242,17 @@ const BodyEvolution = () => {
               </button>
             </div>
           ) : (
-            <div className="photo-carousel-container relative py-4">
+            <div className="photo-carousel-container relative py-4 w-[calc(100%+3rem)] -mx-6">
               <Swiper
                 effect={"coverflow"}
                 grabCursor={true}
                 centeredSlides={true}
                 slidesPerView={"auto"}
+                spaceBetween={-25}
                 initialSlide={photos.length - 1}
                 coverflowEffect={{
                   rotate: 0,
-                  stretch: -20,
+                  stretch: -15,
                   depth: 100,
                   modifier: 2,
                   slideShadows: false,
@@ -294,11 +296,14 @@ const BodyEvolution = () => {
                             className="h-full w-auto object-contain bg-slate-100"
                           />
                         </div>
-                        <span className="text-[9px] font-black text-slate-400 mt-3 uppercase tracking-tighter">
-                          {new Date(photo.data_foto + "T00:00:00").toLocaleDateString(
-                            "pt-BR",
-                            { day: "2-digit", month: "2-digit", year: "2-digit" }
-                          )}
+                        <span className="text-sm font-black text-slate-400 mt-3 uppercase tracking-tighter">
+                          {new Date(
+                            photo.data_foto.split("T")[0] + "T00:00:00"
+                          ).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                          })}
                         </span>
                       </div>
                     )}
@@ -307,6 +312,10 @@ const BodyEvolution = () => {
               </Swiper>
 
               <style>{`
+                .photo-carousel-container .swiper {
+                  padding-top: 25px !important;
+                  padding-bottom: 30px !important;
+                }
                 .photo-carousel-container .swiper-pagination-bullet-active {
                   background: var(--color-primary) !important;
                 }
@@ -586,7 +595,7 @@ const BodyEvolution = () => {
                 <Calendar size={16} className="text-slate-400" />
                 <span className="text-sm font-black text-slate-800 uppercase tracking-widest">
                   {new Date(
-                    selectedPhoto.data_foto + "T00:00:00"
+                    selectedPhoto.data_foto.split("T")[0] + "T00:00:00"
                   ).toLocaleDateString("pt-BR", {
                     day: "2-digit",
                     month: "long",
