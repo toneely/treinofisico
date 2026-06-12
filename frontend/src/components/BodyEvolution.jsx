@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -292,8 +293,9 @@ const BodyEvolution = () => {
     );
 
   return (
-    <div className="space-y-8 pb-24">
-      {/* Photo Evolution Section */}
+    <>
+      <div className="space-y-8 pb-24 animate-in fade-in duration-500">
+        {/* Photo Evolution Section */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Evolução com Fotos</h3>
@@ -494,8 +496,10 @@ const BodyEvolution = () => {
         })}
       </div>
 
+      </div>
+
       {/* Add Measurement Modal */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -563,11 +567,12 @@ const BodyEvolution = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Add Photo Modal */}
-      {showPhotoModal && (
+      {showPhotoModal && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -649,14 +654,15 @@ const BodyEvolution = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Photo View/Edit Modal - Fullscreen */}
-      {showViewModal && selectedPhoto && (
-        <div className="fixed inset-0 z-[130] flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
+      {showViewModal && selectedPhoto && createPortal(
+        <div className="fixed inset-0 z-[130] w-screen h-[100dvh] max-w-none m-0 p-0 rounded-none border-none flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
           {/* Header */}
-          <header className="flex justify-end items-center p-4 pt-2 shrink-0">
+          <header className="flex justify-end items-center p-4 pt-4 shrink-0">
             <button
               onClick={() => setShowViewModal(false)}
               className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition text-slate-500"
@@ -739,11 +745,12 @@ const BodyEvolution = () => {
               </div>
             </div>
           </footer>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal(
         <div className="fixed inset-0 z-[140] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
             <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-6">
@@ -769,11 +776,12 @@ const BodyEvolution = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Measurement Detail Modal */}
-      {showDetailModal && (
+      {showDetailModal && createPortal(
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-500 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-8">
@@ -873,7 +881,8 @@ const BodyEvolution = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
