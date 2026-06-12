@@ -15,6 +15,8 @@ import {
   Loader2,
   Camera,
   Image as ImageIcon,
+  Trash2,
+  Save,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from "recharts";
 import imageCompression from "browser-image-compression";
@@ -39,6 +41,8 @@ const BodyEvolution = () => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [editPhotoData, setEditPhotoData] = useState({ data_foto: "", anotacao: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -89,6 +93,80 @@ const BodyEvolution = () => {
       setPhotos(data);
     }
   }, [user]);
+
+  const handleUpdatePhoto = async () => {
+    if (!selectedPhoto || !user) return;
+    setSavingEdit(true);
+
+    const { error } = await supabase
+      .from("fotos_progresso")
+      .update({
+        data_foto: new Date(editPhotoData.data_foto + "T00:00:00").toISOString(),
+        anotacao: editPhotoData.anotacao,
+      })
+      .eq("id", selectedPhoto.id);
+
+    if (error) {
+      showToast("Erro ao atualizar: " + error.message, "error");
+    } else {
+      showToast("Foto atualizada!", "success");
+      setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? {
+        ...p,
+        data_foto: new Date(editPhotoData.data_foto + "T00:00:00").toISOString(),
+        anotacao: editPhotoData.anotacao
+      } : p).sort((a, b) => new Date(a.data_foto).getTime() - new Date(b.data_foto).getTime()));
+      setShowViewModal(false);
+    }
+    setSavingEdit(false);
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!selectedPhoto || !user) return;
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta foto permanentemente?");
+    if (!confirmDelete) return;
+
+    setSavingEdit(true);
+    try {
+      // Step A: Extract relative paths
+      const getPathFromUrl = (url) => {
+        const parts = url.split("fotos_evolucao/");
+        return parts.length > 1 ? parts[1] : null;
+      };
+
+      const pathMedia = getPathFromUrl(selectedPhoto.url_foto_media);
+      const pathThumb = getPathFromUrl(selectedPhoto.url_miniatura);
+
+      // Step B: Delete from Storage
+      const filesToDelete = [];
+      if (pathMedia) filesToDelete.push(pathMedia);
+      if (pathThumb) filesToDelete.push(pathThumb);
+
+      if (filesToDelete.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("fotos_evolucao")
+          .remove(filesToDelete);
+
+        if (storageError) throw storageError;
+      }
+
+      // Step C: Delete from DB
+      const { error: dbError } = await supabase
+        .from("fotos_progresso")
+        .delete()
+        .eq("id", selectedPhoto.id);
+
+      if (dbError) throw dbError;
+
+      showToast("Foto excluída com sucesso!", "success");
+      setPhotos(prev => prev.filter(p => p.id !== selectedPhoto.id));
+      setShowViewModal(false);
+    } catch (err) {
+      showToast("Erro ao excluir: " + err.message, "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -278,6 +356,10 @@ const BodyEvolution = () => {
                             swiper.slideTo(index);
                           } else {
                             setSelectedPhoto(photo);
+                            setEditPhotoData({
+                              data_foto: photo.data_foto.split("T")[0],
+                              anotacao: photo.anotacao || ""
+                            });
                             setShowViewModal(true);
                           }
                         }}
@@ -571,50 +653,88 @@ const BodyEvolution = () => {
         </div>
       )}
 
-      {/* Photo View Modal */}
+      {/* Photo View/Edit Modal */}
       {showViewModal && selectedPhoto && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative w-full max-w-lg bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
             <button
               onClick={() => setShowViewModal(false)}
-              className="absolute top-6 right-6 z-10 p-2 bg-black/10 hover:bg-black/20 rounded-full transition text-slate-600"
+              className="absolute top-6 right-6 z-10 p-2 bg-white/80 hover:bg-white rounded-full transition text-slate-600 shadow-sm"
             >
               <X size={24} />
             </button>
 
-            <div className="aspect-[4/5] w-full bg-slate-100 flex items-center justify-center">
-              <img
-                src={selectedPhoto.url_foto_media}
-                alt="Foto de progresso"
-                className="w-full h-full object-contain"
-              />
-            </div>
-
-            <div className="p-8">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar size={16} className="text-slate-400" />
-                <span className="text-sm font-black text-slate-800 uppercase tracking-widest">
-                  {new Date(
-                    selectedPhoto.data_foto.split("T")[0] + "T00:00:00"
-                  ).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
+            <div className="flex-1 overflow-y-auto">
+              <div className="aspect-[4/5] w-full bg-slate-50 flex items-center justify-center p-4">
+                <img
+                  src={selectedPhoto.url_foto_media}
+                  alt="Foto de progresso"
+                  className="w-full h-full object-contain rounded-3xl shadow-sm"
+                />
               </div>
 
-              {selectedPhoto.anotacao ? (
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-sm text-slate-600 font-medium leading-relaxed italic">
-                    "{selectedPhoto.anotacao}"
-                  </p>
+              <div className="p-8 space-y-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Data da Foto
+                  </label>
+                  <div className="relative mt-1">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <input
+                      type="date"
+                      value={editPhotoData.data_foto}
+                      onChange={(e) => setEditPhotoData({ ...editPhotoData, data_foto: e.target.value })}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all text-sm"
+                      style={{ "--tw-ring-color": "var(--color-primary)" }}
+                    />
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest italic">
-                  Sem anotações para esta foto.
-                </p>
-              )}
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Anotações
+                  </label>
+                  <textarea
+                    value={editPhotoData.anotacao}
+                    onChange={(e) => setEditPhotoData({ ...editPhotoData, anotacao: e.target.value })}
+                    className="w-full p-4 mt-1 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-medium text-sm transition-all italic leading-relaxed"
+                    placeholder="Como você estava se sentindo? Registre seu peso ou observações..."
+                    rows={4}
+                    style={{ "--tw-ring-color": "var(--color-primary)" }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 pt-4 bg-white border-t border-slate-50">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleUpdatePhoto}
+                  disabled={savingEdit}
+                  className="py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2"
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    color: "var(--text-on-primary)",
+                  }}
+                >
+                  {savingEdit ? <Loader2 className="animate-spin" size={20} /> : <Save size={18} />}
+                  Salvar
+                </button>
+              </div>
+              <button
+                onClick={handleDeletePhoto}
+                disabled={savingEdit}
+                className="w-full py-4 text-rose-500 bg-rose-50 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-rose-100 transition active:scale-[0.98]"
+              >
+                <Trash2 size={18} />
+                Excluir Foto
+              </button>
             </div>
           </div>
         </div>
