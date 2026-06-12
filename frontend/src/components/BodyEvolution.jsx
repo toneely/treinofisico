@@ -884,7 +884,7 @@ const BodyEvolution = () => {
         </div>,
         document.body
       )}
-    </div>
+    </>
   );
 };
 
