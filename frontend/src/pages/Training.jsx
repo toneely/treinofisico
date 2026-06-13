@@ -451,6 +451,17 @@ const Training = () => {
     return () => clearInterval(interval);
   }, [state.isTimerActive, state.activeRestTimers]);
 
+  useEffect(() => {
+    if (!loading && state.blocos.length > 0) {
+      setTimeout(() => {
+        const activeElement = document.getElementById("active-exercise");
+        if (activeElement) {
+          activeElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 300);
+    }
+  }, [loading, state.currentBlockIndex, state.currentExerciseInBlock]);
+
   const fetchData = async () => {
     setLoading(true);
     const { data: userData } = await supabase
@@ -791,6 +802,7 @@ const Training = () => {
               return (
                 <div
                   key={`${bIdx}_${eIdx}`}
+                  id={isCurrent ? "active-exercise" : undefined}
                   onClick={() => {
                     if (!isCurrent) {
                       dispatch({
