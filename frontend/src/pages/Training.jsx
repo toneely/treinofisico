@@ -453,12 +453,16 @@ const Training = () => {
 
   useEffect(() => {
     if (!loading && state.blocos.length > 0) {
-      setTimeout(() => {
+      const scrollTimer = setTimeout(() => {
         const activeElement = document.getElementById("active-exercise");
         if (activeElement) {
-          activeElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          activeElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         }
-      }, 300);
+      }, 500);
+      return () => clearTimeout(scrollTimer);
     }
   }, [loading, state.currentBlockIndex, state.currentExerciseInBlock]);
 
@@ -691,11 +695,11 @@ const Training = () => {
 
   return (
     <div
-      className="min-h-screen transition-colors duration-700 text-white"
+      className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
       style={{ color: metronomeActive ? ("var(--text-on-secondary)") : "inherit", backgroundColor: "var(--bg-treino)" }}
     >
-      <div className="p-6 max-w-md mx-auto">
-        <header className="flex justify-between items-center mb-6">
+      <div className="flex-1 overflow-y-auto p-6 pb-32">
+        <header className="flex justify-between items-center mb-6 max-w-md mx-auto">
           <div className="flex gap-2">
             <button
               onClick={() => navigate("/inicio")}
@@ -770,7 +774,7 @@ const Training = () => {
           </div>
         </header>
 
-        <div className="mt-6 space-y-4 pb-32">
+        <div className="mt-6 space-y-4 max-w-md mx-auto">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
             Exercícios da Sessão
           </h3>
