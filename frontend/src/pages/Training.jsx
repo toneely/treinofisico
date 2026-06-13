@@ -708,65 +708,60 @@ const Training = () => {
       style={{ color: metronomeActive ? ("var(--text-on-secondary)") : "inherit", backgroundColor: "var(--bg-treino)" }}
     >
       <div className="p-6 max-w-md mx-auto">
-        <header className="flex justify-between items-center mb-6">
+        <header className="flex justify-between items-center mb-8">
           <div className="flex gap-2">
             <button
               onClick={() => navigate("/inicio")}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
+              className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl text-white/50 hover:text-white transition"
             >
-              <ChevronLeft />
+              <ChevronLeft size={24} />
             </button>
             <button
               onClick={() => {
                 showToast("Treino pausado. Seu progresso foi salvo.", "info");
                 navigate("/inicio");
               }}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+              className="px-4 h-12 bg-white/5 rounded-2xl text-white/50 hover:text-white transition flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/5"
             >
-              <Pause size={14} /> Pausar
+              <div className="flex gap-0.5">
+                <div className="w-1 h-3 bg-current rounded-full" />
+                <div className="w-1 h-3 bg-current rounded-full" />
+              </div>
+              Pausar
             </button>
           </div>
+
           <div className="text-center">
             <span
-              className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
+              className="text-[10px] uppercase font-black tracking-[0.3em] block mb-1 opacity-40"
               style={{ color: "var(--color-primary-safe)" }}
             >
-              {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
+              {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}
             </span>
-            {isGuidedMode && (
-              <span className="font-bold text-lg text-white">
-                Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
-              </span>
-            )}
+            <span className="font-bold text-lg text-white">
+              {isGuidedMode ? `Bloco ${state.currentBlockIndex + 1} de ${state.blocos.length}` : "Visão Geral"}
+            </span>
           </div>
+
           <div className="flex gap-2">
             <div
-              className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
-              style={{
-                backgroundColor: metronomeActive
-                  ? false
-                    ? "var(--color-primary)"
-                    : "var(--color-secondary)"
-                  : "transparent",
-                borderColor: false
-                  ? "var(--color-primary)"
-                  : "var(--color-secondary)",
-              }}
+              className={`flex items-center gap-3 h-12 px-4 rounded-2xl border transition-all ${metronomeActive ? "bg-white/10 border-white/20" : "bg-white/5 border-white/5 opacity-50"}`}
             >
               <button
                 onClick={() => setMetronomeActive(!metronomeActive)}
-                className="hover:scale-110 transition text-white"
+                className="text-white"
               >
                 {metronomeActive ? (
-                  <Pause size={16} fill="currentColor" />
+                  <Pause size={18} fill="currentColor" />
                 ) : (
-                  <Play size={16} fill="currentColor" />
+                  <Play size={18} fill="currentColor" />
                 )}
               </button>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
                 <input
                   type="number"
                   value={bpm}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     setBpm(
                       Math.max(
@@ -775,26 +770,26 @@ const Training = () => {
                       ),
                     )
                   }
-                  className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
+                  className="bg-transparent w-8 text-center text-sm font-black outline-none text-white"
                 />
-                <span className="text-[8px] font-bold opacity-60">BPM</span>
+                <span className="text-[8px] font-black opacity-30 tracking-tighter">BPM</span>
               </div>
             </div>
           </div>
         </header>
 
-        <div className="flex bg-white/5 rounded-2xl p-1 mb-8">
+        <div className="flex bg-black/40 border border-white/5 rounded-3xl p-1.5 mb-10 shadow-2xl">
           <button
             onClick={() => setIsGuidedMode(false)}
-            className={`flex-1 py-3 rounded-xl text-[10px] uppercase font-black tracking-widest transition-all flex items-center justify-center gap-2 ${!isGuidedMode ? "bg-white/10 text-white shadow-xl border border-white/10" : "text-white/30 hover:text-white/50"}`}
+            className={`flex-1 py-4 rounded-2xl text-[10px] uppercase font-black tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${!isGuidedMode ? "bg-white/10 text-white border border-white/10 shadow-xl" : "text-white/20 hover:text-white/40"}`}
           >
-            <LayoutList size={14} /> Modo Manual
+            <LayoutList size={16} /> Modo Manual
           </button>
           <button
             onClick={() => setIsGuidedMode(true)}
-            className={`flex-1 py-3 rounded-xl text-[10px] uppercase font-black tracking-widest transition-all flex items-center justify-center gap-2 ${isGuidedMode ? "bg-white/10 text-white shadow-xl border border-white/10" : "text-white/30 hover:text-white/50"}`}
+            className={`flex-1 py-4 rounded-2xl text-[10px] uppercase font-black tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${isGuidedMode ? "bg-white/10 text-white border border-white/10 shadow-xl" : "text-white/20 hover:text-white/40"}`}
           >
-            <Zap size={14} /> Modo Guiado
+            <Zap size={16} /> Modo Guiado
           </button>
         </div>
 
@@ -841,45 +836,51 @@ const Training = () => {
                           ? "rgba(255, 255, 255, 0.08)"
                           : isDone
                             ? "rgba(16, 185, 129, 0.05)"
-                            : "rgba(255, 255, 255, 0.03)",
+                            : isGuidedMode
+                              ? "rgba(255, 255, 255, 0.02)"
+                              : "rgba(255, 255, 255, 0.03)",
                       borderColor:
                         isCurrent && isGuidedMode
                           ? "var(--color-primary)"
-                          : "rgba(255, 255, 255, 0.1)",
+                          : "rgba(255, 255, 255, 0.08)",
                     }}
                   >
                     {/* Header do Card */}
                     <div
-                      className={`p-5 flex justify-between items-center ${!isExpanded ? "opacity-50" : ""}`}
+                      className={`flex justify-between items-center transition-all ${isGuidedMode ? "p-5" : "p-4 border-b border-white/5"} ${!isExpanded ? "opacity-40" : ""}`}
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${isCurrent && isGuidedMode ? "bg-primary text-white" : "bg-white/5 text-white/40"}`}
+                          className={`rounded-2xl flex items-center justify-center transition-colors ${isGuidedMode ? "w-10 h-10" : "w-8 h-8"} ${isCurrent && isGuidedMode ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-white/30"}`}
                           style={{
                             backgroundColor:
                               isCurrent && isGuidedMode
                                 ? "var(--color-primary)"
-                                : "rgba(255, 255, 255, 0.05)",
+                                : undefined,
                           }}
                         >
                           {isDone ? (
-                            <CheckCircle2 size={20} className="text-emerald-500" />
+                            <CheckCircle2 size={isGuidedMode ? 20 : 16} className="text-emerald-500" />
                           ) : (
-                            <Dumbbell size={20} />
+                            <Dumbbell size={isGuidedMode ? 20 : 16} />
                           )}
                         </div>
                         <div>
-                          <h4 className="font-bold text-white text-base leading-tight">
+                          <h4 className={`font-bold text-white leading-tight ${isGuidedMode ? "text-base" : "text-sm"}`}>
                             {ex.exercicios.nome}
                           </h4>
-                          <div className="flex gap-3 items-center mt-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                          <div className="flex gap-3 items-center mt-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-white/30">
                               {currentExSerie}/{ex.series_alvo} Séries
                             </span>
-                            <span className="w-1 h-1 rounded-full bg-white/20" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                              {ex.reps_alvo} Reps
-                            </span>
+                            {!isGuidedMode && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-white/10" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                                  {ex.reps_alvo} Reps
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -894,7 +895,7 @@ const Training = () => {
                               sNum: currentExSerie || 1,
                             })
                           }
-                          className="text-[10px] font-black uppercase tracking-widest px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition"
+                          className="text-[9px] font-black uppercase tracking-[0.1em] px-4 py-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition border border-white/5"
                         >
                           Focar
                         </button>
@@ -903,24 +904,24 @@ const Training = () => {
 
                     {/* Conteúdo Expandido */}
                     {isExpanded && (
-                      <div className="px-5 pb-5 animate-in slide-in-from-top-2 duration-300">
+                      <div className={`animate-in slide-in-from-top-2 duration-300 ${isGuidedMode ? "px-5 pb-5" : "p-3 bg-black/20"}`}>
                         {/* Timers e Controles (Só no Guided Mode Ativo) */}
                         {isGuidedMode && isCurrent && (
                           <div className="space-y-4 mb-6">
                             <div className="grid grid-cols-2 gap-3">
-                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 shadow-inner">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">
                                   Execução
                                 </span>
-                                <span className="text-2xl font-mono font-black text-white">
+                                <span className="text-2xl font-mono font-black text-white tracking-tighter">
                                   {formatTime(state.timer)}
                                 </span>
                               </div>
-                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 shadow-inner">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">
                                   Descanso
                                 </span>
-                                <span className="text-2xl font-mono font-black text-white/60">
+                                <span className="text-2xl font-mono font-black text-white/40 tracking-tighter">
                                   {state.activeRestTimers[ex.exercicio_id]
                                     ? formatTime(
                                         state.activeRestTimers[ex.exercicio_id]
@@ -940,7 +941,7 @@ const Training = () => {
                                       exercicio_id: ex.exercicio_id,
                                     })
                                   }
-                                  className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition"
+                                  className="flex-1 py-4.5 rounded-2xl bg-primary text-white font-black text-[11px] uppercase tracking-[0.15em] shadow-xl shadow-primary/20 active:scale-[0.98] transition-all"
                                   style={{
                                     backgroundColor: "var(--color-primary)",
                                   }}
@@ -967,14 +968,14 @@ const Training = () => {
                                       },
                                     })
                                   }
-                                  className="flex-1 py-4 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition"
+                                  className="flex-1 py-4.5 rounded-2xl bg-white text-black font-black text-[11px] uppercase tracking-[0.15em] shadow-xl active:scale-[0.98] transition-all"
                                 >
                                   Finalizar Série {state.currentSerie}
                                 </button>
                               )}
                               <button
                                 onClick={() => dispatch({ type: "RESET_TIMER" })}
-                                className="p-4 rounded-2xl bg-white/5 text-white/40 hover:text-white transition"
+                                className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 text-white/30 hover:text-white transition-all border border-white/5 active:bg-white/10"
                               >
                                 <RotateCcw size={20} />
                               </button>
@@ -984,7 +985,7 @@ const Training = () => {
 
                         {/* Grade de Séries / Inputs */}
                         <div
-                          className={`grid gap-2 ${isGuidedMode ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
+                          className={`grid gap-1.5 ${isGuidedMode ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
                         >
                           {[...Array(ex.series_alvo)].map((_, sIdx) => {
                             const sNum = sIdx + 1;
@@ -996,24 +997,25 @@ const Training = () => {
                             return (
                               <div
                                 key={sIdx}
-                                className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${isCurrentS && isGuidedMode ? "bg-white/10 ring-1 ring-white/20" : "bg-black/20"}`}
+                                className={`flex items-center gap-3 transition-all ${isGuidedMode ? (isCurrentS ? "bg-white/10 ring-1 ring-white/10 p-3.5 rounded-2xl shadow-inner" : "bg-black/20 p-3 rounded-2xl opacity-60") : "bg-white/5 p-2 rounded-xl border border-white/5"}`}
                               >
                                 <div
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isExecuted ? "bg-emerald-500/20 text-emerald-500" : isCurrentS ? "bg-primary text-white" : "bg-white/5 text-white/20"}`}
+                                  className={`rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${isGuidedMode ? "w-8 h-8" : "w-6 h-6"} ${isExecuted ? "bg-emerald-500 text-white" : isCurrentS && isGuidedMode ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-white/20"}`}
                                   style={{
                                     backgroundColor:
-                                      isCurrentS && !isExecuted
+                                      isExecuted ? "#10b981" : (isCurrentS && isGuidedMode
                                         ? "var(--color-primary)"
-                                        : undefined,
+                                        : undefined),
                                   }}
                                 >
-                                  {isExecuted ? <CheckCircle2 size={14} /> : sNum}
+                                  {isExecuted ? <CheckCircle2 size={isGuidedMode ? 14 : 12} /> : sNum}
                                 </div>
 
-                                <div className="flex-1 grid grid-cols-2 gap-4">
-                                  <div className="flex items-center gap-2">
+                                <div className="flex-1 grid grid-cols-2 gap-3">
+                                  <div className="flex items-center justify-end gap-1.5">
                                     <input
                                       type="number"
+                                      inputMode="decimal"
                                       value={
                                         (isGuidedMode && isCurrentS
                                           ? state.cargas[ex.exercicio_id]
@@ -1022,6 +1024,7 @@ const Training = () => {
                                             ]?.[sIdx]) ?? ""
                                       }
                                       placeholder="0"
+                                      onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
                                           type: "SET_VALUE",
@@ -1034,15 +1037,16 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className="bg-transparent w-full text-right font-mono font-bold text-sm outline-none text-white"
+                                      className={`bg-transparent w-full text-right font-mono font-black outline-none text-white ${isGuidedMode ? "text-base" : "text-sm"}`}
                                     />
-                                    <span className="text-[8px] font-black text-white/20 uppercase">
+                                    <span className="text-[8px] font-black text-white/20 uppercase tracking-tighter">
                                       kg
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2 border-l border-white/5 pl-4">
+                                  <div className="flex items-center justify-end gap-1.5 border-l border-white/5 pl-3">
                                     <input
                                       type="number"
+                                      inputMode="numeric"
                                       value={
                                         (isGuidedMode && isCurrentS
                                           ? state.repsFeitas[ex.exercicio_id]
@@ -1051,6 +1055,7 @@ const Training = () => {
                                             ]?.[sIdx]) ?? ""
                                       }
                                       placeholder="0"
+                                      onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
                                           type: "SET_VALUE",
@@ -1063,9 +1068,9 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className="bg-transparent w-full text-right font-mono font-bold text-sm outline-none text-white"
+                                      className={`bg-transparent w-full text-right font-mono font-black outline-none text-white ${isGuidedMode ? "text-base" : "text-sm"}`}
                                     />
-                                    <span className="text-[8px] font-black text-white/20 uppercase">
+                                    <span className="text-[8px] font-black text-white/20 uppercase tracking-tighter">
                                       reps
                                     </span>
                                   </div>
@@ -1085,7 +1090,7 @@ const Training = () => {
                                   payload: { currentBlock },
                                 })
                               }
-                              className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition"
+                              className="w-full py-5 bg-emerald-500 text-white rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
                               {(() => {
                                 const isLastBlock =
@@ -1106,7 +1111,11 @@ const Training = () => {
                                   if (isLastBlock) return "Finalizar Treino";
                                   return "Próximo Bloco";
                                 }
-                                return "Próxima Série / Exercício";
+                                return (
+                                  <>
+                                    Próximo Exercício <ChevronRight size={16} />
+                                  </>
+                                );
                               })()}
                             </button>
                             <button
@@ -1116,7 +1125,7 @@ const Training = () => {
                                   payload: { currentBlock },
                                 })
                               }
-                              className="w-full py-3 text-white/30 hover:text-white/60 font-bold text-[10px] uppercase tracking-[0.2em] transition"
+                              className="w-full py-3 text-white/20 hover:text-white/50 font-black text-[9px] uppercase tracking-[0.25em] transition-all"
                             >
                               Pular Exercício
                             </button>
