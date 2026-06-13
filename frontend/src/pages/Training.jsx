@@ -16,6 +16,8 @@ import {
   MoreVertical,
   Square,
   Clock,
+  LayoutList,
+  Zap,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -380,9 +382,13 @@ const Training = () => {
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
+  const [isGuidedMode, setIsGuidedMode] = useState(
+    localStorage.getItem("isGuidedMode") === "true",
+  );
   const audioContextRef = React.useRef(null);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
+  const exerciseRefs = React.useRef({});
 
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
   const exercise = currentBlock[state.currentExerciseInBlock] || {
@@ -403,6 +409,22 @@ const Training = () => {
       );
     }
   }, [state, loading, letra]);
+
+  useEffect(() => {
+    localStorage.setItem("isGuidedMode", isGuidedMode);
+  }, [isGuidedMode]);
+
+  useEffect(() => {
+    if (isGuidedMode) {
+      const activeId = `${state.currentBlockIndex}_${state.currentExerciseInBlock}`;
+      if (exerciseRefs.current[activeId]) {
+        exerciseRefs.current[activeId].scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }
+  }, [state.currentBlockIndex, state.currentExerciseInBlock, isGuidedMode]);
 
   useEffect(() => {
     let metronomeInterval = null;
@@ -710,11 +732,12 @@ const Training = () => {
               style={{ color: "var(--color-primary-safe)" }}
             >
               {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
-
             </span>
-            <span className="font-bold text-lg text-white">
-              Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
-            </span>
+            {isGuidedMode && (
+              <span className="font-bold text-lg text-white">
+                Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <div
@@ -760,685 +783,362 @@ const Training = () => {
           </div>
         </header>
 
-        <div className="flex gap-2 mb-8">
-          {[...Array(exercise.series_alvo)].map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i + 1 < state.currentSerie ? "" : i + 1 === state.currentSerie ? "animate-pulse" : "opacity-20"}`}
-              style={{
-                backgroundColor:
-                  i + 1 === state.currentSerie
-                    ? false
-                      ? "var(--color-primary)"
-                      : "var(--color-secondary)"
-                    : i + 1 < state.currentSerie
-                      ? "#10b981"
-                      : false
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)",
-              }}
-            ></div>
-          ))}
-        </div>
-
-        <div
-          className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderColor: false
-              ? "var(--color-primary)"
-              : "var(--color-secondary)",
-          }}
-        >
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="flex gap-2 items-center mb-2">
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
-                  style={{
-                    backgroundColor: "var(--color-secondary)",
-                    color: "var(--text-on-secondary)"
-                  }}
-                >
-                  Série {state.currentSerie} / {exercise.series_alvo}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${" text-white"}`}
-                >
-                  {exercise.exercicios.alvo_principal}
-                </span>
-              </div>
-              <h2
-                className="text-2xl font-bold leading-tight"
-                style={{ color: isPrimaryEx ? "var(--color-primary-safe)" : "var(--color-secondary-safe)" }}
-              >
-                {exercise.exercicios.nome}
-              </h2>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Carga (kg)
-              </label>
-              <input
-                type="number"
-                value={state.cargas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentCarga",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Reps ({exercise.reps_alvo})
-              </label>
-              <input
-                type="number"
-                value={state.repsFeitas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentReps",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-          </div>
-          {exercise.exercicios.depende_peso_corporal && (
-            <div className="mt-4 flex items-center gap-2 text-xs font-medium opacity-70">
-              <Scale size={14} /> Peso Corporal ({user?.massa_corporea_atual}kg)
-              + Carga Adicional
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? "scale-105 shadow-lg text-white" : ""}`}
-          style={{
-            backgroundColor: state.isTimerActive
-              ? (isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)")
-              : "rgba(255, 255, 255, 0.05)",
-            color: state.isTimerActive
-              ? (isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)")
-              : "white"
-          }}
-        >
-          <div className="flex flex-col text-white">
-            <p className="text-[10px] font-bold uppercase mb-1 opacity-70">
-              Tempo de Execução
-            </p>
-            <div className="flex items-baseline gap-3">
-              <p className="text-4xl font-mono font-black text-white">
-                {formatTime(state.timer)}
-              </p>
-              {lastExecutionTimes[exercise.exercicios.id] > 0 && (
-                <div className="text-[10px] font-bold opacity-40 flex items-center gap-1">
-                  <RotateCcw size={10} /> Ref:{" "}
-                  {formatTime(lastExecutionTimes[exercise.exercicios.id])}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => dispatch({ type: "RESET_TIMER" })}
-              className="p-2 opacity-30 hover:opacity-100 transition rounded-lg hover:bg-white/10"
-              title="Reiniciar série"
-            >
-              <RotateCcw size={18} />
-            </button>
-            {isWaitingForPlay && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_SERIES",
-                    exercicio_id: exercise.exercicio_id,
-                  })
-                }
-                data-testid="start-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
-                style={{
-                  backgroundColor: isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)",
-                  color: isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)"
-                }}
-              >
-                <Play fill="currentColor" className="ml-1" />
-              </button>
-            )}
-            {state.isTimerActive && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "STOP_SERIES",
-                    payload: {
-                      exId: exercise.exercicio_id,
-                      currentInputLoad:
-                        parseFloat(state.cargas[exercise.exercicio_id]) || 0,
-                      currentInputReps:
-                        parseInt(state.repsFeitas[exercise.exercicio_id]) || 0,
-                      nomeEx: exercise.exercicios.nome,
-                      seriesAlvo: exercise.series_alvo,
-                    },
-                  })
-                }
-                data-testid="stop-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
-              >
-                <Square fill="currentColor" size={20} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 mb-6">
-          {!state.isTimerActive && state.timer > 0 && (
-            <button
-              onClick={() => {
-                dispatch({ type: "ADVANCE_STEP", payload: { currentBlock } });
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              disabled={savingSession}
-              className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
-              style={{
-                backgroundColor: "#10b981",
-                color: "white"
-              }}
-            >
-              {savingSession
-                ? "Salvando..."
-                : (() => {
-                    const isLastBlock =
-                      state.currentBlockIndex === state.blocos.length - 1;
-                    const isLastInBlock =
-                      state.executionMode === "isolated"
-                        ? state.currentExerciseInBlock ===
-                            currentBlock.length - 1 &&
-                          state.currentSerie === exercise.series_alvo
-                        : currentBlock.every(
-                            (ex) =>
-                              (state.exerciseTimes[ex.exercicio_id]?.length ||
-                                0) >= ex.series_alvo,
-                          );
-                    if (isLastInBlock) {
-                      if (isLastBlock)
-                        return (
-                          <>
-                            <Save />{" "}
-                            {state.isCatchupPhase
-                              ? "Finalizar Repescagem"
-                              : "Finalizar Treino"}
-                          </>
-                        );
-                      return (
-                        <>
-                          <ChevronRight /> Próximo bloco
-                        </>
-                      );
-                    }
-                    const isFirstAlternatedTransition =
-                      state.executionMode === "alternated" &&
-                      currentBlock.length > 1 &&
-                      state.currentExerciseInBlock === 0 &&
-                      (state.exerciseTimes[exercise.exercicio_id]?.length ||
-                        0) === 1;
-                    return (
-                      <>
-                        {isFirstAlternatedTransition
-                          ? "Ir para Alternado"
-                          : "Próxima Série"}{" "}
-                        <ChevronRight />
-                      </>
-                    );
-                  })()}
-            </button>
-          )}
-          {!state.isCatchupPhase && (
-            <button
-              onClick={() =>
-                dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock } })
-              }
-              disabled={state.isTimerActive || savingSession}
-              className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
-            >
-              <SkipForward size={16} /> Pular Exercício
-            </button>
-          )}
-        </div>
-
-        {currentBlock.length > 1 && (
-          <div
-            className="p-4 rounded-2xl mb-6 border border-dashed"
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderColor: false
-                ? "var(--color-primary)"
-                : "var(--color-secondary)",
-            }}
+        <div className="flex bg-white/5 rounded-2xl p-1 mb-8">
+          <button
+            onClick={() => setIsGuidedMode(false)}
+            className={`flex-1 py-3 rounded-xl text-[10px] uppercase font-black tracking-widest transition-all flex items-center justify-center gap-2 ${!isGuidedMode ? "bg-white/10 text-white shadow-xl border border-white/10" : "text-white/30 hover:text-white/50"}`}
           >
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">
-                Carga Alternada
-              </span>
-              <button
-                onClick={() => dispatch({ type: "TOGGLE_MODE" })}
-                className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
-                style={{
-                  backgroundColor: state.executionMode === "alternated" ? ("var(--color-secondary)") : "rgba(255, 255, 255, 0.1)",
-                  color: state.executionMode === "alternated" ? ("var(--text-on-secondary)") : "white"
-                }}
-              >
-                Modo:{" "}
-                {state.executionMode === "alternated" ? "Alternado" : "Isolado"}
-              </button>
-            </div>
-            {currentBlock.map((ex, idx) => {
-              if (idx === state.currentExerciseInBlock) return null;
-              return (
-                <div
-                  key={idx}
-                  className="space-y-2 border-t border-white/5 pt-3 mt-3 first:border-0 first:pt-0 first:mt-0"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-sm truncate">
-                        {ex.exercicios.nome}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[8px] font-bold bg-white/10 px-1.5 py-0.5 rounded uppercase opacity-60">
-                          {ex.exercicios.alvo_principal}
-                        </span>
-                        <span
-                          className="text-[8px] font-bold uppercase"
+            <LayoutList size={14} /> Modo Manual
+          </button>
+          <button
+            onClick={() => setIsGuidedMode(true)}
+            className={`flex-1 py-3 rounded-xl text-[10px] uppercase font-black tracking-widest transition-all flex items-center justify-center gap-2 ${isGuidedMode ? "bg-white/10 text-white shadow-xl border border-white/10" : "text-white/30 hover:text-white/50"}`}
+          >
+            <Zap size={14} /> Modo Guiado
+          </button>
+        </div>
+
+        <div className="space-y-8 pb-32">
+          {state.blocos.map((block, bIdx) => (
+            <div key={bIdx} className="space-y-4">
+              <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] px-2">
+                Bloco {bIdx + 1}
+              </h3>
+              {block.map((ex, eIdx) => {
+                const isDone =
+                  bIdx < state.currentBlockIndex ||
+                  (bIdx === state.currentBlockIndex &&
+                    state.currentExerciseInBlock > eIdx) ||
+                  (bIdx === state.currentBlockIndex &&
+                    state.currentExerciseInBlock === eIdx &&
+                    state.currentSerie > ex.series_alvo);
+                const isCurrent =
+                  bIdx === state.currentBlockIndex &&
+                  state.currentExerciseInBlock === eIdx;
+                const isSkipped = state.skippedExercises.some(
+                  (s) => s.exercicio_id === ex.exercicio_id,
+                );
+                const currentExSerie = isCurrent
+                  ? state.currentSerie
+                  : isDone
+                    ? ex.series_alvo
+                    : isSkipped
+                      ? state.skippedExercises.find(
+                          (s) => s.exercicio_id === ex.exercicio_id,
+                        )?.partialSerie || 0
+                      : 0;
+
+                const isExpanded = !isGuidedMode || isCurrent;
+
+                return (
+                  <div
+                    key={`${bIdx}_${eIdx}`}
+                    ref={(el) => (exerciseRefs.current[`${bIdx}_${eIdx}`] = el)}
+                    className={`relative rounded-3xl transition-all duration-500 overflow-hidden border ${isCurrent && isGuidedMode ? "border-primary shadow-2xl scale-[1.02] z-10" : "border-white/10"}`}
+                    style={{
+                      backgroundColor:
+                        isCurrent && isGuidedMode
+                          ? "rgba(255, 255, 255, 0.08)"
+                          : isDone
+                            ? "rgba(16, 185, 129, 0.05)"
+                            : "rgba(255, 255, 255, 0.03)",
+                      borderColor:
+                        isCurrent && isGuidedMode
+                          ? "var(--color-primary)"
+                          : "rgba(255, 255, 255, 0.1)",
+                    }}
+                  >
+                    {/* Header do Card */}
+                    <div
+                      className={`p-5 flex justify-between items-center ${!isExpanded ? "opacity-50" : ""}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${isCurrent && isGuidedMode ? "bg-primary text-white" : "bg-white/5 text-white/40"}`}
                           style={{
-                            color: "var(--color-primary)",
-                            opacity: 0.8,
+                            backgroundColor:
+                              isCurrent && isGuidedMode
+                                ? "var(--color-primary)"
+                                : "rgba(255, 255, 255, 0.05)",
                           }}
                         >
-                          {ex.series_alvo}x {ex.reps_alvo}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-black/20 p-2 px-3 rounded-xl">
-                      <Dumbbell size={14} className="opacity-40" />
-                      <input
-                        type="number"
-                        value={state.cargas[ex.exercicio_id] ?? ""}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_VALUE",
-                            fieldType: "currentCarga",
-                            exId: ex.exercicio_id,
-                            val: e.target.value,
-                          })
-                        }
-                        onFocus={(e) => e.target.select()}
-                        className="bg-transparent w-12 font-mono font-bold text-right outline-none text-white"
-                      />
-                      <span className="text-[10px] opacity-40">kg</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="mt-12 space-y-4 pb-32">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
-            Exercícios da Sessão
-          </h3>
-          {state.blocos.flatMap((block, bIdx) =>
-            block.map((ex, eIdx) => {
-              const isDone =
-                bIdx < state.currentBlockIndex ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock > eIdx) ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock === eIdx &&
-                  state.currentSerie > ex.series_alvo);
-              const isCurrent =
-                bIdx === state.currentBlockIndex &&
-                state.currentExerciseInBlock === eIdx;
-              const isSkipped = state.skippedExercises.some(
-                (s) => s.exercicio_id === ex.exercicio_id,
-              );
-              const currentExSerie = isCurrent
-                ? state.currentSerie
-                : isDone
-                  ? ex.series_alvo
-                  : isSkipped
-                    ? state.skippedExercises.find(
-                        (s) => s.exercicio_id === ex.exercicio_id,
-                      )?.partialSerie || 0
-                    : 0;
-
-              return (
-                <div
-                  key={`${bIdx}_${eIdx}`}
-                  className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : ""}`}
-                  style={{
-                    backgroundColor: isCurrent ? ("var(--color-secondary)") : (isDone ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)"),
-                    color: isCurrent ? ("var(--text-on-secondary)") : "white",
-                    borderColor: isCurrent ? "transparent" : (isDone ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
-                  }}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : "bg-white/5 text-white/40"}`}
-                      >
-                        {isDone ? (
-                          <CheckCircle2 size={16} />
-                        ) : (
-                          <Dumbbell size={16} />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-white">
-                          {ex.exercicios.nome}
-                        </p>
-                        <div className="flex gap-2 items-center">
-                          <p className="text-[10px] opacity-60 font-medium text-white">
-                            Séries: {currentExSerie}/{ex.series_alvo}
-                          </p>
-                          {state.cargas[ex.exercicio_id] > 0 && (
-                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
-                              <Dumbbell size={10} />{" "}
-                              {state.cargas[ex.exercicio_id]}kg
-                            </span>
+                          {isDone ? (
+                            <CheckCircle2 size={20} className="text-emerald-500" />
+                          ) : (
+                            <Dumbbell size={20} />
                           )}
                         </div>
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setOpenMenuExId(
-                            openMenuExId === ex.exercicio_id
-                              ? null
-                              : ex.exercicio_id,
-                          )
-                        }
-                        className="p-2 hover:bg-black/10 rounded-lg transition"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                      {openMenuExId === ex.exercicio_id && (
-                        <div className="absolute right-0 bottom-full mb-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
-                          <button
-                            onClick={() => {
-                              dispatch({
-                                type: "MANUAL_OVERRIDE",
-                                bIdx,
-                                eIdx,
-                                sNum:
-                                  currentExSerie > 0 &&
-                                  currentExSerie <= ex.series_alvo
-                                    ? currentExSerie
-                                    : 1,
-                              });
-                              setOpenMenuExId(null);
-                            }}
-                            className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
-                          >
-                            <RotateCcw size={14} /> Voltar ao exercício
-                          </button>
+                        <div>
+                          <h4 className="font-bold text-white text-base leading-tight">
+                            {ex.exercicios.nome}
+                          </h4>
+                          <div className="flex gap-3 items-center mt-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                              {currentExSerie}/{ex.series_alvo} Séries
+                            </span>
+                            <span className="w-1 h-1 rounded-full bg-white/20" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                              {ex.reps_alvo} Reps
+                            </span>
+                          </div>
                         </div>
+                      </div>
+
+                      {isGuidedMode && !isCurrent && (
+                        <button
+                          onClick={() =>
+                            dispatch({
+                              type: "MANUAL_OVERRIDE",
+                              bIdx,
+                              eIdx,
+                              sNum: currentExSerie || 1,
+                            })
+                          }
+                          className="text-[10px] font-black uppercase tracking-widest px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition"
+                        >
+                          Focar
+                        </button>
                       )}
                     </div>
-                  </div>
 
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    {[...Array(ex.series_alvo)].map((_, sIdx) => {
-                      const sNum = sIdx + 1;
-                      const execTime =
-                        state.exerciseTimes[ex.exercicio_id]?.[sIdx];
-                      const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
-                      const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
-                      const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
-                      const isCurrentS =
-                        isCurrent && sNum === state.currentSerie;
-                      const liveExec =
-                        isCurrentS && state.isTimerActive ? state.timer : null;
-                      const liveRest =
-                        state.activeRestTimers[ex.exercicio_id] &&
-                        sNum === state.exerciseTimes[ex.exercicio_id]?.length
-                          ? state.activeRestTimers[ex.exercicio_id].seconds
-                          : null;
-                      const nextPendingSNum =
-                        (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
-                      const isNextPending = sNum === nextPendingSNum;
-                      const isExecuted = sNum < nextPendingSNum;
+                    {/* Conteúdo Expandido */}
+                    {isExpanded && (
+                      <div className="px-5 pb-5 animate-in slide-in-from-top-2 duration-300">
+                        {/* Timers e Controles (Só no Guided Mode Ativo) */}
+                        {isGuidedMode && isCurrent && (
+                          <div className="space-y-4 mb-6">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                                  Execução
+                                </span>
+                                <span className="text-2xl font-mono font-black text-white">
+                                  {formatTime(state.timer)}
+                                </span>
+                              </div>
+                              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                                  Descanso
+                                </span>
+                                <span className="text-2xl font-mono font-black text-white/60">
+                                  {state.activeRestTimers[ex.exercicio_id]
+                                    ? formatTime(
+                                        state.activeRestTimers[ex.exercicio_id]
+                                          .seconds,
+                                      )
+                                    : "0:00"}
+                                </span>
+                              </div>
+                            </div>
 
-                      return (
+                            <div className="flex gap-2">
+                              {!state.isTimerActive ? (
+                                <button
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "START_SERIES",
+                                      exercicio_id: ex.exercicio_id,
+                                    })
+                                  }
+                                  className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition"
+                                  style={{
+                                    backgroundColor: "var(--color-primary)",
+                                  }}
+                                >
+                                  Iniciar Série {state.currentSerie}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "STOP_SERIES",
+                                      payload: {
+                                        exId: ex.exercicio_id,
+                                        currentInputLoad:
+                                          parseFloat(
+                                            state.cargas[ex.exercicio_id],
+                                          ) || 0,
+                                        currentInputReps:
+                                          parseInt(
+                                            state.repsFeitas[ex.exercicio_id],
+                                          ) || 0,
+                                        nomeEx: ex.exercicios.nome,
+                                        seriesAlvo: ex.series_alvo,
+                                      },
+                                    })
+                                  }
+                                  className="flex-1 py-4 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition"
+                                >
+                                  Finalizar Série {state.currentSerie}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => dispatch({ type: "RESET_TIMER" })}
+                                className="p-4 rounded-2xl bg-white/5 text-white/40 hover:text-white transition"
+                              >
+                                <RotateCcw size={20} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Grade de Séries / Inputs */}
                         <div
-                          key={sIdx}
-                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${isCurrentS ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10" : isExecuted ? "bg-black/20 border-white/5" : "bg-black/5 border-transparent"}`}
+                          className={`grid gap-2 ${isGuidedMode ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
                         >
-                          <button
-                            onClick={() => {
-                              if (isNextPending && !isCurrentS) {
-                                dispatch({
-                                  type: "MANUAL_OVERRIDE",
-                                  bIdx,
-                                  eIdx,
-                                  sNum,
-                                });
-                                showToast(
-                                  `Foco alterado para Série ${sNum}`,
-                                  "info",
-                                );
-                              }
-                            }}
-                            className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
-                            style={{
-                              backgroundColor: isCurrentS
-                                ? "rgba(255,255,255,0.2)"
-                                : isNextPending
-                                  ? "var(--color-secondary)"
-                                  : "transparent",
-                              opacity: isCurrentS || isNextPending ? 1 : 0.4,
-                            }}
-                          >
-                            Série {sNum}
-                          </button>
-                          <div
-                            className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={load || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "load",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
-                              />
-                              <span className="text-[8px] font-bold opacity-40 text-white">
-                                kg
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={reps || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "reps",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
-                              />
-                              <span className="text-[7px] font-bold opacity-30 uppercase text-white">
-                                reps
-                              </span>
-                            </div>
-                          </div>
-                          <div
-                            className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-1">
-                              <Clock
-                                size={8}
-                                className="opacity-30 text-white"
-                              />
-                              {liveExec !== null ? (
-                                <span className="font-mono font-bold text-[9px] text-white">
-                                  {" "}
-                                  {formatTime(liveExec)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? Math.floor(execTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                  <span className="text-[9px] font-bold opacity-30 text-white">
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? String(execTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
-                                  />
+                          {[...Array(ex.series_alvo)].map((_, sIdx) => {
+                            const sNum = sIdx + 1;
+                            const isCurrentS =
+                              isCurrent && sNum === state.currentSerie;
+                            const isExecuted =
+                              state.exerciseTimes[ex.exercicio_id]?.length > sIdx;
+
+                            return (
+                              <div
+                                key={sIdx}
+                                className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${isCurrentS && isGuidedMode ? "bg-white/10 ring-1 ring-white/20" : "bg-black/20"}`}
+                              >
+                                <div
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isExecuted ? "bg-emerald-500/20 text-emerald-500" : isCurrentS ? "bg-primary text-white" : "bg-white/5 text-white/20"}`}
+                                  style={{
+                                    backgroundColor:
+                                      isCurrentS && !isExecuted
+                                        ? "var(--color-primary)"
+                                        : undefined,
+                                  }}
+                                >
+                                  {isExecuted ? <CheckCircle2 size={14} /> : sNum}
                                 </div>
-                              )}
-                            </div>
-                            <div
-                              className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
-                            >
-                              {liveRest !== null ? (
-                                <span className="font-mono text-[8px] font-bold">
-                                  {" "}
-                                  {formatTime(liveRest)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? Math.floor(restTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                  <span className="text-[8px] font-bold opacity-30 text-white">
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? String(restTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
-                                  />
+
+                                <div className="flex-1 grid grid-cols-2 gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      value={
+                                        (isGuidedMode && isCurrentS
+                                          ? state.cargas[ex.exercicio_id]
+                                          : state.exerciseLoads[
+                                              ex.exercicio_id
+                                            ]?.[sIdx]) ?? ""
+                                      }
+                                      placeholder="0"
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType:
+                                            isGuidedMode && isCurrentS
+                                              ? "currentCarga"
+                                              : "load",
+                                          exId: ex.exercicio_id,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className="bg-transparent w-full text-right font-mono font-bold text-sm outline-none text-white"
+                                    />
+                                    <span className="text-[8px] font-black text-white/20 uppercase">
+                                      kg
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 border-l border-white/5 pl-4">
+                                    <input
+                                      type="number"
+                                      value={
+                                        (isGuidedMode && isCurrentS
+                                          ? state.repsFeitas[ex.exercicio_id]
+                                          : state.exerciseReps[
+                                              ex.exercicio_id
+                                            ]?.[sIdx]) ?? ""
+                                      }
+                                      placeholder="0"
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType:
+                                            isGuidedMode && isCurrentS
+                                              ? "currentReps"
+                                              : "reps",
+                                          exId: ex.exercicio_id,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className="bg-transparent w-full text-right font-mono font-bold text-sm outline-none text-white"
+                                    />
+                                    <span className="text-[8px] font-black text-white/20 uppercase">
+                                      reps
+                                    </span>
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+
+                        {/* Footer do Card (Guided Mode Ativo) */}
+                        {isGuidedMode && isCurrent && (
+                          <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-3">
+                            <button
+                              onClick={() =>
+                                dispatch({
+                                  type: "ADVANCE_STEP",
+                                  payload: { currentBlock },
+                                })
+                              }
+                              className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition"
+                            >
+                              {(() => {
+                                const isLastBlock =
+                                  state.currentBlockIndex ===
+                                  state.blocos.length - 1;
+                                const isLastInBlock =
+                                  state.executionMode === "isolated"
+                                    ? state.currentExerciseInBlock ===
+                                        currentBlock.length - 1 &&
+                                      state.currentSerie === ex.series_alvo
+                                    : currentBlock.every(
+                                        (e) =>
+                                          (state.exerciseTimes[
+                                            e.exercicio_id
+                                          ]?.length || 0) >= e.series_alvo,
+                                      );
+                                if (isLastInBlock) {
+                                  if (isLastBlock) return "Finalizar Treino";
+                                  return "Próximo Bloco";
+                                }
+                                return "Próxima Série / Exercício";
+                              })()}
+                            </button>
+                            <button
+                              onClick={() =>
+                                dispatch({
+                                  type: "SKIP_EXERCISE",
+                                  payload: { currentBlock },
+                                })
+                              }
+                              className="w-full py-3 text-white/30 hover:text-white/60 font-bold text-[10px] uppercase tracking-[0.2em] transition"
+                            >
+                              Pular Exercício
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            }),
+                );
+              })}
+            </div>
+          ))}
+
+          {/* Botão Finalizar Treino (Apenas no Modo Manual ou ao fim do Guided) */}
+          {!isGuidedMode && (
+            <button
+              onClick={finishWorkout}
+              disabled={savingSession}
+              className="w-full py-6 bg-emerald-500 text-white rounded-[32px] font-black text-lg uppercase tracking-widest shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all mt-8"
+            >
+              {savingSession ? "Salvando..." : "Finalizar Treino"}
+            </button>
           )}
         </div>
 
@@ -1484,8 +1184,9 @@ const Training = () => {
         )}
       </div>
 
-      <footer
-        className="fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50"
+      {isGuidedMode && (
+        <footer
+          className="fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50"
         style={{
           backgroundColor: "rgba(0, 0, 0, 0.8)",
           borderColor: "rgba(255, 255, 255, 0.1)",
@@ -1571,8 +1272,9 @@ const Training = () => {
               }}
             ></div>
           </div>
-        </div>
-      </footer>
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
