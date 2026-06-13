@@ -452,18 +452,27 @@ const Training = () => {
   }, [state.isTimerActive, state.activeRestTimers]);
 
   useEffect(() => {
-    if (!loading && state.blocos.length > 0) {
-      const scrollTimer = setTimeout(() => {
-        const activeElement = document.getElementById("active-exercise");
-        if (activeElement) {
-          activeElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-      }, 500);
-      return () => clearTimeout(scrollTimer);
-    }
+    if (loading || state.blocos.length === 0) return;
+
+    const timer = setTimeout(() => {
+      const container = document.getElementById("scroll-container");
+      const activeCard = document.getElementById("active-exercise");
+
+      if (container && activeCard) {
+        const containerHeight = container.clientHeight;
+        const cardTop = activeCard.offsetTop;
+        const cardHeight = activeCard.offsetHeight;
+
+        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
+
+        container.scrollTo({
+          top: scrollTo,
+          behavior: "smooth",
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [loading, state.currentBlockIndex, state.currentExerciseInBlock]);
 
   const fetchData = async () => {
@@ -696,9 +705,12 @@ const Training = () => {
   return (
     <div
       className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
-      style={{ color: metronomeActive ? ("var(--text-on-secondary)") : "inherit", backgroundColor: "var(--bg-treino)" }}
+      style={{
+        color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
+        backgroundColor: "var(--bg-treino)",
+      }}
     >
-      <div className="flex-1 overflow-y-auto p-6 pb-32">
+      <div id="scroll-container" className="flex-1 overflow-y-auto p-6 pb-32">
         <header className="flex justify-between items-center mb-6 max-w-md mx-auto">
           <div className="flex gap-2">
             <button
