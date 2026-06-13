@@ -463,6 +463,7 @@ const Training = () => {
         const cardTop = activeCard.offsetTop;
         const cardHeight = activeCard.offsetHeight;
 
+        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
         const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
 
         container.scrollTo({
@@ -473,7 +474,13 @@ const Training = () => {
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [loading, state.currentBlockIndex, state.currentExerciseInBlock]);
+  }, [
+    loading,
+    state.currentBlockIndex,
+    state.currentExerciseInBlock,
+    state.currentSerie,
+    Object.keys(state.activeRestTimers).length,
+  ]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -710,83 +717,82 @@ const Training = () => {
         backgroundColor: "var(--bg-treino)",
       }}
     >
-      <div id="scroll-container" className="flex-1 overflow-y-auto p-6 pb-32">
-        <header className="flex justify-between items-center mb-6 max-w-md mx-auto">
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate("/inicio")}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
-            >
-              <ChevronLeft />
-            </button>
-            <button
-              onClick={() => {
-                showToast("Treino pausado. Seu progresso foi salvo.", "info");
-                navigate("/inicio");
-              }}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-            >
-              <Pause size={14} /> Pausar
-            </button>
-          </div>
-          <div className="text-center">
-            <span
-              className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
-              style={{ color: "var(--color-primary-safe)" }}
-            >
-              {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
-
-            </span>
-            <span className="font-bold text-lg text-white">
-              Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <div
-              className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
-              style={{
-                backgroundColor: metronomeActive
-                  ? false
-                    ? "var(--color-primary)"
-                    : "var(--color-secondary)"
-                  : "transparent",
-                borderColor: false
+      <header className="flex justify-between items-center p-6 max-w-md mx-auto w-full">
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate("/inicio")}
+            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
+          >
+            <ChevronLeft />
+          </button>
+          <button
+            onClick={() => {
+              showToast("Treino pausado. Seu progresso foi salvo.", "info");
+              navigate("/inicio");
+            }}
+            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+          >
+            <Pause size={14} /> Pausar
+          </button>
+        </div>
+        <div className="text-center">
+          <span
+            className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
+            style={{ color: "var(--color-primary-safe)" }}
+          >
+            {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
+          </span>
+          <span className="font-bold text-lg text-white">
+            Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <div
+            className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
+            style={{
+              backgroundColor: metronomeActive
+                ? false
                   ? "var(--color-primary)"
-                  : "var(--color-secondary)",
-              }}
+                  : "var(--color-secondary)"
+                : "transparent",
+              borderColor: false
+                ? "var(--color-primary)"
+                : "var(--color-secondary)",
+            }}
+          >
+            <button
+              onClick={() => setMetronomeActive(!metronomeActive)}
+              className="hover:scale-110 transition text-white"
             >
-              <button
-                onClick={() => setMetronomeActive(!metronomeActive)}
-                className="hover:scale-110 transition text-white"
-              >
-                {metronomeActive ? (
-                  <Pause size={16} fill="currentColor" />
-                ) : (
-                  <Play size={16} fill="currentColor" />
-                )}
-              </button>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={bpm}
-                  onChange={(e) =>
-                    setBpm(
-                      Math.max(
-                        30,
-                        Math.min(240, parseInt(e.target.value) || 60),
-                      ),
-                    )
-                  }
-                  onFocus={(e) => e.target.select()}
-                  className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
-                />
-                <span className="text-[8px] font-bold opacity-60">BPM</span>
-              </div>
+              {metronomeActive ? (
+                <Pause size={16} fill="currentColor" />
+              ) : (
+                <Play size={16} fill="currentColor" />
+              )}
+            </button>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={bpm}
+                onChange={(e) =>
+                  setBpm(
+                    Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
+                  )
+                }
+                onFocus={(e) => e.target.select()}
+                className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
+              />
+              <span className="text-[8px] font-bold opacity-60">BPM</span>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <div className="mt-6 space-y-4 max-w-md mx-auto">
+      <div
+        id="scroll-container"
+        className="flex-1 overflow-y-auto p-6 pt-0 relative"
+      >
+        <div className="space-y-4 max-w-md mx-auto">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
             Exercícios da Sessão
           </h3>
@@ -1338,7 +1344,7 @@ const Training = () => {
       </div>
 
       <footer
-        className="fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50"
+        className="p-6 border-t backdrop-blur-xl z-50"
         style={{
           backgroundColor: "rgba(0, 0, 0, 0.8)",
           borderColor: "rgba(255, 255, 255, 0.1)",
