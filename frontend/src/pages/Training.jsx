@@ -675,9 +675,6 @@ const Training = () => {
     );
 
 
-  const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
-  const isWaitingForPlay = !state.isTimerActive && state.timer === 0;
-
   const dismissRestTimer = (exId) => dispatch({ type: "DISMISS_REST", exId });
 
   return (
@@ -752,6 +749,7 @@ const Training = () => {
                       ),
                     )
                   }
+                  onFocus={(e) => e.target.select()}
                   className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
                 />
                 <span className="text-[8px] font-bold opacity-60">BPM</span>
@@ -760,346 +758,7 @@ const Training = () => {
           </div>
         </header>
 
-        <div className="flex gap-2 mb-8">
-          {[...Array(exercise.series_alvo)].map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i + 1 < state.currentSerie ? "" : i + 1 === state.currentSerie ? "animate-pulse" : "opacity-20"}`}
-              style={{
-                backgroundColor:
-                  i + 1 === state.currentSerie
-                    ? false
-                      ? "var(--color-primary)"
-                      : "var(--color-secondary)"
-                    : i + 1 < state.currentSerie
-                      ? "#10b981"
-                      : false
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)",
-              }}
-            ></div>
-          ))}
-        </div>
-
-        <div
-          className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderColor: false
-              ? "var(--color-primary)"
-              : "var(--color-secondary)",
-          }}
-        >
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="flex gap-2 items-center mb-2">
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
-                  style={{
-                    backgroundColor: "var(--color-secondary)",
-                    color: "var(--text-on-secondary)"
-                  }}
-                >
-                  Série {state.currentSerie} / {exercise.series_alvo}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${" text-white"}`}
-                >
-                  {exercise.exercicios.alvo_principal}
-                </span>
-              </div>
-              <h2
-                className="text-2xl font-bold leading-tight"
-                style={{ color: isPrimaryEx ? "var(--color-primary-safe)" : "var(--color-secondary-safe)" }}
-              >
-                {exercise.exercicios.nome}
-              </h2>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Carga (kg)
-              </label>
-              <input
-                type="number"
-                value={state.cargas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentCarga",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Reps ({exercise.reps_alvo})
-              </label>
-              <input
-                type="number"
-                value={state.repsFeitas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentReps",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-          </div>
-          {exercise.exercicios.depende_peso_corporal && (
-            <div className="mt-4 flex items-center gap-2 text-xs font-medium opacity-70">
-              <Scale size={14} /> Peso Corporal ({user?.massa_corporea_atual}kg)
-              + Carga Adicional
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? "scale-105 shadow-lg text-white" : ""}`}
-          style={{
-            backgroundColor: state.isTimerActive
-              ? (isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)")
-              : "rgba(255, 255, 255, 0.05)",
-            color: state.isTimerActive
-              ? (isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)")
-              : "white"
-          }}
-        >
-          <div className="flex flex-col text-white">
-            <p className="text-[10px] font-bold uppercase mb-1 opacity-70">
-              Tempo de Execução
-            </p>
-            <div className="flex items-baseline gap-3">
-              <p className="text-4xl font-mono font-black text-white">
-                {formatTime(state.timer)}
-              </p>
-              {lastExecutionTimes[exercise.exercicios.id] > 0 && (
-                <div className="text-[10px] font-bold opacity-40 flex items-center gap-1">
-                  <RotateCcw size={10} /> Ref:{" "}
-                  {formatTime(lastExecutionTimes[exercise.exercicios.id])}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => dispatch({ type: "RESET_TIMER" })}
-              className="p-2 opacity-30 hover:opacity-100 transition rounded-lg hover:bg-white/10"
-              title="Reiniciar série"
-            >
-              <RotateCcw size={18} />
-            </button>
-            {isWaitingForPlay && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_SERIES",
-                    exercicio_id: exercise.exercicio_id,
-                  })
-                }
-                data-testid="start-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
-                style={{
-                  backgroundColor: isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)",
-                  color: isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)"
-                }}
-              >
-                <Play fill="currentColor" className="ml-1" />
-              </button>
-            )}
-            {state.isTimerActive && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "STOP_SERIES",
-                    payload: {
-                      exId: exercise.exercicio_id,
-                      currentInputLoad:
-                        parseFloat(state.cargas[exercise.exercicio_id]) || 0,
-                      currentInputReps:
-                        parseInt(state.repsFeitas[exercise.exercicio_id]) || 0,
-                      nomeEx: exercise.exercicios.nome,
-                      seriesAlvo: exercise.series_alvo,
-                    },
-                  })
-                }
-                data-testid="stop-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
-              >
-                <Square fill="currentColor" size={20} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 mb-6">
-          {!state.isTimerActive && state.timer > 0 && (
-            <button
-              onClick={() => {
-                dispatch({ type: "ADVANCE_STEP", payload: { currentBlock } });
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              disabled={savingSession}
-              className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
-              style={{
-                backgroundColor: "#10b981",
-                color: "white"
-              }}
-            >
-              {savingSession
-                ? "Salvando..."
-                : (() => {
-                    const isLastBlock =
-                      state.currentBlockIndex === state.blocos.length - 1;
-                    const isLastInBlock =
-                      state.executionMode === "isolated"
-                        ? state.currentExerciseInBlock ===
-                            currentBlock.length - 1 &&
-                          state.currentSerie === exercise.series_alvo
-                        : currentBlock.every(
-                            (ex) =>
-                              (state.exerciseTimes[ex.exercicio_id]?.length ||
-                                0) >= ex.series_alvo,
-                          );
-                    if (isLastInBlock) {
-                      if (isLastBlock)
-                        return (
-                          <>
-                            <Save />{" "}
-                            {state.isCatchupPhase
-                              ? "Finalizar Repescagem"
-                              : "Finalizar Treino"}
-                          </>
-                        );
-                      return (
-                        <>
-                          <ChevronRight /> Próximo bloco
-                        </>
-                      );
-                    }
-                    const isFirstAlternatedTransition =
-                      state.executionMode === "alternated" &&
-                      currentBlock.length > 1 &&
-                      state.currentExerciseInBlock === 0 &&
-                      (state.exerciseTimes[exercise.exercicio_id]?.length ||
-                        0) === 1;
-                    return (
-                      <>
-                        {isFirstAlternatedTransition
-                          ? "Ir para Alternado"
-                          : "Próxima Série"}{" "}
-                        <ChevronRight />
-                      </>
-                    );
-                  })()}
-            </button>
-          )}
-          {!state.isCatchupPhase && (
-            <button
-              onClick={() =>
-                dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock } })
-              }
-              disabled={state.isTimerActive || savingSession}
-              className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
-            >
-              <SkipForward size={16} /> Pular Exercício
-            </button>
-          )}
-        </div>
-
-        {currentBlock.length > 1 && (
-          <div
-            className="p-4 rounded-2xl mb-6 border border-dashed"
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderColor: false
-                ? "var(--color-primary)"
-                : "var(--color-secondary)",
-            }}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">
-                Carga Alternada
-              </span>
-              <button
-                onClick={() => dispatch({ type: "TOGGLE_MODE" })}
-                className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
-                style={{
-                  backgroundColor: state.executionMode === "alternated" ? ("var(--color-secondary)") : "rgba(255, 255, 255, 0.1)",
-                  color: state.executionMode === "alternated" ? ("var(--text-on-secondary)") : "white"
-                }}
-              >
-                Modo:{" "}
-                {state.executionMode === "alternated" ? "Alternado" : "Isolado"}
-              </button>
-            </div>
-            {currentBlock.map((ex, idx) => {
-              if (idx === state.currentExerciseInBlock) return null;
-              return (
-                <div
-                  key={idx}
-                  className="space-y-2 border-t border-white/5 pt-3 mt-3 first:border-0 first:pt-0 first:mt-0"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-sm truncate">
-                        {ex.exercicios.nome}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[8px] font-bold bg-white/10 px-1.5 py-0.5 rounded uppercase opacity-60">
-                          {ex.exercicios.alvo_principal}
-                        </span>
-                        <span
-                          className="text-[8px] font-bold uppercase"
-                          style={{
-                            color: "var(--color-primary)",
-                            opacity: 0.8,
-                          }}
-                        >
-                          {ex.series_alvo}x {ex.reps_alvo}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-black/20 p-2 px-3 rounded-xl">
-                      <Dumbbell size={14} className="opacity-40" />
-                      <input
-                        type="number"
-                        value={state.cargas[ex.exercicio_id] ?? ""}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_VALUE",
-                            fieldType: "currentCarga",
-                            exId: ex.exercicio_id,
-                            val: e.target.value,
-                          })
-                        }
-                        onFocus={(e) => e.target.select()}
-                        className="bg-transparent w-12 font-mono font-bold text-right outline-none text-white"
-                      />
-                      <span className="text-[10px] opacity-40">kg</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="mt-12 space-y-4 pb-32">
+        <div className="mt-6 space-y-4 pb-32">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
             Exercícios da Sessão
           </h3>
@@ -1131,7 +790,17 @@ const Training = () => {
               return (
                 <div
                   key={`${bIdx}_${eIdx}`}
-                  className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : ""}`}
+                  onClick={() => {
+                    if (!isCurrent) {
+                      dispatch({
+                        type: "MANUAL_OVERRIDE",
+                        bIdx,
+                        eIdx,
+                        sNum: (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1,
+                      });
+                    }
+                  }}
+                  className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
                   style={{
                     backgroundColor: isCurrent ? ("var(--color-secondary)") : (isDone ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)"),
                     color: isCurrent ? ("var(--text-on-secondary)") : "white",
@@ -1153,17 +822,19 @@ const Training = () => {
                         <p className="font-bold text-sm text-white">
                           {ex.exercicios.nome}
                         </p>
-                        <div className="flex gap-2 items-center">
-                          <p className="text-[10px] opacity-60 font-medium text-white">
-                            Séries: {currentExSerie}/{ex.series_alvo}
-                          </p>
-                          {state.cargas[ex.exercicio_id] > 0 && (
-                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
-                              <Dumbbell size={10} />{" "}
-                              {state.cargas[ex.exercicio_id]}kg
-                            </span>
-                          )}
-                        </div>
+                        {!isCurrent && (
+                          <div className="flex gap-2 items-center">
+                            <p className="text-[10px] opacity-60 font-medium text-white">
+                              Séries: {currentExSerie}/{ex.series_alvo}
+                            </p>
+                            {state.cargas[ex.exercicio_id] > 0 && (
+                              <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
+                                <Dumbbell size={10} />{" "}
+                                {state.cargas[ex.exercicio_id]}kg
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="relative">
@@ -1203,6 +874,127 @@ const Training = () => {
                       )}
                     </div>
                   </div>
+
+                  {isCurrent && (
+                    <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                      {/* Integrated Timer */}
+                      <div
+                        className={`rounded-2xl p-4 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
+                      >
+                        <div className="flex flex-col">
+                          <p className="text-[10px] font-bold uppercase mb-1 opacity-60">Tempo de Execução</p>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-3xl font-mono font-black">{formatTime(state.timer)}</p>
+                            {lastExecutionTimes[ex.exercicio_id] > 0 && (
+                              <span className="text-[10px] font-bold opacity-30">
+                                Ref: {formatTime(lastExecutionTimes[ex.exercicio_id])}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); dispatch({ type: "RESET_TIMER" }); }}
+                            className="p-2 opacity-40 hover:opacity-100 transition"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                          {!state.isTimerActive && state.timer === 0 ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dispatch({ type: "START_SERIES", exercicio_id: ex.exercicio_id });
+                              }}
+                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-black shadow-lg"
+                            >
+                              <Play fill="currentColor" size={20} className="ml-1" />
+                            </button>
+                          ) : state.isTimerActive ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dispatch({
+                                  type: "STOP_SERIES",
+                                  payload: {
+                                    exId: ex.exercicio_id,
+                                    currentInputLoad: parseFloat(state.cargas[ex.exercicio_id]) || 0,
+                                    currentInputReps: parseInt(state.repsFeitas[ex.exercicio_id]) || 0,
+                                    nomeEx: ex.exercicios.nome,
+                                    seriesAlvo: ex.series_alvo,
+                                  },
+                                });
+                              }}
+                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/20"
+                            >
+                              <Square fill="currentColor" size={18} />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Integrated Inputs */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-black/20 p-4 rounded-2xl">
+                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
+                          <input
+                            type="number"
+                            value={state.cargas[ex.exercicio_id] ?? ""}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", exId: ex.exercicio_id, val: e.target.value })}
+                            onFocus={(e) => e.target.select()}
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                          />
+                        </div>
+                        <div className="bg-black/20 p-4 rounded-2xl">
+                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
+                          <input
+                            type="number"
+                            value={state.repsFeitas[ex.exercicio_id] ?? ""}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", exId: ex.exercicio_id, val: e.target.value })}
+                            onFocus={(e) => e.target.select()}
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Integrated Action Button */}
+                      {!state.isTimerActive && state.timer > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dispatch({ type: "ADVANCE_STEP", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
+                          }}
+                          disabled={savingSession}
+                          className="w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-emerald-500 text-white shadow-lg active:scale-95 transition-all"
+                        >
+                          {savingSession ? "Salvando..." : (() => {
+                            const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
+                            const isLastInBlock = state.executionMode === "isolated"
+                              ? state.currentExerciseInBlock === block.length - 1 && state.currentSerie === ex.series_alvo
+                              : block.every(candidate => (state.exerciseTimes[candidate.exercicio_id]?.length || 0) >= candidate.series_alvo);
+
+                            if (isLastInBlock) {
+                              if (isLastBlock) return <><Save /> Finalizar Treino</>;
+                              return <><ChevronRight /> Próximo Bloco</>;
+                            }
+                            return <><ChevronRight /> Próxima Série</>;
+                          })()}
+                        </button>
+                      )}
+
+                      {!state.isCatchupPhase && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
+                          }}
+                          disabled={state.isTimerActive || savingSession}
+                          className="w-full py-2 text-xs font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                        >
+                          <SkipForward size={14} /> Pular Exercício
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 grid grid-cols-4 gap-2">
                     {[...Array(ex.series_alvo)].map((_, sIdx) => {
@@ -1275,6 +1067,7 @@ const Training = () => {
                                     val: e.target.value,
                                   })
                                 }
+                                onFocus={(e) => e.target.select()}
                                 className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
                               />
                               <span className="text-[8px] font-bold opacity-40 text-white">
@@ -1295,6 +1088,7 @@ const Training = () => {
                                     val: e.target.value,
                                   })
                                 }
+                                onFocus={(e) => e.target.select()}
                                 className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
                               />
                               <span className="text-[7px] font-bold opacity-30 uppercase text-white">
