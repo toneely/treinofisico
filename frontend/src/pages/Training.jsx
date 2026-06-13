@@ -612,23 +612,27 @@ const Training = () => {
         const exLoads = state.exerciseLoads[ex.exercicio_id] || [];
         const exReps = state.exerciseReps[ex.exercicio_id] || [];
 
-        if (
-          (val !== "" && parseFloat(val) >= 0) ||
-          execTimes.length > 0 ||
-          rests.length > 0
-        ) {
+        const hasManualData = exLoads.some(v => v !== undefined && v !== null && v !== "") ||
+                             exReps.some(v => v !== undefined && v !== null && v !== "");
+        const hasGuidedData = execTimes.length > 0;
+
+        if (hasManualData || hasGuidedData) {
           const totalExec = execTimes.reduce((a, b) => a + b, 0);
           const totalRest = rests.reduce((a, b) => a + b, 0);
+
+          // Sanitizar arrays para evitar nulls no banco
+          const finalLoads = exLoads.map(v => parseFloat(v) || 0);
+          const finalReps = exReps.map(v => parseInt(v) || 0);
 
           historyData.push({
             user_id: authUser.id,
             exercicio_id: ex.exercicio_id,
-            carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
+            carga: finalLoads.length > 0 ? finalLoads : [parseFloat(val) || 0],
             repeticoes:
-              exReps.length > 0
-                ? exReps
+              finalReps.length > 0
+                ? finalReps
                 : [parseInt(state.repsFeitas[ex.exercicio_id]) || 0],
-            series_executadas: execTimes.length || ex.series_alvo,
+            series_executadas: Math.max(execTimes.length, finalLoads.length, finalReps.length),
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
@@ -813,15 +817,22 @@ const Training = () => {
                 const isSkipped = state.skippedExercises.some(
                   (s) => s.exercicio_id === ex.exercicio_id,
                 );
-                const currentExSerie = isCurrent
-                  ? state.currentSerie
-                  : isDone
-                    ? ex.series_alvo
-                    : isSkipped
-                      ? state.skippedExercises.find(
-                          (s) => s.exercicio_id === ex.exercicio_id,
-                        )?.partialSerie || 0
-                      : 0;
+                const seriesComDados = [...Array(ex.series_alvo)].filter((_, sIdx) =>
+                  (state.exerciseLoads[ex.exercicio_id]?.[sIdx] !== undefined && state.exerciseLoads[ex.exercicio_id]?.[sIdx] !== "") ||
+                  (state.exerciseReps[ex.exercicio_id]?.[sIdx] !== undefined && state.exerciseReps[ex.exercicio_id]?.[sIdx] !== "")
+                ).length;
+
+                const currentExSerie = isGuidedMode ? (
+                  isCurrent
+                    ? state.currentSerie
+                    : isDone
+                      ? ex.series_alvo
+                      : isSkipped
+                        ? state.skippedExercises.find(
+                            (s) => s.exercicio_id === ex.exercicio_id,
+                          )?.partialSerie || 0
+                        : 0
+                ) : seriesComDados;
 
                 const isExpanded = !isGuidedMode || isCurrent;
 
@@ -859,7 +870,7 @@ const Training = () => {
                                 : undefined,
                           }}
                         >
-                          {isDone ? (
+                          {((isGuidedMode && isDone) || (!isGuidedMode && seriesComDados >= ex.series_alvo)) ? (
                             <CheckCircle2 size={isGuidedMode ? 20 : 16} className="text-emerald-500" />
                           ) : (
                             <Dumbbell size={isGuidedMode ? 20 : 16} />
@@ -994,21 +1005,24 @@ const Training = () => {
                             const isExecuted =
                               state.exerciseTimes[ex.exercicio_id]?.length > sIdx;
 
+                            const hasValue = (state.exerciseLoads[ex.exercicio_id]?.[sIdx] !== undefined && state.exerciseLoads[ex.exercicio_id]?.[sIdx] !== "") ||
+                                            (state.exerciseReps[ex.exercicio_id]?.[sIdx] !== undefined && state.exerciseReps[ex.exercicio_id]?.[sIdx] !== "");
+
                             return (
                               <div
                                 key={sIdx}
                                 className={`flex items-center gap-3 transition-all ${isGuidedMode ? (isCurrentS ? "bg-white/10 ring-1 ring-white/10 p-3.5 rounded-2xl shadow-inner" : "bg-black/20 p-3 rounded-2xl opacity-60") : "bg-white/5 p-2 rounded-xl border border-white/5"}`}
                               >
                                 <div
-                                  className={`rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${isGuidedMode ? "w-8 h-8" : "w-6 h-6"} ${isExecuted ? "bg-emerald-500 text-white" : isCurrentS && isGuidedMode ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-white/20"}`}
+                                  className={`rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${isGuidedMode ? "w-8 h-8" : "w-6 h-6"} ${isExecuted || (!isGuidedMode && hasValue) ? "bg-emerald-500 text-white" : isCurrentS && isGuidedMode ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-white/20"}`}
                                   style={{
                                     backgroundColor:
-                                      isExecuted ? "#10b981" : (isCurrentS && isGuidedMode
+                                      (isExecuted || (!isGuidedMode && hasValue)) ? "#10b981" : (isCurrentS && isGuidedMode
                                         ? "var(--color-primary)"
                                         : undefined),
                                   }}
                                 >
-                                  {isExecuted ? <CheckCircle2 size={isGuidedMode ? 14 : 12} /> : sNum}
+                                  {(isExecuted || (!isGuidedMode && hasValue)) ? <CheckCircle2 size={isGuidedMode ? 14 : 12} /> : sNum}
                                 </div>
 
                                 <div className="flex-1 grid grid-cols-2 gap-3">
@@ -1275,9 +1289,7 @@ const Training = () => {
                     state.currentExerciseInBlock;
                   return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
                 })()}%`,
-                backgroundColor: false
-                  ? "var(--color-primary)"
-                  : "var(--color-secondary)",
+                backgroundColor: "var(--color-primary)",
               }}
             ></div>
           </div>
