@@ -16,6 +16,7 @@ import {
   MoreVertical,
   Square,
   Clock,
+  CircleX,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -802,33 +803,51 @@ const Training = () => {
                   }}
                   className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
                   style={{
-                    backgroundColor: isCurrent ? ("var(--color-secondary)") : (isDone ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)"),
-                    color: isCurrent ? ("var(--text-on-secondary)") : "white",
-                    borderColor: isCurrent ? "transparent" : (isDone ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
+                    backgroundColor: isCurrent
+                      ? "var(--color-secondary)"
+                      : isSkipped
+                        ? "rgba(239, 68, 68, 0.15)"
+                        : isDone
+                          ? "rgba(16, 185, 129, 0.1)"
+                          : "rgba(255, 255, 255, 0.05)",
+                    color: isCurrent
+                      ? "var(--text-on-secondary)"
+                      : isSkipped
+                        ? "#fca5a5"
+                        : "white",
+                    borderColor: isCurrent
+                      ? "transparent"
+                      : isSkipped
+                        ? "rgba(239, 68, 68, 0.6)"
+                        : isDone
+                          ? "#10b98140"
+                          : "rgba(255, 255, 255, 0.1)",
                   }}
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : "bg-white/5 text-white/40"}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : isSkipped ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
                       >
-                        {isDone ? (
+                        {isSkipped ? (
+                          <CircleX size={16} />
+                        ) : isDone ? (
                           <CheckCircle2 size={16} />
                         ) : (
                           <Dumbbell size={16} />
                         )}
                       </div>
                       <div>
-                        <p className="font-bold text-sm text-white">
+                        <p className={`font-bold text-sm ${isCurrent ? "text-white" : isSkipped ? "text-red-300" : "text-white"}`}>
                           {ex.exercicios.nome}
                         </p>
                         {!isCurrent && (
                           <div className="flex gap-2 items-center">
-                            <p className="text-[10px] opacity-60 font-medium text-white">
+                            <p className={`text-[10px] font-medium ${isSkipped ? "text-red-400/80" : "opacity-60 text-white"}`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
                             {state.cargas[ex.exercicio_id] > 0 && (
-                              <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
+                              <span className={`text-[10px] font-black flex items-center gap-1 ${isSkipped ? "text-red-400" : "opacity-80 text-white"}`}>
                                 <Dumbbell size={10} />{" "}
                                 {state.cargas[ex.exercicio_id]}kg
                               </span>
@@ -1021,7 +1040,19 @@ const Training = () => {
                       return (
                         <div
                           key={sIdx}
-                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${isCurrentS ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10" : isExecuted ? "bg-black/20 border-white/5" : "bg-black/5 border-transparent"}`}
+                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
+                            isCurrentS
+                              ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
+                              : isSkipped
+                                ? isExecuted
+                                  ? "bg-red-950/60 border-red-500/10"
+                                  : isNextPending
+                                    ? "bg-red-500/10 border-red-500/40"
+                                    : "bg-red-950/20 border-transparent"
+                                : isExecuted
+                                  ? "bg-black/20 border-white/5"
+                                  : "bg-black/5 border-transparent"
+                          }`}
                         >
                           <button
                             onClick={() => {
@@ -1068,9 +1099,9 @@ const Training = () => {
                                   })
                                 }
                                 onFocus={(e) => e.target.select()}
-                                className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
+                                className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                               />
-                              <span className="text-[8px] font-bold opacity-40 text-white">
+                              <span className={`text-[8px] font-bold opacity-40 ${isSkipped ? "text-red-300" : "text-white"}`}>
                                 kg
                               </span>
                             </div>
@@ -1089,9 +1120,9 @@ const Training = () => {
                                   })
                                 }
                                 onFocus={(e) => e.target.select()}
-                                className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
+                                className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                               />
-                              <span className="text-[7px] font-bold opacity-30 uppercase text-white">
+                              <span className={`text-[7px] font-bold opacity-30 uppercase ${isSkipped ? "text-red-300" : "text-white"}`}>
                                 reps
                               </span>
                             </div>
@@ -1102,7 +1133,7 @@ const Training = () => {
                             <div className="flex items-center gap-1">
                               <Clock
                                 size={8}
-                                className="opacity-30 text-white"
+                                className={`opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}
                               />
                               {liveExec !== null ? (
                                 <span className="font-mono font-bold text-[9px] text-white">
@@ -1132,9 +1163,9 @@ const Training = () => {
                                       })
                                     }
                                     onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                    className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                                   />
-                                  <span className="text-[9px] font-bold opacity-30 text-white">
+                                  <span className={`text-[9px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
                                     :
                                   </span>
                                   <input
@@ -1158,7 +1189,7 @@ const Training = () => {
                                       })
                                     }
                                     onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
+                                    className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                                   />
                                 </div>
                               )}
@@ -1194,9 +1225,9 @@ const Training = () => {
                                       })
                                     }
                                     onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                    className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                                   />
-                                  <span className="text-[8px] font-bold opacity-30 text-white">
+                                  <span className={`text-[8px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
                                     :
                                   </span>
                                   <input
@@ -1220,7 +1251,7 @@ const Training = () => {
                                       })
                                     }
                                     onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
+                                    className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                                   />
                                 </div>
                               )}
