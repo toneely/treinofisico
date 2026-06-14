@@ -717,22 +717,13 @@ const Training = () => {
         backgroundColor: "var(--bg-treino)",
       }}
     >
-      <header className="flex justify-between items-center p-6 max-w-md mx-auto w-full">
+      <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
         <div className="flex gap-2">
           <button
             onClick={() => navigate("/inicio")}
             className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
             <ChevronLeft />
-          </button>
-          <button
-            onClick={() => {
-              showToast("Treino pausado. Seu progresso foi salvo.", "info");
-              navigate("/inicio");
-            }}
-            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-          >
-            <Pause size={14} /> Pausar
           </button>
         </div>
         <div className="text-center">
@@ -929,10 +920,10 @@ const Training = () => {
                   </div>
 
                   {isCurrent && (
-                    <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                       {/* Integrated Timer */}
                       <div
-                        className={`rounded-2xl p-4 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
+                        className={`rounded-2xl p-3 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
                       >
                         <div className="flex flex-col">
                           <p className="text-[10px] font-bold uppercase mb-1 opacity-60">Tempo de Execução</p>
@@ -987,7 +978,7 @@ const Training = () => {
 
                       {/* Integrated Inputs */}
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-black/20 p-4 rounded-2xl">
+                        <div className="bg-black/20 p-3 rounded-2xl">
                           <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
                           <input
                             type="number"
@@ -997,7 +988,7 @@ const Training = () => {
                             className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                           />
                         </div>
-                        <div className="bg-black/20 p-4 rounded-2xl">
+                        <div className="bg-black/20 p-3 rounded-2xl">
                           <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
                           <input
                             type="number"
@@ -1017,7 +1008,7 @@ const Training = () => {
                             dispatch({ type: "ADVANCE_STEP", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
                           }}
                           disabled={savingSession}
-                          className="w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-emerald-500 text-white shadow-lg active:scale-95 transition-all"
+                          className="w-full py-3 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-emerald-500 text-white shadow-lg active:scale-95 transition-all"
                         >
                           {savingSession ? "Salvando..." : (() => {
                             const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
@@ -1041,15 +1032,17 @@ const Training = () => {
                             dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
                           }}
                           disabled={state.isTimerActive || savingSession}
-                          className="w-full py-2 text-xs font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                          className="w-full py-1 text-[10px] font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
                         >
-                          <SkipForward size={14} /> Pular Exercício
+                          <SkipForward size={12} /> Pular Exercício
                         </button>
                       )}
                     </div>
                   )}
 
-                  <div className="mt-4 grid grid-cols-4 gap-2">
+                  <div className="mt-2">
+                    <p className="text-xs uppercase tracking-wider font-semibold opacity-60 mb-2">SÉRIES</p>
+                    <div className="grid grid-cols-4 gap-2">
                     {[...Array(ex.series_alvo)].map((_, sIdx) => {
                       const sNum = sIdx + 1;
                       const execTime =
@@ -1113,7 +1106,7 @@ const Training = () => {
                               opacity: isCurrentS || isNextPending ? 1 : 0.4,
                             }}
                           >
-                            Série {sNum}
+                            {sNum}
                           </button>
                           <div
                             className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
@@ -1294,6 +1287,7 @@ const Training = () => {
                         </div>
                       );
                     })}
+                    </div>
                   </div>
                 </div>
               );
@@ -1344,7 +1338,7 @@ const Training = () => {
       </div>
 
       <footer
-        className="p-6 border-t backdrop-blur-xl z-50"
+        className="py-3 px-6 border-t backdrop-blur-xl z-50"
         style={{
           backgroundColor: "rgba(0, 0, 0, 0.8)",
           borderColor: "rgba(255, 255, 255, 0.1)",
@@ -1352,7 +1346,7 @@ const Training = () => {
       >
         <div className="max-w-md mx-auto">
           {Object.keys(state.activeRestTimers).length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-2">
               {Object.entries(state.activeRestTimers).map(([exId, data]) => {
                 const isPrimary =
                   parseInt(exId) === currentBlock[0]?.exercicio_id;
@@ -1390,7 +1384,7 @@ const Training = () => {
               })}
             </div>
           )}
-          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3 text-white">
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 text-white">
             <span>Progresso Geral</span>
             <span>
               {(() => {
