@@ -1111,7 +1111,7 @@ const Training = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex overflow-x-auto gap-2 py-3 max-w-full scrollbar-none">
+                    <div className="flex overflow-x-auto gap-2 py-3 px-2 max-w-full scrollbar-none">
                     {[...Array(ex.series_alvo)].map((_, sIdx) => {
                       const sNum = sIdx + 1;
                       const execTime =
