@@ -148,6 +148,10 @@ function trainingReducer(state, action) {
       const { currentBlock } = action.payload;
       let blockFinished = false;
 
+      // Clean up newly focused exercise from skippedExercises
+      const nextActiveExId = currentBlock[state.currentExerciseInBlock]?.exercicio_id;
+      const cleanSkipped = state.skippedExercises.filter(s => s.exercicio_id !== nextActiveExId);
+
       if (state.executionMode === "isolated" || currentBlock.length === 1) {
         blockFinished =
           state.currentExerciseInBlock === currentBlock.length - 1 &&
@@ -172,6 +176,7 @@ function trainingReducer(state, action) {
           currentSerie: 1,
           timer: 0,
           status: "IDLE",
+          skippedExercises: cleanSkipped
         };
       }
 
@@ -188,6 +193,7 @@ function trainingReducer(state, action) {
               currentSerie: doneSeries + 1,
               timer: 0,
               status: "IDLE",
+              skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== candidate.exercicio_id)
             };
           }
           nextIdx = (nextIdx + 1) % currentBlock.length;
@@ -203,6 +209,7 @@ function trainingReducer(state, action) {
           currentSerie: state.currentSerie + 1,
           timer: 0,
           status: "IDLE",
+          skippedExercises: cleanSkipped
         };
       } else {
         const nextIdx = state.currentExerciseInBlock + 1;
@@ -215,6 +222,7 @@ function trainingReducer(state, action) {
           currentSerie: nextExPendingSerie,
           timer: 0,
           status: "IDLE",
+          skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== nextEx?.exercicio_id)
         };
       }
     }
@@ -230,6 +238,7 @@ function trainingReducer(state, action) {
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
+        skippedExercises: state.skippedExercises
       };
 
       if (
@@ -277,6 +286,7 @@ function trainingReducer(state, action) {
     }
 
     case "MANUAL_OVERRIDE": {
+      const targetEx = state.blocos[action.bIdx][action.eIdx];
       return {
         ...state,
         currentBlockIndex: action.bIdx,
@@ -285,6 +295,7 @@ function trainingReducer(state, action) {
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
+        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== targetEx.exercicio_id)
       };
     }
 
@@ -876,19 +887,19 @@ const Training = () => {
                         style={{
                           backgroundColor: isCurrent
                             ? "var(--color-secondary)"
-                            : isSkipped
+                            : (isSkipped && !isCurrent)
                               ? "rgba(239, 68, 68, 0.15)"
                               : isDone
                                 ? "rgba(16, 185, 129, 0.1)"
                                 : "rgba(255, 255, 255, 0.05)",
                           color: isCurrent
                             ? "var(--text-on-secondary)"
-                            : isSkipped
+                            : (isSkipped && !isCurrent)
                               ? "#fca5a5"
                               : "white",
                           borderColor: isCurrent
                             ? "transparent"
-                            : isSkipped
+                            : (isSkipped && !isCurrent)
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
                                 ? "#10b98140"
@@ -898,9 +909,9 @@ const Training = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : isSkipped ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : (isSkipped && !isCurrent) ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
                       >
-                        {isSkipped ? (
+                        {(isSkipped && !isCurrent) ? (
                           <CircleX size={16} />
                         ) : isDone ? (
                           <CheckCircle2 size={16} />
@@ -909,16 +920,16 @@ const Training = () => {
                         )}
                       </div>
                       <div>
-                        <p className={`font-bold text-sm ${isCurrent ? "text-white" : isSkipped ? "text-red-300" : "text-white"}`}>
+                        <p className={`font-bold text-sm ${isCurrent ? "text-white" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
                           {ex.exercicios.nome}
                         </p>
                         {!isCurrent && (
                           <div className="flex gap-2 items-center">
-                            <p className={`text-[10px] font-medium ${isSkipped ? "text-red-400/80" : "opacity-60 text-white"}`}>
+                            <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60 text-white"}`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
                             {state.cargas[ex.exercicio_id] > 0 && (
-                              <span className={`text-[10px] font-black flex items-center gap-1 ${isSkipped ? "text-red-400" : "opacity-80 text-white"}`}>
+                              <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80 text-white"}`}>
                                 <Dumbbell size={10} />{" "}
                                 {state.cargas[ex.exercicio_id]}kg
                               </span>
