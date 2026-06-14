@@ -17,6 +17,8 @@ import {
   Square,
   Clock,
   CircleX,
+  Plus,
+  MoreHorizontal,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -356,6 +358,21 @@ function trainingReducer(state, action) {
 
     case "CLOSE_CHECKOUT":
       return { ...state, showCheckoutModal: false, status: "IDLE" };
+
+    case "UPDATE_SERIES_ALVO": {
+      const { exId, newAlvo } = action;
+      const updateBlocks = (blocks) =>
+        blocks.map((block) =>
+          block.map((ex) =>
+            ex.exercicio_id === exId ? { ...ex, series_alvo: newAlvo } : ex,
+          ),
+        );
+      return {
+        ...state,
+        blocos: updateBlocks(state.blocos),
+        originalBlocos: updateBlocks(state.originalBlocos),
+      };
+    }
 
     case "RESET_TIMER":
       return { ...state, timer: 0, isTimerActive: false, status: "IDLE" };
@@ -1041,7 +1058,23 @@ const Training = () => {
                   )}
 
                   <div className="mt-2">
-                    <p className="text-xs uppercase tracking-wider font-semibold opacity-60 mb-2">SÉRIES</p>
+                    <div className="flex justify-between items-center w-full mb-2">
+                      <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
+                      {isCurrent && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const val = prompt("Alterar número de séries:", ex.series_alvo);
+                            if (val && !isNaN(val)) {
+                              dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: parseInt(val) });
+                            }
+                          }}
+                          className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-4 gap-2">
                     {[...Array(ex.series_alvo)].map((_, sIdx) => {
                       const sNum = sIdx + 1;
@@ -1287,6 +1320,17 @@ const Training = () => {
                         </div>
                       );
                     })}
+                    {isCurrent && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: ex.series_alvo + 1 });
+                        }}
+                        className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px]"
+                      >
+                        <Plus size={20} className="text-white/60" />
+                      </button>
+                    )}
                     </div>
                   </div>
                 </div>
