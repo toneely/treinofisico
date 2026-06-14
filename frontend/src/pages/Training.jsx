@@ -19,6 +19,7 @@ import {
   CircleX,
   Plus,
   MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -395,6 +396,7 @@ const Training = () => {
   const [loading, setLoading] = useState(true);
   const [savingSession, setSavingSession] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
+  const [openSeriesMenuExId, setOpenSeriesMenuExId] = useState(null);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -799,6 +801,10 @@ const Training = () => {
       <div
         id="scroll-container"
         className="flex-1 overflow-y-auto p-6 pt-0 relative"
+        onClick={() => {
+          setOpenMenuExId(null);
+          setOpenSeriesMenuExId(null);
+        }}
       >
         <div className="space-y-4 max-w-md mx-auto">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
@@ -1061,21 +1067,51 @@ const Training = () => {
                     <div className="flex justify-between items-center w-full mb-2">
                       <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
                       {isCurrent && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const val = prompt("Alterar número de séries:", ex.series_alvo);
-                            if (val && !isNaN(val)) {
-                              dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: parseInt(val) });
-                            }
-                          }}
-                          className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenSeriesMenuExId(openSeriesMenuExId === ex.exercicio_id ? null : ex.exercicio_id);
+                            }}
+                            className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                          >
+                            <MoreHorizontal size={14} />
+                          </button>
+
+                          {openSeriesMenuExId === ex.exercicio_id && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200">
+                              <p className="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest">Alterar Séries</p>
+                              <div className="grid grid-cols-4 gap-2 mb-4">
+                                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                                  <button
+                                    key={n}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: n });
+                                      setOpenSeriesMenuExId(null);
+                                    }}
+                                    className={`aspect-square rounded-lg font-black text-xs transition-all ${ex.series_alvo === n ? "bg-white text-black" : "bg-white/5 hover:bg-white/10 text-white"}`}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: Math.max(1, ex.series_alvo - 1) });
+                                  setOpenSeriesMenuExId(null);
+                                }}
+                                className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                              >
+                                <Trash2 size={12} /> Remover Última
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="flex overflow-x-auto gap-2 pb-1 max-w-full scrollbar-none">
                     {[...Array(ex.series_alvo)].map((_, sIdx) => {
                       const sNum = sIdx + 1;
                       const execTime =
@@ -1100,7 +1136,7 @@ const Training = () => {
                       return (
                         <div
                           key={sIdx}
-                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${
+                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
                             isCurrentS
                               ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
                               : isSkipped
@@ -1326,7 +1362,7 @@ const Training = () => {
                           e.stopPropagation();
                           dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: ex.series_alvo + 1 });
                         }}
-                        className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px]"
+                        className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
                       >
                         <Plus size={20} className="text-white/60" />
                       </button>
