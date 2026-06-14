@@ -25,8 +25,8 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
   const sessionList = page.locator('text=Exercícios da Sessão');
   await expect(sessionList).toBeVisible();
 
-  // Check if first exercise in list has a grid
-  const gridItem = page.locator('.grid-cols-4').first();
+  // Check if first exercise in list has a grid (using horizontal scroll container in V2)
+  const gridItem = page.locator('.overflow-x-auto').first();
   await expect(gridItem).toBeVisible();
 
   // 3. Verify Real-time Sync in Grid (Exec Timer)

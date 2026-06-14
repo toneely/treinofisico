@@ -20,6 +20,7 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
+  Layers,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -810,68 +811,90 @@ const Training = () => {
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
             Exercícios da Sessão
           </h3>
-          {state.blocos.flatMap((block, bIdx) =>
-            block.map((ex, eIdx) => {
-              const isDone =
-                bIdx < state.currentBlockIndex ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock > eIdx) ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock === eIdx &&
-                  state.currentSerie > ex.series_alvo);
-              const isCurrent =
-                bIdx === state.currentBlockIndex &&
-                state.currentExerciseInBlock === eIdx;
-              const isSkipped = state.skippedExercises.some(
-                (s) => s.exercicio_id === ex.exercicio_id,
-              );
-              const currentExSerie = isCurrent
-                ? state.currentSerie
-                : isDone
-                  ? ex.series_alvo
-                  : isSkipped
-                    ? state.skippedExercises.find(
-                        (s) => s.exercicio_id === ex.exercicio_id,
-                      )?.partialSerie || 0
-                    : 0;
+          {state.blocos.map((block, bIdx) => {
+            const firstEx = block[0];
+            const assistencia = firstEx?.exercicios?.alvo_principal || "Treino";
 
-              return (
-                <div
-                  key={`${bIdx}_${eIdx}`}
-                  id={isCurrent ? "active-exercise" : undefined}
-                  onClick={() => {
-                    if (!isCurrent) {
-                      dispatch({
-                        type: "MANUAL_OVERRIDE",
-                        bIdx,
-                        eIdx,
-                        sNum: (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1,
-                      });
-                    }
-                  }}
-                  className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
-                  style={{
-                    backgroundColor: isCurrent
-                      ? "var(--color-secondary)"
-                      : isSkipped
-                        ? "rgba(239, 68, 68, 0.15)"
-                        : isDone
-                          ? "rgba(16, 185, 129, 0.1)"
-                          : "rgba(255, 255, 255, 0.05)",
-                    color: isCurrent
-                      ? "var(--text-on-secondary)"
-                      : isSkipped
-                        ? "#fca5a5"
-                        : "white",
-                    borderColor: isCurrent
-                      ? "transparent"
-                      : isSkipped
-                        ? "rgba(239, 68, 68, 0.6)"
-                        : isDone
-                          ? "#10b98140"
-                          : "rgba(255, 255, 255, 0.1)",
-                  }}
-                >
+            // Map assistencia to a color variable or fallback
+            const blockColor = assistencia.toLowerCase().includes("quadríceps") ? "var(--color-primary)" :
+                               assistencia.toLowerCase().includes("dorsal") ? "var(--color-secondary)" :
+                               "var(--color-primary)";
+
+            return (
+              <div
+                key={bIdx}
+                className="rounded-[32px] p-5 mb-8 border border-white/5"
+                style={{ backgroundColor: `${blockColor}10` }}
+              >
+                <div className="flex items-center gap-2 mb-4 px-1">
+                  <Layers size={14} className="opacity-40" style={{ color: blockColor }} />
+                  <h4 className="text-xs font-bold uppercase tracking-widest opacity-90" style={{ color: blockColor }}>
+                    Bloco {bIdx + 1} de {state.blocos.length} — {assistencia}
+                  </h4>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {block.map((ex, eIdx) => {
+                    const isDone =
+                      bIdx < state.currentBlockIndex ||
+                      (bIdx === state.currentBlockIndex &&
+                        state.currentExerciseInBlock > eIdx) ||
+                      (bIdx === state.currentBlockIndex &&
+                        state.currentExerciseInBlock === eIdx &&
+                        state.currentSerie > ex.series_alvo);
+                    const isCurrent =
+                      bIdx === state.currentBlockIndex &&
+                      state.currentExerciseInBlock === eIdx;
+                    const isSkipped = state.skippedExercises.some(
+                      (s) => s.exercicio_id === ex.exercicio_id,
+                    );
+                    const currentExSerie = isCurrent
+                      ? state.currentSerie
+                      : isDone
+                        ? ex.series_alvo
+                        : isSkipped
+                          ? state.skippedExercises.find(
+                              (s) => s.exercicio_id === ex.exercicio_id,
+                            )?.partialSerie || 0
+                          : 0;
+
+                    return (
+                      <div
+                        key={`${bIdx}_${eIdx}`}
+                        id={isCurrent ? "active-exercise" : undefined}
+                        onClick={() => {
+                          if (!isCurrent) {
+                            dispatch({
+                              type: "MANUAL_OVERRIDE",
+                              bIdx,
+                              eIdx,
+                              sNum: (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1,
+                            });
+                          }
+                        }}
+                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
+                        style={{
+                          backgroundColor: isCurrent
+                            ? "var(--color-secondary)"
+                            : isSkipped
+                              ? "rgba(239, 68, 68, 0.15)"
+                              : isDone
+                                ? "rgba(16, 185, 129, 0.1)"
+                                : "rgba(255, 255, 255, 0.05)",
+                          color: isCurrent
+                            ? "var(--text-on-secondary)"
+                            : isSkipped
+                              ? "#fca5a5"
+                              : "white",
+                          borderColor: isCurrent
+                            ? "transparent"
+                            : isSkipped
+                              ? "rgba(239, 68, 68, 0.6)"
+                              : isDone
+                                ? "#10b98140"
+                                : "rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
@@ -1370,9 +1393,12 @@ const Training = () => {
                     </div>
                   </div>
                 </div>
-              );
-            }),
-          )}
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {state.showCheckoutModal && (
