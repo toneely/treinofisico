@@ -528,10 +528,11 @@ const Training = () => {
       },
     );
 
-    if (isResuming) {
-      const saved = localStorage.getItem("active_training_session");
-      if (saved) {
-        const stateData = JSON.parse(saved);
+    // Automatic restoration logic for refresh/resume
+    const saved = localStorage.getItem("active_training_session");
+    if (saved) {
+      const stateData = JSON.parse(saved);
+      if (stateData.letra === letra) {
         dispatch({ type: "INIT_SESSION", payload: stateData });
         setLoading(false);
 
@@ -762,10 +763,10 @@ const Training = () => {
             className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
             style={{ color: "var(--color-primary-safe)" }}
           >
-            {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
+            {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
           </span>
-          <span className="font-bold text-lg text-white">
-            Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
+          <span className="font-bold text-lg text-white uppercase tracking-tighter">
+            Treino {letra}
           </span>
         </div>
         <div className="flex gap-2">
@@ -823,8 +824,8 @@ const Training = () => {
             Exercícios da Sessão
           </h3>
           {state.blocos.map((block, bIdx) => {
-            const firstEx = block[0];
-            const assistencia = firstEx?.exercicios?.alvo_principal || "Treino";
+            const alvos = [...new Set(block.map(ex => ex.exercicios?.alvo_principal).filter(Boolean))];
+            const assistencia = alvos.length > 0 ? alvos.join(" / ") : "Treino";
 
             // Map assistencia to a color variable or fallback
             const blockColor = assistencia.toLowerCase().includes("quadríceps") ? "var(--color-primary)" :
@@ -846,13 +847,8 @@ const Training = () => {
 
                 <div className="flex flex-col gap-3">
                   {block.map((ex, eIdx) => {
-                    const isDone =
-                      bIdx < state.currentBlockIndex ||
-                      (bIdx === state.currentBlockIndex &&
-                        state.currentExerciseInBlock > eIdx) ||
-                      (bIdx === state.currentBlockIndex &&
-                        state.currentExerciseInBlock === eIdx &&
-                        state.currentSerie > ex.series_alvo);
+                    const doneCount = state.exerciseTimes[ex.exercicio_id]?.length || 0;
+                    const isDone = doneCount >= ex.series_alvo;
                     const isCurrent =
                       bIdx === state.currentBlockIndex &&
                       state.currentExerciseInBlock === eIdx;
