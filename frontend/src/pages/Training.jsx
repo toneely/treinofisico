@@ -21,6 +21,7 @@ import {
   MoreHorizontal,
   Trash2,
   Layers,
+  PlusCircle,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -148,10 +149,6 @@ function trainingReducer(state, action) {
       const { currentBlock } = action.payload;
       let blockFinished = false;
 
-      // Clean up newly focused exercise from skippedExercises
-      const nextActiveExId = currentBlock[state.currentExerciseInBlock]?.exercicio_id;
-      const cleanSkipped = state.skippedExercises.filter(s => s.exercicio_id !== nextActiveExId);
-
       if (state.executionMode === "isolated" || currentBlock.length === 1) {
         blockFinished =
           state.currentExerciseInBlock === currentBlock.length - 1 &&
@@ -169,62 +166,49 @@ function trainingReducer(state, action) {
         const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
         if (isLastBlock) return { ...state, status: "COMPLETED" };
 
+        const nextBlock = state.blocos[state.currentBlockIndex + 1];
+        const firstEx = nextBlock[0];
         return {
           ...state,
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
-          currentSerie: 1,
+          currentSerie: (state.exerciseTimes[firstEx.exercicio_id]?.length || 0) + 1,
           timer: 0,
           status: "IDLE",
-          skippedExercises: cleanSkipped
+          skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== firstEx.exercicio_id)
         };
       }
 
-      if (state.executionMode === "alternated" && currentBlock.length > 1) {
-        let nextIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+      // Conjugated/Circuit Flow (A->B->C->A)
+      if (currentBlock.length > 1) {
+        let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+
+        // Find next exercise in the circuit that still has pending series
         for (let i = 0; i < currentBlock.length; i++) {
-          const candidate = currentBlock[nextIdx];
-          const doneSeries =
-            state.exerciseTimes[candidate.exercicio_id]?.length || 0;
-          if (doneSeries < candidate.series_alvo) {
+          const candidate = currentBlock[nextExIdx];
+          const doneCount = state.exerciseTimes[candidate.exercicio_id]?.length || 0;
+          if (doneCount < candidate.series_alvo) {
             return {
               ...state,
-              currentExerciseInBlock: nextIdx,
-              currentSerie: doneSeries + 1,
+              currentExerciseInBlock: nextExIdx,
+              currentSerie: doneCount + 1,
               timer: 0,
               status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== candidate.exercicio_id)
             };
           }
-          nextIdx = (nextIdx + 1) % currentBlock.length;
+          nextExIdx = (nextExIdx + 1) % currentBlock.length;
         }
       }
 
-      if (
-        state.currentSerie <
-        currentBlock[state.currentExerciseInBlock].series_alvo
-      ) {
-        return {
-          ...state,
-          currentSerie: state.currentSerie + 1,
-          timer: 0,
-          status: "IDLE",
-          skippedExercises: cleanSkipped
-        };
-      } else {
-        const nextIdx = state.currentExerciseInBlock + 1;
-        const nextEx = currentBlock[nextIdx];
-        const nextExPendingSerie =
-          (state.exerciseTimes[nextEx?.exercicio_id]?.length || 0) + 1;
-        return {
-          ...state,
-          currentExerciseInBlock: nextIdx,
-          currentSerie: nextExPendingSerie,
-          timer: 0,
-          status: "IDLE",
-          skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== nextEx?.exercicio_id)
-        };
-      }
+      // Single Exercise Flow
+      return {
+        ...state,
+        currentSerie: state.currentSerie + 1,
+        timer: 0,
+        status: "IDLE",
+        skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
+      };
     }
 
     case "SKIP_EXERCISE": {
@@ -384,6 +368,59 @@ function trainingReducer(state, action) {
         ...state,
         blocos: updateBlocks(state.blocos),
         originalBlocos: updateBlocks(state.originalBlocos),
+      };
+    }
+
+    case "ADD_EXERCISE_TO_BLOCK": {
+      const { bIdx } = action;
+      const newEx = {
+        exercicio_id: Date.now(), // Temp ID
+        ordem_execucao: state.blocos[bIdx].length + 1,
+        series_alvo: 3,
+        reps_alvo: "10",
+        numero_bloco: state.blocos[bIdx][0]?.numero_bloco || bIdx + 1,
+        exercicios: { nome: "Novo Exercício", alvo_principal: "Treino" }
+      };
+
+      const newBlocos = [...state.blocos];
+      newBlocos[bIdx] = [...newBlocos[bIdx], newEx];
+
+      return {
+        ...state,
+        blocos: newBlocos,
+        originalBlocos: newBlocos,
+        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
+        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
+        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
+        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+      };
+    }
+
+    case "ADD_BLOCK": {
+      const nextNum = state.blocos.length + 1;
+      const newEx = {
+        exercicio_id: Date.now(),
+        ordem_execucao: 1,
+        series_alvo: 3,
+        reps_alvo: "10",
+        numero_bloco: nextNum,
+        exercicios: { nome: "Novo Exercício", alvo_principal: "Treino" }
+      };
+      const newBlock = [newEx];
+      const newBlocos = [...state.blocos, newBlock];
+
+      return {
+        ...state,
+        blocos: newBlocos,
+        originalBlocos: newBlocos,
+        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
+        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
+        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
+        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
       };
     }
 
@@ -841,7 +878,7 @@ const Training = () => {
                 <div className="flex items-center gap-2 mb-4 px-1">
                   <Layers size={14} className="opacity-40" style={{ color: blockColor }} />
                   <h4 className="text-xs font-bold uppercase tracking-widest opacity-90" style={{ color: blockColor }}>
-                    Bloco {bIdx + 1} de {state.blocos.length} — {assistencia}
+                    {block.length > 1 ? "Conjugado" : "Bloco"} {bIdx + 1} de {state.blocos.length} — {assistencia}
                   </h4>
                 </div>
 
@@ -1403,9 +1440,27 @@ const Training = () => {
                     );
                   })}
                 </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx });
+                  }}
+                  className="w-full mt-4 py-2 border border-dashed border-white/10 rounded-xl text-[10px] font-black uppercase text-white/40 hover:text-white/80 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} /> Adicionar Exercício
+                </button>
               </div>
             );
           })}
+
+          <button
+            onClick={() => dispatch({ type: "ADD_BLOCK" })}
+            className="w-full py-8 border-2 border-dashed border-white/10 rounded-[32px] text-white/40 font-black uppercase tracking-[0.2em] text-xs hover:text-white/80 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-3 mb-12"
+          >
+            <PlusCircle size={32} className="opacity-40" />
+            Novo Bloco Conjugado
+          </button>
         </div>
 
         {state.showCheckoutModal && (
