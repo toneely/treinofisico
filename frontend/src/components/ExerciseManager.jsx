@@ -216,9 +216,11 @@ const ExerciseManager = ({
             >
               {" "}
               <option value="Musculação">Musculação</option>{" "}
-              <option value="CrossFit">CrossFit</option>{" "}
+              <option value="Atletismo">Atletismo</option>{" "}
+              <option value="Natação">Natação</option>{" "}
               <option value="Pilates">Pilates</option>{" "}
               <option value="Calistenia">Calistenia</option>{" "}
+              <option value="CrossFit">CrossFit</option>{" "}
               <option value="Mobilidade">Mobilidade</option>{" "}
               <option value="Cardio">Cardio</option>{" "}
               <option value="Luta">Luta</option>{" "}

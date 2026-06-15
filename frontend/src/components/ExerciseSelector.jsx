@@ -21,9 +21,11 @@ const ExerciseSelector = ({
 
   const modalidades = [
     "Musculação",
-    "CrossFit",
+    "Atletismo",
+    "Natação",
     "Pilates",
     "Calistenia",
+    "CrossFit",
     "Mobilidade",
     "Cardio",
     "Luta",
