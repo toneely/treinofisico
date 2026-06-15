@@ -31,6 +31,7 @@ import {
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import ExerciseSelector from "../components/ExerciseSelector";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -917,11 +918,11 @@ const Training = () => {
             className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
             style={{
               backgroundColor: metronomeActive
-                ? false
+                ? letra === "A"
                   ? "var(--color-primary)"
                   : "var(--color-secondary)"
                 : "transparent",
-              borderColor: false
+              borderColor: letra === "A"
                 ? "var(--color-primary)"
                 : "var(--color-secondary)",
             }}
@@ -1666,7 +1667,7 @@ const Training = () => {
             <div className="flex flex-wrap gap-2 mb-2">
               {Object.entries(state.activeRestTimers).map(([exId, data]) => {
                 const isPrimary =
-                  parseInt(exId) === currentBlock[0]?.exercicio_id;
+                  parseInt(exId) === currentBlock[state.currentExerciseInBlock]?.exercicio_id;
                 return (
                   <div
                     key={exId}
@@ -1735,7 +1736,7 @@ const Training = () => {
                     state.currentExerciseInBlock;
                   return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
                 })()}%`,
-                backgroundColor: false
+                backgroundColor: letra === "A"
                   ? "var(--color-primary)"
                   : "var(--color-secondary)",
               }}
@@ -1785,7 +1786,7 @@ const Training = () => {
               Excluir Exercício?
             </h2>
             <p className="text-slate-400 text-center text-sm mb-8">
-              Tem certeza que deseja remover <strong>{exerciseToDelete.nome}</strong> deste treino? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover <strong>{exerciseToDelete.exercicios?.nome}</strong> deste treino? Esta ação não pode ser desfeita.
             </p>
             <div className="flex flex-col gap-3">
               <button

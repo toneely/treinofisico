@@ -145,7 +145,7 @@ const ExerciseSelector = ({
 
     setSelectedEx(exercise);
     setIsOpen(false);
-    onSelect(finalId);
+    onSelect({ ...exercise, id: finalId });
   };
 
   return (
