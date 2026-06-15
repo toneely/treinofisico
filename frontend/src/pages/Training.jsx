@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useReducer, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import {
   Play,
@@ -1078,13 +1079,14 @@ const Training = () => {
                     </div>
                     <div className="relative">
                       <button
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setOpenMenuExId(
                             openMenuExId === ex.exercicio_id
                               ? null
                               : ex.exercicio_id,
-                          )
-                        }
+                          );
+                        }}
                         className="p-2 hover:bg-black/10 rounded-lg transition"
                       >
                         <MoreVertical size={16} />
@@ -1290,7 +1292,10 @@ const Training = () => {
                           </button>
 
                           {openSeriesMenuExId === ex.exercicio_id && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div
+                              className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <p className="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest">Alterar Séries</p>
                               <div className="grid grid-cols-4 gap-2 mb-4">
                                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
