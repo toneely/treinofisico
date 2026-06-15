@@ -22,6 +22,10 @@ import {
   Trash2,
   Layers,
   PlusCircle,
+  ArrowUp,
+  ArrowDown,
+  Edit2,
+  AlertTriangle,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -372,14 +376,17 @@ function trainingReducer(state, action) {
     }
 
     case "ADD_EXERCISE_TO_BLOCK": {
-      const { bIdx } = action;
+      const { bIdx, exerciseData } = action;
       const newEx = {
-        exercicio_id: Date.now(), // Temp ID
+        exercicio_id: exerciseData.id,
         ordem_execucao: state.blocos[bIdx].length + 1,
         series_alvo: 3,
         reps_alvo: "10",
         numero_bloco: state.blocos[bIdx][0]?.numero_bloco || bIdx + 1,
-        exercicios: { nome: "Novo Exercício", alvo_principal: "Treino" }
+        exercicios: {
+          nome: exerciseData.nome,
+          alvo_principal: exerciseData.alvo_principal
+        }
       };
 
       const newBlocos = [...state.blocos];
@@ -395,6 +402,102 @@ function trainingReducer(state, action) {
         exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
         cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
         repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+      };
+    }
+
+    case "MOVE_EXERCISE": {
+      const { bIdx, eIdx, direction } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const targetIdx = eIdx + direction;
+
+      if (targetIdx < 0 || targetIdx >= block.length) return state;
+
+      const [moved] = block.splice(eIdx, 1);
+      block.splice(targetIdx, 0, moved);
+
+      const updatedBlock = block.map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
+      newBlocks[bIdx] = updatedBlock;
+
+      let nextExIdx = state.currentExerciseInBlock;
+      if (state.currentBlockIndex === bIdx && state.currentExerciseInBlock === eIdx) {
+        nextExIdx = targetIdx;
+      }
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        currentExerciseInBlock: nextExIdx
+      };
+    }
+
+    case "REPLACE_EXERCISE": {
+      const { bIdx, eIdx, exerciseData } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const oldEx = block[eIdx];
+
+      const updatedEx = {
+        ...oldEx,
+        exercicio_id: exerciseData.id,
+        exercicios: {
+          nome: exerciseData.nome,
+          alvo_principal: exerciseData.alvo_principal
+        }
+      };
+
+      block[eIdx] = updatedEx;
+      newBlocks[bIdx] = block;
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        exerciseTimes: { ...state.exerciseTimes, [updatedEx.exercicio_id]: state.exerciseTimes[oldEx.exercicio_id] || [] },
+        restTimes: { ...state.restTimes, [updatedEx.exercicio_id]: state.restTimes[oldEx.exercicio_id] || [] },
+        exerciseLoads: { ...state.exerciseLoads, [updatedEx.exercicio_id]: state.exerciseLoads[oldEx.exercicio_id] || [] },
+        exerciseReps: { ...state.exerciseReps, [updatedEx.exercicio_id]: state.exerciseReps[oldEx.exercicio_id] || [] },
+        cargas: { ...state.cargas, [updatedEx.exercicio_id]: state.cargas[oldEx.exercicio_id] || 0 },
+        repsFeitas: { ...state.repsFeitas, [updatedEx.exercicio_id]: state.repsFeitas[oldEx.exercicio_id] || 10 }
+      };
+    }
+
+    case "REMOVE_EXERCISE": {
+      const { bIdx, eIdx } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const removedEx = block[eIdx];
+
+      block.splice(eIdx, 1);
+
+      if (block.length === 0) {
+        newBlocks.splice(bIdx, 1);
+      } else {
+        newBlocks[bIdx] = block.map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
+      }
+
+      let nextBlockIdx = state.currentBlockIndex;
+      let nextExIdx = state.currentExerciseInBlock;
+
+      if (newBlocks.length === 0) return { ...initialState, blocos: [], originalBlocos: [] };
+
+      if (nextBlockIdx >= newBlocks.length) {
+        nextBlockIdx = newBlocks.length - 1;
+        nextExIdx = 0;
+      } else if (bIdx === nextBlockIdx) {
+        if (nextExIdx >= newBlocks[nextBlockIdx].length) {
+          nextExIdx = Math.max(0, newBlocks[nextBlockIdx].length - 1);
+        }
+      }
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        currentBlockIndex: nextBlockIdx,
+        currentExerciseInBlock: nextExIdx,
+        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== removedEx.exercicio_id)
       };
     }
 
@@ -446,6 +549,8 @@ const Training = () => {
   const [savingSession, setSavingSession] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
   const [openSeriesMenuExId, setOpenSeriesMenuExId] = useState(null);
+  const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add' });
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -985,24 +1090,63 @@ const Training = () => {
                         <MoreVertical size={16} />
                       </button>
                       {openMenuExId === ex.exercicio_id && (
-                        <div className="absolute right-0 bottom-full mb-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
+                        <div
+                          className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100 p-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => {
                               dispatch({
                                 type: "MANUAL_OVERRIDE",
                                 bIdx,
                                 eIdx,
-                                sNum:
-                                  currentExSerie > 0 &&
-                                  currentExSerie <= ex.series_alvo
-                                    ? currentExSerie
-                                    : 1,
+                                sNum: currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1,
                               });
                               setOpenMenuExId(null);
                             }}
-                            className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
                           >
-                            <RotateCcw size={14} /> Voltar ao exercício
+                            <RotateCcw size={14} className="text-white/40" /> Focar Exercício
+                          </button>
+
+                          <div className="h-px bg-white/5 my-1" />
+
+                          <button
+                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: -1 })}
+                            disabled={eIdx === 0}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <ArrowUp size={14} className="text-white/40" /> Mover para cima
+                          </button>
+
+                          <button
+                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: 1 })}
+                            disabled={eIdx === block.length - 1}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <ArrowDown size={14} className="text-white/40" /> Mover para baixo
+                          </button>
+
+                          <div className="h-px bg-white/5 my-1" />
+
+                          <button
+                            onClick={() => {
+                              setSelectorConfig({ isOpen: true, bIdx, eIdx, mode: 'replace' });
+                              setOpenMenuExId(null);
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <Edit2 size={14} className="text-white/40" /> Alterar Exercício
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setExerciseToDelete({ ...ex, bIdx, eIdx });
+                              setOpenMenuExId(null);
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} className="opacity-60" /> Excluir
                           </button>
                         </div>
                       )}
@@ -1444,7 +1588,7 @@ const Training = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx });
+                    setSelectorConfig({ isOpen: true, bIdx, eIdx: null, mode: 'add' });
                   }}
                   className="w-full mt-4 py-2 border border-dashed border-white/10 rounded-xl text-[10px] font-black uppercase text-white/40 hover:text-white/80 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
                 >
@@ -1594,6 +1738,72 @@ const Training = () => {
           </div>
         </div>
       </footer>
+
+      {selectorConfig.isOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-lg font-black uppercase tracking-widest text-slate-800">
+                {selectorConfig.mode === 'add' ? 'Adicionar Exercício' : 'Alterar Exercício'}
+              </h3>
+              <button
+                onClick={() => setSelectorConfig({ ...selectorConfig, isOpen: false })}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="p-6">
+              <ExerciseSelector
+                onSelect={(exerciseData) => {
+                  if (selectorConfig.mode === 'add') {
+                    dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx: selectorConfig.bIdx, exerciseData });
+                  } else {
+                    dispatch({ type: "REPLACE_EXERCISE", bIdx: selectorConfig.bIdx, eIdx: selectorConfig.eIdx, exerciseData });
+                  }
+                  setSelectorConfig({ ...selectorConfig, isOpen: false });
+                  showToast(selectorConfig.mode === 'add' ? "Exercício adicionado!" : "Exercício alterado!", "success");
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exerciseToDelete && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
+            <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-white text-center mb-2">
+              Excluir Exercício?
+            </h2>
+            <p className="text-slate-400 text-center text-sm mb-8">
+              Tem certeza que deseja remover <strong>{exerciseToDelete.nome}</strong> deste treino? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  dispatch({ type: "REMOVE_EXERCISE", bIdx: exerciseToDelete.bIdx, eIdx: exerciseToDelete.eIdx });
+                  setExerciseToDelete(null);
+                  showToast("Exercício removido", "info");
+                }}
+                className="w-full py-4 bg-red-600 text-white rounded-2xl font-black shadow-lg hover:bg-red-700 transition"
+              >
+                Sim, Excluir
+              </button>
+              <button
+                onClick={() => setExerciseToDelete(null)}
+                className="w-full py-4 bg-white/5 text-slate-400 rounded-2xl font-bold hover:bg-white/10 transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
