@@ -194,7 +194,7 @@ const ExerciseSelector = ({
       </button>
 
       {isOpen && (
-        <div className="absolute z-[100] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-[110] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           <div className="p-2 border-b border-black/5 dark:border-white/5 flex gap-2">
             <div className="relative flex-1">
               <Search
@@ -212,7 +212,7 @@ const ExerciseSelector = ({
             </div>
           </div>
 
-          <div className="max-h-60 overflow-y-auto">
+          <div className="max-h-56 overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center">
                 <Loader2
