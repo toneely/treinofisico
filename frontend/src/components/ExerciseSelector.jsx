@@ -228,9 +228,9 @@ const ExerciseSelector = ({
                   onClick={() => handleSelection(ex)}
                   className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between border-b border-black/5 dark:border-white/5 last:border-0 transition-colors"
                 >
-                  <div>
+                  <div className="text-slate-900 dark:text-white">
                     <p className="text-xs font-bold">{ex.nome}</p>
-                    <p className="text-[10px] opacity-50">
+                    <p className="text-[10px] opacity-60">
                       {ex.alvo_principal}
                     </p>
                   </div>
