@@ -1742,8 +1742,8 @@ const Training = () => {
       </footer>
 
       {selectorConfig.isOpen && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="bg-[#121212] border border-white/10 w-full max-w-md rounded-[32px] overflow-visible shadow-2xl animate-in zoom-in-95 duration-200 min-h-[400px]">
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-start justify-center p-6 pt-4 h-[100svh]">
+          <div className="bg-[#121212] border border-white/10 w-full max-w-md rounded-[32px] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 min-h-[400px] max-h-[calc(100svh-32px)]">
             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5 rounded-t-[32px]">
               <h3 className="text-lg font-black uppercase tracking-widest text-white">
                 {selectorConfig.mode === 'add' ? 'Adicionar Exercício' : 'Alterar Exercício'}
