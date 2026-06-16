@@ -941,12 +941,12 @@ const Training = () => {
               <input
                 type="number"
                 value={bpm}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) =>
                   setBpm(
                     Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
                   )
                 }
-                onFocus={(e) => e.target.select()}
                 className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
               />
               <span className="text-[8px] font-bold opacity-60">BPM</span>
@@ -1156,7 +1156,7 @@ const Training = () => {
                     </div>
                   </div>
 
-                  {isCurrent && (
+                  {isCurrent ? (
                     <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                       {/* Integrated Timer */}
                       <div
@@ -1220,8 +1220,8 @@ const Training = () => {
                           <input
                             type="number"
                             value={state.cargas[ex.exercicio_id] ?? ""}
-                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", exId: ex.exercicio_id, val: e.target.value })}
                             onFocus={(e) => e.target.select()}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", exId: ex.exercicio_id, val: e.target.value })}
                             className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                           />
                         </div>
@@ -1230,8 +1230,8 @@ const Training = () => {
                           <input
                             type="number"
                             value={state.repsFeitas[ex.exercicio_id] ?? ""}
-                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", exId: ex.exercicio_id, val: e.target.value })}
                             onFocus={(e) => e.target.select()}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", exId: ex.exercicio_id, val: e.target.value })}
                             className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                           />
                         </div>
@@ -1274,318 +1274,314 @@ const Training = () => {
                           <SkipForward size={12} /> Pular Exercício
                         </button>
                       )}
-                    </div>
-                  )}
 
-                  <div className="mt-2">
-                    <div className="flex justify-between items-center w-full mb-2">
-                      <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
-                      {isCurrent && (
-                        <div className="relative">
+                      <div className="mt-6 pt-6 border-t border-white/10">
+                        <div className="flex justify-between items-center w-full mb-2">
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenSeriesMenuExId(openSeriesMenuExId === ex.exercicio_id ? null : ex.exercicio_id);
+                              }}
+                              className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+
+                            {openSeriesMenuExId === ex.exercicio_id && (
+                              <div
+                                className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest">Alterar Séries</p>
+                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                                    <button
+                                      key={n}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: n });
+                                        setOpenSeriesMenuExId(null);
+                                      }}
+                                      className={`aspect-square rounded-lg font-black text-xs transition-all ${ex.series_alvo === n ? "bg-white text-black" : "bg-white/5 hover:bg-white/10 text-white"}`}
+                                    >
+                                      {n}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: Math.max(1, ex.series_alvo - 1) });
+                                    setOpenSeriesMenuExId(null);
+                                  }}
+                                  className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Trash2 size={12} /> Remover Última
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex overflow-x-auto gap-2 py-3 px-2 max-w-full scrollbar-none">
+                          {[...Array(ex.series_alvo)].map((_, sIdx) => {
+                            const sNum = sIdx + 1;
+                            const execTime =
+                              state.exerciseTimes[ex.exercicio_id]?.[sIdx];
+                            const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
+                            const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
+                            const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
+                            const isCurrentS =
+                              isCurrent && sNum === state.currentSerie;
+                            const liveExec =
+                              isCurrentS && state.isTimerActive ? state.timer : null;
+                            const liveRest =
+                              state.activeRestTimers[ex.exercicio_id] &&
+                              sNum === state.exerciseTimes[ex.exercicio_id]?.length
+                                ? state.activeRestTimers[ex.exercicio_id].seconds
+                                : null;
+                            const nextPendingSNum =
+                              (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
+                            const isNextPending = sNum === nextPendingSNum;
+                            const isExecuted = sNum < nextPendingSNum;
+
+                            return (
+                              <div
+                                key={sIdx}
+                                className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
+                                  isCurrentS
+                                    ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
+                                    : isSkipped
+                                      ? isExecuted
+                                        ? "bg-red-950/60 border-red-500/10"
+                                        : isNextPending
+                                          ? "bg-red-500/10 border-red-500/40"
+                                          : "bg-red-950/20 border-transparent"
+                                      : isExecuted
+                                        ? "bg-black/20 border-white/5"
+                                        : "bg-black/5 border-transparent"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => {
+                                    if (isNextPending && !isCurrentS) {
+                                      dispatch({
+                                        type: "MANUAL_OVERRIDE",
+                                        bIdx,
+                                        eIdx,
+                                        sNum,
+                                      });
+                                      showToast(
+                                        `Foco alterado para Série ${sNum}`,
+                                        "info",
+                                      );
+                                    }
+                                  }}
+                                  className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
+                                  style={{
+                                    backgroundColor: isCurrentS
+                                      ? "rgba(255,255,255,0.2)"
+                                      : isNextPending
+                                        ? "var(--color-secondary)"
+                                        : "transparent",
+                                    opacity: isCurrentS || isNextPending ? 1 : 0.4,
+                                  }}
+                                >
+                                  {sNum}
+                                </button>
+                                <div
+                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                >
+                                  <div className="flex items-center gap-0.5">
+                                    <input
+                                      type="number"
+                                      value={load || ""}
+                                      placeholder="-"
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType: "load",
+                                          exId: ex.exercicio_id,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                    />
+                                    <span className={`text-[8px] font-bold opacity-40 ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                      kg
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-0.5">
+                                    <input
+                                      type="number"
+                                      value={reps || ""}
+                                      placeholder="-"
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType: "reps",
+                                          exId: ex.exercicio_id,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                    />
+                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                      reps
+                                    </span>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    <Clock
+                                      size={8}
+                                      className={`opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}
+                                    />
+                                    {liveExec !== null ? (
+                                      <span className="font-mono font-bold text-[9px] text-white">
+                                        {" "}
+                                        {formatTime(liveExec)}{" "}
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-0.5">
+                                        <input
+                                          type="number"
+                                          value={
+                                            execTime !== null &&
+                                            execTime !== undefined
+                                              ? Math.floor(execTime / 60)
+                                              : ""
+                                          }
+                                          placeholder="0"
+                                          readOnly={!execTime && execTime !== 0}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "exec",
+                                              exId: ex.exercicio_id,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "mins",
+                                            })
+                                          }
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                        <span className={`text-[9px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                          :
+                                        </span>
+                                        <input
+                                          type="number"
+                                          value={
+                                            execTime !== null &&
+                                            execTime !== undefined
+                                              ? String(execTime % 60).padStart(2, "0")
+                                              : ""
+                                          }
+                                          placeholder="00"
+                                          readOnly={!execTime && execTime !== 0}
+                                    onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "exec",
+                                              exId: ex.exercicio_id,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "secs",
+                                            })
+                                          }
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div
+                                    className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
+                                  >
+                                    {liveRest !== null ? (
+                                      <span className="font-mono text-[8px] font-bold">
+                                        {" "}
+                                        {formatTime(liveRest)}{" "}
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-0.5">
+                                        <input
+                                          type="number"
+                                          value={
+                                            restTime !== null &&
+                                            restTime !== undefined
+                                              ? Math.floor(restTime / 60)
+                                              : ""
+                                          }
+                                          placeholder="0"
+                                          readOnly={!restTime && restTime !== 0}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "rest",
+                                              exId: ex.exercicio_id,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "mins",
+                                            })
+                                          }
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                        <span className={`text-[8px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                          :
+                                        </span>
+                                        <input
+                                          type="number"
+                                          value={
+                                            restTime !== null &&
+                                            restTime !== undefined
+                                              ? String(restTime % 60).padStart(2, "0")
+                                              : ""
+                                          }
+                                          placeholder="00"
+                                          readOnly={!restTime && restTime !== 0}
+                                    onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "rest",
+                                              exId: ex.exercicio_id,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "secs",
+                                            })
+                                          }
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenSeriesMenuExId(openSeriesMenuExId === ex.exercicio_id ? null : ex.exercicio_id);
+                              dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: ex.series_alvo + 1 });
                             }}
-                            className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                            className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
                           >
-                            <MoreHorizontal size={14} />
+                            <Plus size={20} className="text-white/60" />
                           </button>
-
-                          {openSeriesMenuExId === ex.exercicio_id && (
-                            <div
-                              className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <p className="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest">Alterar Séries</p>
-                              <div className="grid grid-cols-4 gap-2 mb-4">
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                                  <button
-                                    key={n}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: n });
-                                      setOpenSeriesMenuExId(null);
-                                    }}
-                                    className={`aspect-square rounded-lg font-black text-xs transition-all ${ex.series_alvo === n ? "bg-white text-black" : "bg-white/5 hover:bg-white/10 text-white"}`}
-                                  >
-                                    {n}
-                                  </button>
-                                ))}
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: Math.max(1, ex.series_alvo - 1) });
-                                  setOpenSeriesMenuExId(null);
-                                }}
-                                className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
-                              >
-                                <Trash2 size={12} /> Remover Última
-                              </button>
-                            </div>
-                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                    <div className="flex overflow-x-auto gap-2 py-3 px-2 max-w-full scrollbar-none">
-                    {[...Array(ex.series_alvo)].map((_, sIdx) => {
-                      const sNum = sIdx + 1;
-                      const execTime =
-                        state.exerciseTimes[ex.exercicio_id]?.[sIdx];
-                      const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
-                      const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
-                      const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
-                      const isCurrentS =
-                        isCurrent && sNum === state.currentSerie;
-                      const liveExec =
-                        isCurrentS && state.isTimerActive ? state.timer : null;
-                      const liveRest =
-                        state.activeRestTimers[ex.exercicio_id] &&
-                        sNum === state.exerciseTimes[ex.exercicio_id]?.length
-                          ? state.activeRestTimers[ex.exercicio_id].seconds
-                          : null;
-                      const nextPendingSNum =
-                        (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
-                      const isNextPending = sNum === nextPendingSNum;
-                      const isExecuted = sNum < nextPendingSNum;
-
-                      return (
-                        <div
-                          key={sIdx}
-                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
-                            isCurrentS
-                              ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
-                              : isSkipped
-                                ? isExecuted
-                                  ? "bg-red-950/60 border-red-500/10"
-                                  : isNextPending
-                                    ? "bg-red-500/10 border-red-500/40"
-                                    : "bg-red-950/20 border-transparent"
-                                : isExecuted
-                                  ? "bg-black/20 border-white/5"
-                                  : "bg-black/5 border-transparent"
-                          }`}
-                        >
-                          <button
-                            onClick={() => {
-                              if (isNextPending && !isCurrentS) {
-                                dispatch({
-                                  type: "MANUAL_OVERRIDE",
-                                  bIdx,
-                                  eIdx,
-                                  sNum,
-                                });
-                                showToast(
-                                  `Foco alterado para Série ${sNum}`,
-                                  "info",
-                                );
-                              }
-                            }}
-                            className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
-                            style={{
-                              backgroundColor: isCurrentS
-                                ? "rgba(255,255,255,0.2)"
-                                : isNextPending
-                                  ? "var(--color-secondary)"
-                                  : "transparent",
-                              opacity: isCurrentS || isNextPending ? 1 : 0.4,
-                            }}
-                          >
-                            {sNum}
-                          </button>
-                          <div
-                            className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={load || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "load",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                onFocus={(e) => e.target.select()}
-                                className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                              />
-                              <span className={`text-[8px] font-bold opacity-40 ${isSkipped ? "text-red-300" : "text-white"}`}>
-                                kg
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={reps || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "reps",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                onFocus={(e) => e.target.select()}
-                                className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                              />
-                              <span className={`text-[7px] font-bold opacity-30 uppercase ${isSkipped ? "text-red-300" : "text-white"}`}>
-                                reps
-                              </span>
-                            </div>
-                          </div>
-                          <div
-                            className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-1">
-                              <Clock
-                                size={8}
-                                className={`opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}
-                              />
-                              {liveExec !== null ? (
-                                <span className="font-mono font-bold text-[9px] text-white">
-                                  {" "}
-                                  {formatTime(liveExec)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? Math.floor(execTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                                  />
-                                  <span className={`text-[9px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? String(execTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                            <div
-                              className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
-                            >
-                              {liveRest !== null ? (
-                                <span className="font-mono text-[8px] font-bold">
-                                  {" "}
-                                  {formatTime(liveRest)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? Math.floor(restTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                                  />
-                                  <span className={`text-[8px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? String(restTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {isCurrent && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: ex.series_alvo + 1 });
-                        }}
-                        className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
-                      >
-                        <Plus size={20} className="text-white/60" />
-                      </button>
-                    )}
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
                     );
                   })}
@@ -1746,17 +1742,17 @@ const Training = () => {
       </footer>
 
       {selectorConfig.isOpen && (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="text-lg font-black uppercase tracking-widest text-slate-800">
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="bg-[#121212] border border-white/10 w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+              <h3 className="text-lg font-black uppercase tracking-widest text-white">
                 {selectorConfig.mode === 'add' ? 'Adicionar Exercício' : 'Alterar Exercício'}
               </h3>
               <button
                 onClick={() => setSelectorConfig({ ...selectorConfig, isOpen: false })}
-                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
               >
-                <X size={20} className="text-slate-400" />
+                <X size={20} className="text-white/60" />
               </button>
             </div>
             <div className="p-6">

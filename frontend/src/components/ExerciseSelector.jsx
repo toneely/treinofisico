@@ -165,7 +165,7 @@ const ExerciseSelector = ({
             className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${
               modalidade === m
                 ? "shadow-md"
-                : "bg-slate-50 text-slate-400 border border-slate-100"
+                : "bg-black/5 dark:bg-white/5 opacity-60 border border-black/10 dark:border-white/10"
             }`}
             style={
               modalidade === m
@@ -184,21 +184,21 @@ const ExerciseSelector = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 border border-slate-200 rounded-lg text-left text-sm bg-white transition flex justify-between items-center"
+        className="w-full p-2 border border-black/10 dark:border-white/10 rounded-lg text-left text-sm bg-black/5 dark:bg-white/5 transition flex justify-between items-center"
         style={{ hoverBorderColor: "var(--color-primary)" }}
       >
-        <span className={selectedEx ? " font-medium" : "text-slate-400"}>
+        <span className={selectedEx ? "font-medium" : "opacity-40"}>
           {selectedEx ? selectedEx.nome : "Selecionar exercício..."}
         </span>
-        <Search size={14} className="text-slate-400" />
+        <Search size={14} className="opacity-40" />
       </button>
 
       {isOpen && (
-        <div className="absolute z-[100] mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-2 border-b border-slate-50 flex gap-2">
+        <div className="absolute z-[100] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="p-2 border-b border-black/5 dark:border-white/5 flex gap-2">
             <div className="relative flex-1">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300"
+                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-30"
                 size={12}
               />
               <input
@@ -207,7 +207,7 @@ const ExerciseSelector = ({
                 placeholder="Pesquisar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+                className="w-full pl-7 pr-2 py-1.5 bg-black/5 dark:bg-white/5 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)] text-inherit"
               />
             </div>
           </div>
@@ -226,11 +226,11 @@ const ExerciseSelector = ({
                 <button
                   key={`${ex.is_global ? "g" : "p"}_${ex.id}`}
                   onClick={() => handleSelection(ex)}
-                  className="w-full p-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0"
+                  className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between border-b border-black/5 dark:border-white/5 last:border-0 transition-colors"
                 >
                   <div>
-                    <p className="text-xs font-bold ">{ex.nome}</p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-xs font-bold">{ex.nome}</p>
+                    <p className="text-[10px] opacity-50">
                       {ex.alvo_principal}
                     </p>
                   </div>
@@ -250,7 +250,7 @@ const ExerciseSelector = ({
                 </button>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-slate-400">
+              <div className="p-4 text-center text-xs opacity-40">
                 Nenhum exercício encontrado.
               </div>
             )}
