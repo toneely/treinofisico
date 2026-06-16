@@ -184,7 +184,7 @@ const ExerciseSelector = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 border border-black/10 dark:border-white/10 rounded-lg text-left text-sm bg-black/5 dark:bg-white/5 transition flex justify-between items-center"
+        className="w-full p-2 border border-black/10 dark:border-zinc-800 rounded-lg text-left text-sm bg-black/5 dark:bg-zinc-900/50 dark:text-slate-100 transition flex justify-between items-center"
         style={{ hoverBorderColor: "var(--color-primary)" }}
       >
         <span className={selectedEx ? "font-medium" : "opacity-40"}>
@@ -194,11 +194,11 @@ const ExerciseSelector = ({
       </button>
 
       {isOpen && (
-        <div className="absolute z-[110] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-2 border-b border-black/5 dark:border-white/5 flex gap-2">
+        <div className="absolute z-[110] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-zinc-950 border border-black/10 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="p-2 border-b border-black/5 dark:border-zinc-800/50 flex gap-2">
             <div className="relative flex-1">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-30"
+                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-30 dark:text-zinc-500"
                 size={12}
               />
               <input
@@ -207,7 +207,7 @@ const ExerciseSelector = ({
                 placeholder="Pesquisar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 bg-black/5 dark:bg-white/5 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)] text-inherit"
+                className="w-full pl-7 pr-2 py-1.5 bg-black/5 dark:bg-zinc-900/50 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)] text-inherit dark:text-slate-100 dark:placeholder:text-zinc-500"
               />
             </div>
           </div>
@@ -226,11 +226,11 @@ const ExerciseSelector = ({
                 <button
                   key={`${ex.is_global ? "g" : "p"}_${ex.id}`}
                   onClick={() => handleSelection(ex)}
-                  className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between border-b border-black/5 dark:border-white/5 last:border-0 transition-colors"
+                  className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-zinc-800 flex items-center justify-between border-b border-black/5 dark:border-zinc-800/30 last:border-0 transition-colors"
                 >
-                  <div className="text-slate-900 dark:text-white">
+                  <div className="text-slate-900 dark:text-slate-100">
                     <p className="text-xs font-bold">{ex.nome}</p>
-                    <p className="text-[10px] opacity-60">
+                    <p className="text-[10px] opacity-60 dark:text-zinc-400 dark:opacity-100">
                       {ex.alvo_principal}
                     </p>
                   </div>
