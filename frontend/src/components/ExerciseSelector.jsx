@@ -152,6 +152,35 @@ const ExerciseSelector = ({
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
+      {/* Categoria Selector Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-1 scrollbar-none no-scrollbar">
+        {modalidades.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setModalidade(m);
+              if (!isOpen) setIsOpen(true);
+            }}
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${
+              modalidade === m
+                ? "shadow-md"
+                : "bg-slate-50 text-slate-400 border border-slate-100"
+            }`}
+            style={
+              modalidade === m
+                ? {
+                    backgroundColor: "var(--color-primary)",
+                    color: "var(--text-on-primary)",
+                  }
+                : {}
+            }
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -167,17 +196,6 @@ const ExerciseSelector = ({
       {isOpen && (
         <div className="absolute z-[100] mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           <div className="p-2 border-b border-slate-50 flex gap-2">
-            <select
-              value={modalidade}
-              onChange={(e) => setModalidade(e.target.value)}
-              className="p-1.5 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-            >
-              {modalidades.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
             <div className="relative flex-1">
               <Search
                 className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300"
