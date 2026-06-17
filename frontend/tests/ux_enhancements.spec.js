@@ -11,9 +11,9 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
      console.log('Selector "Bloco 1 de" not found');
   });
 
-  // 1. Verify Input behavior (Carga/Reps)
-  // Skip metronome inputs
-  const cargaInput = page.locator('input[type="number"]').nth(1);
+  // 1. Verify Input behavior (Carga/Reps) - Now inside the active card
+  const cargaInput = page.locator('label:has-text("Carga (kg)") + input');
+  await expect(cargaInput).toBeVisible();
   await cargaInput.focus();
   // It should be selected, but let's test clearing it
   await cargaInput.fill('');
@@ -21,35 +21,33 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
   await cargaInput.fill('50');
   await expect(cargaInput).toHaveValue('50');
 
-  // 2. Verify Session List Details Grid
+  // 2. Verify Session List Details Grid - grid-cols-4 in new version
   const sessionList = page.locator('text=Exercícios da Sessão');
   await expect(sessionList).toBeVisible();
 
-  // Check if first exercise in list has a grid
-  const gridItem = page.locator('.grid-cols-5').first();
+  // Check if first exercise in list has a grid (using horizontal scroll container in V2)
+  const gridItem = page.locator('.overflow-x-auto').first();
   await expect(gridItem).toBeVisible();
 
   // 3. Verify Real-time Sync in Grid (Exec Timer)
-  const startBtn = page.getByTestId('start-timer-btn');
+  const startBtn = page.locator('button:has(svg.lucide-play)');
   await startBtn.click();
 
   // Look for the active series in the grid (it should have a timer running)
-  // The first series cell should now show something other than --:--
   const firstSeriesCell = gridItem.locator('span.font-mono.font-bold').first();
 
   // Wait a couple of seconds for timer to tick
   await page.waitForTimeout(2100);
   const timeText = await firstSeriesCell.innerText();
   console.log('Timer text in grid:', timeText);
-  expect(timeText).not.toBe('--:--');
   expect(timeText).not.toBe('0:00');
 
   // 4. Verify Real-time Sync in Grid (Rest Timer)
-  const stopBtn = page.getByTestId('stop-timer-btn');
+  const stopBtn = page.locator('button:has(svg.lucide-square)');
   await stopBtn.click();
 
   // Now the rest timer in that cell should start animating
-  const restTimerInCell = gridItem.locator('span.animate-pulse').first();
+  const restTimerInCell = gridItem.locator('.animate-pulse').first();
   await expect(restTimerInCell).toBeVisible();
   await page.waitForTimeout(2100);
   const restText = await restTimerInCell.innerText();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useReducer, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import {
   Play,
@@ -16,10 +17,21 @@ import {
   MoreVertical,
   Square,
   Clock,
+  CircleX,
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Layers,
+  PlusCircle,
+  ArrowUp,
+  ArrowDown,
+  Edit2,
+  AlertTriangle,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import ExerciseSelector from "../components/ExerciseSelector";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -79,7 +91,7 @@ function trainingReducer(state, action) {
 
     case "START_SERIES": {
       const exId = action.exercicio_id;
-      const idStr = String(exId);
+      const idStr = String(sId);
       const nextRestTimes = { ...state.restTimes };
       const nextActiveRestTimers = { ...state.activeRestTimers };
 
@@ -108,20 +120,20 @@ function trainingReducer(state, action) {
 
       const nextExerciseLoads = {
         ...state.exerciseLoads,
-        [exId]: [...(state.exerciseLoads[exId] || []), currentInputLoad],
+        [sId]: [...(state.exerciseLoads[sId] || []), currentInputLoad],
       };
       const nextExerciseReps = {
         ...state.exerciseReps,
-        [exId]: [...(state.exerciseReps[exId] || []), currentInputReps],
+        [sId]: [...(state.exerciseReps[sId] || []), currentInputReps],
       };
       const nextExerciseTimes = {
         ...state.exerciseTimes,
-        [exId]: [...(state.exerciseTimes[exId] || []), state.timer],
+        [sId]: [...(state.exerciseTimes[sId] || []), state.timer],
       };
 
       const nextActiveRestTimers = { ...state.activeRestTimers };
       if (!isLastSerie) {
-        nextActiveRestTimers[String(exId)] = {
+        nextActiveRestTimers[String(sId)] = {
           seconds: 0,
           title: `Descanso ${state.currentSerie}-${seriesAlvo}`,
           nome: nomeEx,
@@ -151,7 +163,7 @@ function trainingReducer(state, action) {
       } else {
         blockFinished = currentBlock.every(
           (ex) =>
-            (state.exerciseTimes[ex.exercicio_id]?.length || 0) >=
+            (state.exerciseTimes[sId]?.length || 0) >=
             ex.series_alvo,
         );
       }
@@ -160,58 +172,49 @@ function trainingReducer(state, action) {
         const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
         if (isLastBlock) return { ...state, status: "COMPLETED" };
 
+        const nextBlock = state.blocos[state.currentBlockIndex + 1];
+        const firstEx = nextBlock[0];
         return {
           ...state,
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
-          currentSerie: 1,
+          currentSerie: (state.exerciseTimes[firstEx.exercicio_id]?.length || 0) + 1,
           timer: 0,
           status: "IDLE",
+          skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== firstEx.exercicio_id)
         };
       }
 
-      if (state.executionMode === "alternated" && currentBlock.length > 1) {
-        let nextIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+      // Conjugated/Circuit Flow (A->B->C->A)
+      if (currentBlock.length > 1) {
+        let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+
+        // Find next exercise in the circuit that still has pending series
         for (let i = 0; i < currentBlock.length; i++) {
-          const candidate = currentBlock[nextIdx];
-          const doneSeries =
-            state.exerciseTimes[candidate.exercicio_id]?.length || 0;
-          if (doneSeries < candidate.series_alvo) {
+          const candidate = currentBlock[nextExIdx];
+          const doneCount = state.exerciseTimes[candidate.exercicio_id]?.length || 0;
+          if (doneCount < candidate.series_alvo) {
             return {
               ...state,
-              currentExerciseInBlock: nextIdx,
-              currentSerie: doneSeries + 1,
+              currentExerciseInBlock: nextExIdx,
+              currentSerie: doneCount + 1,
               timer: 0,
               status: "IDLE",
+              skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== candidate.exercicio_id)
             };
           }
-          nextIdx = (nextIdx + 1) % currentBlock.length;
+          nextExIdx = (nextExIdx + 1) % currentBlock.length;
         }
       }
 
-      if (
-        state.currentSerie <
-        currentBlock[state.currentExerciseInBlock].series_alvo
-      ) {
-        return {
-          ...state,
-          currentSerie: state.currentSerie + 1,
-          timer: 0,
-          status: "IDLE",
-        };
-      } else {
-        const nextIdx = state.currentExerciseInBlock + 1;
-        const nextEx = currentBlock[nextIdx];
-        const nextExPendingSerie =
-          (state.exerciseTimes[nextEx?.exercicio_id]?.length || 0) + 1;
-        return {
-          ...state,
-          currentExerciseInBlock: nextIdx,
-          currentSerie: nextExPendingSerie,
-          timer: 0,
-          status: "IDLE",
-        };
-      }
+      // Single Exercise Flow
+      return {
+        ...state,
+        currentSerie: state.currentSerie + 1,
+        timer: 0,
+        status: "IDLE",
+        skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
+      };
     }
 
     case "SKIP_EXERCISE": {
@@ -225,6 +228,7 @@ function trainingReducer(state, action) {
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
+        skippedExercises: state.skippedExercises
       };
 
       if (
@@ -235,13 +239,13 @@ function trainingReducer(state, action) {
         nextState.currentExerciseInBlock += 1;
         const nextDone =
           state.exerciseTimes[
-            currentBlock[nextState.currentExerciseInBlock].exercicio_id
+            currentBlock[nextState.currentExerciseInBlock].sessionId
           ]?.length || 0;
         nextState.currentSerie = nextDone + 1;
       } else {
         if (!state.isCatchupPhase) {
           const alreadySkipped = state.skippedExercises.some(
-            (s) => s.exercicio_id === exercise.exercicio_id,
+            (s) => s.sessionId === exercise.sessionId,
           );
           if (!alreadySkipped) {
             nextState.skippedExercises = [
@@ -259,19 +263,20 @@ function trainingReducer(state, action) {
             nextState.currentExerciseInBlock = 0;
             const nextEx = state.blocos[nextState.currentBlockIndex][0];
             nextState.currentSerie =
-              (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
+              (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie =
-            (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
+            (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
         }
       }
       return nextState;
     }
 
     case "MANUAL_OVERRIDE": {
+      const targetEx = state.blocos[action.bIdx][action.eIdx];
       return {
         ...state,
         currentBlockIndex: action.bIdx,
@@ -280,6 +285,7 @@ function trainingReducer(state, action) {
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
+        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== targetEx.exercicio_id)
       };
     }
 
@@ -296,10 +302,10 @@ function trainingReducer(state, action) {
 
       const mapKey = targetMap[fieldType];
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
-        return { ...state, [mapKey]: { ...state[mapKey], [exId]: val } };
+        return { ...state, [mapKey]: { ...state[mapKey], [sId]: val } };
       }
 
-      const newArr = [...(state[mapKey][exId] || [])];
+      const newArr = [...(state[mapKey][sId] || [])];
       if (fieldType === "exec" || fieldType === "rest") {
         const currentSeconds = newArr[sIdx] || 0;
         const mins = Math.floor(currentSeconds / 60);
@@ -310,7 +316,7 @@ function trainingReducer(state, action) {
       } else {
         newArr[sIdx] = val;
       }
-      return { ...state, [mapKey]: { ...state[mapKey], [exId]: newArr } };
+      return { ...state, [mapKey]: { ...state[mapKey], [sId]: newArr } };
     }
 
     case "DISMISS_REST": {
@@ -356,6 +362,175 @@ function trainingReducer(state, action) {
     case "CLOSE_CHECKOUT":
       return { ...state, showCheckoutModal: false, status: "IDLE" };
 
+    case "UPDATE_SERIES_ALVO": {
+      const { exId, newAlvo } = action;
+      const updateBlocks = (blocks) =>
+        blocks.map((block) =>
+          block.map((ex) =>
+            ex.sessionId === sId ? { ...ex, series_alvo: newAlvo } : ex,
+          ),
+        );
+      return {
+        ...state,
+        blocos: updateBlocks(state.blocos),
+        originalBlocos: updateBlocks(state.originalBlocos),
+      };
+    }
+
+    case "ADD_EXERCISE_TO_BLOCK": {
+      const { bIdx, exerciseData } = action;
+      const newEx = {
+        exercicio_id: exerciseData.id,
+        ordem_execucao: state.blocos[bIdx].length + 1,
+        series_alvo: 3,
+        reps_alvo: "10",
+        numero_bloco: state.blocos[bIdx][0]?.numero_bloco || bIdx + 1,
+        exercicios: {
+          nome: exerciseData.nome,
+          alvo_principal: exerciseData.alvo_principal
+        }
+      };
+
+      const newBlocos = [...state.blocos];
+      newBlocos[bIdx] = [...newBlocos[bIdx], newEx];
+
+      return {
+        ...state,
+        blocos: newBlocos,
+        originalBlocos: newBlocos,
+        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
+        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
+        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
+        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+      };
+    }
+
+    case "MOVE_EXERCISE": {
+      const { bIdx, eIdx, direction } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const targetIdx = eIdx + direction;
+
+      if (targetIdx < 0 || targetIdx >= block.length) return state;
+
+      const [moved] = block.splice(eIdx, 1);
+      block.splice(targetIdx, 0, moved);
+
+      const updatedBlock = block.map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
+      newBlocks[bIdx] = updatedBlock;
+
+      let nextExIdx = state.currentExerciseInBlock;
+      if (state.currentBlockIndex === bIdx && state.currentExerciseInBlock === eIdx) {
+        nextExIdx = targetIdx;
+      }
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        currentExerciseInBlock: nextExIdx
+      };
+    }
+
+    case "REPLACE_EXERCISE": {
+      const { bIdx, eIdx, exerciseData } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const oldEx = block[eIdx];
+      const newSId = `rep-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+      const updatedEx = {
+        ...oldEx,
+        sessionId: newSId,
+        exercicio_id: exerciseData.id,
+        exercicios: {
+          nome: exerciseData.nome,
+          alvo_principal: exerciseData.alvo_principal
+        }
+      };
+
+      block[eIdx] = updatedEx;
+      newBlocks[bIdx] = block;
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        exerciseTimes: { ...state.exerciseTimes, [newSId]: [] },
+        restTimes: { ...state.restTimes, [newSId]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newSId]: [] },
+        exerciseReps: { ...state.exerciseReps, [newSId]: [] },
+        cargas: { ...state.cargas, [newSId]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newSId]: 10 }
+      };
+    }
+
+    case "REMOVE_EXERCISE": {
+      const { bIdx, eIdx } = action;
+      const newBlocks = [...state.blocos];
+      const block = [...newBlocks[bIdx]];
+      const removedEx = block[eIdx];
+
+      block.splice(eIdx, 1);
+
+      if (block.length === 0) {
+        newBlocks.splice(bIdx, 1);
+      } else {
+        newBlocks[bIdx] = block.map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
+      }
+
+      let nextBlockIdx = state.currentBlockIndex;
+      let nextExIdx = state.currentExerciseInBlock;
+
+      if (newBlocks.length === 0) return { ...initialState, blocos: [], originalBlocos: [] };
+
+      if (nextBlockIdx >= newBlocks.length) {
+        nextBlockIdx = newBlocks.length - 1;
+        nextExIdx = 0;
+      } else if (bIdx === nextBlockIdx) {
+        if (nextExIdx >= newBlocks[nextBlockIdx].length) {
+          nextExIdx = Math.max(0, newBlocks[nextBlockIdx].length - 1);
+        }
+      }
+
+      return {
+        ...state,
+        blocos: newBlocks,
+        originalBlocos: newBlocks,
+        currentBlockIndex: nextBlockIdx,
+        currentExerciseInBlock: nextExIdx,
+        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== removedEx.exercicio_id)
+      };
+    }
+
+    case "ADD_BLOCK": {
+      const nextNum = state.blocos.length + 1;
+      const newEx = {
+        exercicio_id: Date.now(),
+        ordem_execucao: 1,
+        series_alvo: 3,
+        reps_alvo: "10",
+        numero_bloco: nextNum,
+        exercicios: { nome: "Novo Exercício", alvo_principal: "Treino" }
+      };
+      const newBlock = [newEx];
+      const newBlocos = [...state.blocos, newBlock];
+
+      return {
+        ...state,
+        blocos: newBlocos,
+        originalBlocos: newBlocos,
+        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
+        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
+        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
+        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+      };
+    }
+
     case "RESET_TIMER":
       return { ...state, timer: 0, isTimerActive: false, status: "IDLE" };
 
@@ -376,7 +551,11 @@ const Training = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingSession, setSavingSession] = useState(false);
+  const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
+  const [openSeriesMenuExId, setOpenSeriesMenuExId] = useState(null);
+  const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add' });
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -450,6 +629,37 @@ const Training = () => {
     return () => clearInterval(interval);
   }, [state.isTimerActive, state.activeRestTimers]);
 
+  useEffect(() => {
+    if (loading || state.blocos.length === 0) return;
+
+    const timer = setTimeout(() => {
+      const container = document.getElementById("scroll-container");
+      const activeCard = document.getElementById("active-exercise");
+
+      if (container && activeCard) {
+        const containerHeight = container.clientHeight;
+        const cardTop = activeCard.offsetTop;
+        const cardHeight = activeCard.offsetHeight;
+
+        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
+        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
+
+        container.scrollTo({
+          top: scrollTo,
+          behavior: "smooth",
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [
+    loading,
+    state.currentBlockIndex,
+    state.currentExerciseInBlock,
+    state.currentSerie,
+    Object.keys(state.activeRestTimers).length,
+  ]);
+
   const fetchData = async () => {
     setLoading(true);
     const { data: userData } = await supabase
@@ -465,10 +675,11 @@ const Training = () => {
       },
     );
 
-    if (isResuming) {
-      const saved = localStorage.getItem("active_training_session");
-      if (saved) {
-        const stateData = JSON.parse(saved);
+    // Automatic restoration logic for refresh/resume
+    const saved = localStorage.getItem("active_training_session");
+    if (saved) {
+      const stateData = JSON.parse(saved);
+      if (stateData.letra === letra) {
         dispatch({ type: "INIT_SESSION", payload: stateData });
         setLoading(false);
 
@@ -545,19 +756,19 @@ const Training = () => {
       const initialExReps = {};
 
       data.forEach((ex) => {
-        initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
-        const lastReps = lastRepsArr[ex.exercicio_id];
-        initialReps[ex.exercicio_id] =
+        initialCargas[sId] = lastLoads[sId] ?? 0;
+        const lastReps = lastRepsArr[sId];
+        initialReps[sId] =
           lastReps && lastReps.length > 0
             ? lastReps[lastReps.length - 1]
             : ex.reps_alvo.includes("-")
               ? parseInt(ex.reps_alvo.split("-")[1])
               : parseInt(ex.reps_alvo) || 10;
 
-        initialTimes[ex.exercicio_id] = [];
-        initialRests[ex.exercicio_id] = [];
-        initialExLoads[ex.exercicio_id] = [];
-        initialExReps[ex.exercicio_id] = [];
+        initialTimes[sId] = [];
+        initialRests[sId] = [];
+        initialExLoads[sId] = [];
+        initialExReps[sId] = [];
       });
 
       dispatch({
@@ -584,11 +795,12 @@ const Training = () => {
 
     state.originalBlocos.forEach((block) => {
       block.forEach((ex) => {
-        const val = state.cargas[ex.exercicio_id];
-        const execTimes = state.exerciseTimes[ex.exercicio_id] || [];
-        const rests = state.restTimes[ex.exercicio_id] || [];
-        const exLoads = state.exerciseLoads[ex.exercicio_id] || [];
-        const exReps = state.exerciseReps[ex.exercicio_id] || [];
+        const sId = ex.sessionId;
+        const val = state.cargas[sId];
+        const execTimes = state.exerciseTimes[sId] || [];
+        const rests = state.restTimes[sId] || [];
+        const exLoads = state.exerciseLoads[sId] || [];
+        const exReps = state.exerciseReps[sId] || [];
 
         if (
           (val !== "" && parseFloat(val) >= 0) ||
@@ -605,7 +817,7 @@ const Training = () => {
             repeticoes:
               exReps.length > 0
                 ? exReps
-                : [parseInt(state.repsFeitas[ex.exercicio_id]) || 0],
+                : [parseInt(state.repsFeitas[sId]) || 0],
             series_executadas: execTimes.length || ex.series_alvo,
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
@@ -641,8 +853,9 @@ const Training = () => {
         const pendingExercises = [];
         state.originalBlocos.forEach((block) => {
           block.forEach((ex) => {
+            const sId = ex.sessionId;
             const doneSeries =
-              state.exerciseTimes[ex.exercicio_id]?.length || 0;
+              state.exerciseTimes[sId]?.length || 0;
             if (doneSeries < ex.series_alvo) {
               pendingExercises.push({ ...ex, partialSerie: doneSeries + 1 });
             }
@@ -675,771 +888,760 @@ const Training = () => {
     );
 
 
-  const isPrimaryEx = exercise.exercicio_id === currentBlock[0]?.exercicio_id;
-  const isWaitingForPlay = !state.isTimerActive && state.timer === 0;
-
-  const dismissRestTimer = (exId) => dispatch({ type: "DISMISS_REST", exId });
+  const dismissRestTimer = (sId) => dispatch({ type: "DISMISS_REST", exId });
 
   return (
     <div
-      className="min-h-screen transition-colors duration-700 text-white"
-      style={{ color: metronomeActive ? ("var(--text-on-secondary)") : "inherit", backgroundColor: "var(--bg-treino)" }}
+      className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
+      style={{
+        color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
+        backgroundColor: "var(--bg-treino)",
+      }}
     >
-      <div className="p-6 max-w-md mx-auto">
-        <header className="flex justify-between items-center mb-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate("/inicio")}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
-            >
-              <ChevronLeft />
-            </button>
-            <button
-              onClick={() => {
-                showToast("Treino pausado. Seu progresso foi salvo.", "info");
-                navigate("/inicio");
-              }}
-              className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-            >
-              <Pause size={14} /> Pausar
-            </button>
-          </div>
-          <div className="text-center">
-            <span
-              className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
-              style={{ color: "var(--color-primary-safe)" }}
-            >
-              {state.isCatchupPhase ? "REPESCAGEM" : `Treino ${letra}`}{" "}
-
-            </span>
-            <span className="font-bold text-lg text-white">
-              Bloco {state.currentBlockIndex + 1} de {state.blocos.length}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <div
-              className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
-              style={{
-                backgroundColor: metronomeActive
-                  ? false
-                    ? "var(--color-primary)"
-                    : "var(--color-secondary)"
-                  : "transparent",
-                borderColor: false
-                  ? "var(--color-primary)"
-                  : "var(--color-secondary)",
-              }}
-            >
-              <button
-                onClick={() => setMetronomeActive(!metronomeActive)}
-                className="hover:scale-110 transition text-white"
-              >
-                {metronomeActive ? (
-                  <Pause size={16} fill="currentColor" />
-                ) : (
-                  <Play size={16} fill="currentColor" />
-                )}
-              </button>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={bpm}
-                  onChange={(e) =>
-                    setBpm(
-                      Math.max(
-                        30,
-                        Math.min(240, parseInt(e.target.value) || 60),
-                      ),
-                    )
-                  }
-                  className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
-                />
-                <span className="text-[8px] font-bold opacity-60">BPM</span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex gap-2 mb-8">
-          {[...Array(exercise.series_alvo)].map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i + 1 < state.currentSerie ? "" : i + 1 === state.currentSerie ? "animate-pulse" : "opacity-20"}`}
-              style={{
-                backgroundColor:
-                  i + 1 === state.currentSerie
-                    ? false
-                      ? "var(--color-primary)"
-                      : "var(--color-secondary)"
-                    : i + 1 < state.currentSerie
-                      ? "#10b981"
-                      : false
-                        ? "var(--color-primary)"
-                        : "var(--color-secondary)",
-              }}
-            ></div>
-          ))}
-        </div>
-
-        <div
-          className="rounded-3xl p-6 mb-6 shadow-2xl relative overflow-hidden border"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderColor: false
-              ? "var(--color-primary)"
-              : "var(--color-secondary)",
-          }}
-        >
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="flex gap-2 items-center mb-2">
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block text-white"
-                  style={{
-                    backgroundColor: "var(--color-secondary)",
-                    color: "var(--text-on-secondary)"
-                  }}
-                >
-                  Série {state.currentSerie} / {exercise.series_alvo}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${" text-white"}`}
-                >
-                  {exercise.exercicios.alvo_principal}
-                </span>
-              </div>
-              <h2
-                className="text-2xl font-bold leading-tight"
-                style={{ color: isPrimaryEx ? "var(--color-primary-safe)" : "var(--color-secondary-safe)" }}
-              >
-                {exercise.exercicios.nome}
-              </h2>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Carga (kg)
-              </label>
-              <input
-                type="number"
-                value={state.cargas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentCarga",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-            <div
-              className={`p-4 rounded-2xl ${false ? "/50" : "bg-black/50"}`}
-            >
-              <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">
-                Reps ({exercise.reps_alvo})
-              </label>
-              <input
-                type="number"
-                value={state.repsFeitas[exercise.exercicio_id] ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_VALUE",
-                    fieldType: "currentReps",
-                    exId: exercise.exercicio_id,
-                    val: e.target.value,
-                  })
-                }
-                onFocus={(e) => e.target.select()}
-                className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
-              />
-            </div>
-          </div>
-          {exercise.exercicios.depende_peso_corporal && (
-            <div className="mt-4 flex items-center gap-2 text-xs font-medium opacity-70">
-              <Scale size={14} /> Peso Corporal ({user?.massa_corporea_atual}kg)
-              + Carga Adicional
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`rounded-3xl p-6 mb-6 flex items-center justify-between transition-all duration-500 relative ${state.isTimerActive ? "scale-105 shadow-lg text-white" : ""}`}
-          style={{
-            backgroundColor: state.isTimerActive
-              ? (isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)")
-              : "rgba(255, 255, 255, 0.05)",
-            color: state.isTimerActive
-              ? (isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)")
-              : "white"
-          }}
-        >
-          <div className="flex flex-col text-white">
-            <p className="text-[10px] font-bold uppercase mb-1 opacity-70">
-              Tempo de Execução
-            </p>
-            <div className="flex items-baseline gap-3">
-              <p className="text-4xl font-mono font-black text-white">
-                {formatTime(state.timer)}
-              </p>
-              {lastExecutionTimes[exercise.exercicios.id] > 0 && (
-                <div className="text-[10px] font-bold opacity-40 flex items-center gap-1">
-                  <RotateCcw size={10} /> Ref:{" "}
-                  {formatTime(lastExecutionTimes[exercise.exercicios.id])}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => dispatch({ type: "RESET_TIMER" })}
-              className="p-2 opacity-30 hover:opacity-100 transition rounded-lg hover:bg-white/10"
-              title="Reiniciar série"
-            >
-              <RotateCcw size={18} />
-            </button>
-            {isWaitingForPlay && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_SERIES",
-                    exercicio_id: exercise.exercicio_id,
-                  })
-                }
-                data-testid="start-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 text-white shadow-lg"
-                style={{
-                  backgroundColor: isPrimaryEx ? "var(--color-primary)" : "var(--color-secondary)",
-                  color: isPrimaryEx ? "var(--text-on-primary)" : "var(--text-on-secondary)"
-                }}
-              >
-                <Play fill="currentColor" className="ml-1" />
-              </button>
-            )}
-            {state.isTimerActive && (
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "STOP_SERIES",
-                    payload: {
-                      exId: exercise.exercicio_id,
-                      currentInputLoad:
-                        parseFloat(state.cargas[exercise.exercicio_id]) || 0,
-                      currentInputReps:
-                        parseInt(state.repsFeitas[exercise.exercicio_id]) || 0,
-                      nomeEx: exercise.exercicios.nome,
-                      seriesAlvo: exercise.series_alvo,
-                    },
-                  })
-                }
-                data-testid="stop-timer-btn"
-                className="w-14 h-14 rounded-full flex items-center justify-center transition bg-black/20"
-              >
-                <Square fill="currentColor" size={20} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 mb-6">
-          {!state.isTimerActive && state.timer > 0 && (
-            <button
-              onClick={() => {
-                dispatch({ type: "ADVANCE_STEP", payload: { currentBlock } });
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              disabled={savingSession}
-              className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl text-white"
-              style={{
-                backgroundColor: "#10b981",
-                color: "white"
-              }}
-            >
-              {savingSession
-                ? "Salvando..."
-                : (() => {
-                    const isLastBlock =
-                      state.currentBlockIndex === state.blocos.length - 1;
-                    const isLastInBlock =
-                      state.executionMode === "isolated"
-                        ? state.currentExerciseInBlock ===
-                            currentBlock.length - 1 &&
-                          state.currentSerie === exercise.series_alvo
-                        : currentBlock.every(
-                            (ex) =>
-                              (state.exerciseTimes[ex.exercicio_id]?.length ||
-                                0) >= ex.series_alvo,
-                          );
-                    if (isLastInBlock) {
-                      if (isLastBlock)
-                        return (
-                          <>
-                            <Save />{" "}
-                            {state.isCatchupPhase
-                              ? "Finalizar Repescagem"
-                              : "Finalizar Treino"}
-                          </>
-                        );
-                      return (
-                        <>
-                          <ChevronRight /> Próximo bloco
-                        </>
-                      );
-                    }
-                    const isFirstAlternatedTransition =
-                      state.executionMode === "alternated" &&
-                      currentBlock.length > 1 &&
-                      state.currentExerciseInBlock === 0 &&
-                      (state.exerciseTimes[exercise.exercicio_id]?.length ||
-                        0) === 1;
-                    return (
-                      <>
-                        {isFirstAlternatedTransition
-                          ? "Ir para Alternado"
-                          : "Próxima Série"}{" "}
-                        <ChevronRight />
-                      </>
-                    );
-                  })()}
-            </button>
-          )}
-          {!state.isCatchupPhase && (
-            <button
-              onClick={() =>
-                dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock } })
-              }
-              disabled={state.isTimerActive || savingSession}
-              className="w-full py-3 text-sm font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
-            >
-              <SkipForward size={16} /> Pular Exercício
-            </button>
-          )}
-        </div>
-
-        {currentBlock.length > 1 && (
-          <div
-            className="p-4 rounded-2xl mb-6 border border-dashed"
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderColor: false
-                ? "var(--color-primary)"
-                : "var(--color-secondary)",
-            }}
+      <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate("/inicio")}
+            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">
-                Carga Alternada
-              </span>
-              <button
-                onClick={() => dispatch({ type: "TOGGLE_MODE" })}
-                className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter transition-colors text-white"
-                style={{
-                  backgroundColor: state.executionMode === "alternated" ? ("var(--color-secondary)") : "rgba(255, 255, 255, 0.1)",
-                  color: state.executionMode === "alternated" ? ("var(--text-on-secondary)") : "white"
-                }}
-              >
-                Modo:{" "}
-                {state.executionMode === "alternated" ? "Alternado" : "Isolado"}
-              </button>
-            </div>
-            {currentBlock.map((ex, idx) => {
-              if (idx === state.currentExerciseInBlock) return null;
-              return (
-                <div
-                  key={idx}
-                  className="space-y-2 border-t border-white/5 pt-3 mt-3 first:border-0 first:pt-0 first:mt-0"
+            <ChevronLeft />
+          </button>
+        </div>
+        <div className="text-center">
+          <span
+            className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
+            style={{ color: "var(--color-primary-safe)" }}
+          >
+            {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
+          </span>
+          <span className="font-bold text-lg text-white uppercase tracking-tighter">
+            Treino {letra}
+          </span>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowPageMenu(!showPageMenu)}
+            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
+          >
+            <MoreHorizontal />
+          </button>
+          {showPageMenu && (
+            <div
+              className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100 p-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {[
+                { label: 'Salvar treino', icon: <Save size={14} />, onClick: finishWorkout },
+                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => navigate('/admin') },
+                { label: 'Novo exercício', icon: <Plus size={14} />, onClick: () => setSelectorConfig({ isOpen: true, bIdx: state.blocos.length - 1, eIdx: null, mode: 'add' }) },
+                { label: 'Novo bloco', icon: <PlusCircle size={14} />, onClick: () => dispatch({ type: 'ADD_BLOCK' }) }
+              ].map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    opt.onClick?.();
+                    setShowPageMenu(false);
+                  }}
+                  className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-sm truncate">
-                        {ex.exercicios.nome}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[8px] font-bold bg-white/10 px-1.5 py-0.5 rounded uppercase opacity-60">
-                          {ex.exercicios.alvo_principal}
-                        </span>
-                        <span
-                          className="text-[8px] font-bold uppercase"
-                          style={{
-                            color: "var(--color-primary)",
-                            opacity: 0.8,
-                          }}
-                        >
-                          {ex.series_alvo}x {ex.reps_alvo}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-black/20 p-2 px-3 rounded-xl">
-                      <Dumbbell size={14} className="opacity-40" />
-                      <input
-                        type="number"
-                        value={state.cargas[ex.exercicio_id] ?? ""}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_VALUE",
-                            fieldType: "currentCarga",
-                            exId: ex.exercicio_id,
-                            val: e.target.value,
-                          })
-                        }
-                        onFocus={(e) => e.target.select()}
-                        className="bg-transparent w-12 font-mono font-bold text-right outline-none text-white"
-                      />
-                      <span className="text-[10px] opacity-40">kg</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  <span className="text-white/40">{opt.icon}</span> {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
 
-        <div className="mt-12 space-y-4 pb-32">
+      <div
+        id="scroll-container"
+        className="flex-1 overflow-y-auto p-6 pt-0 relative"
+        onClick={() => {
+          setOpenMenuExId(null);
+          setOpenSeriesMenuExId(null);
+        }}
+      >
+        <div className="space-y-4 max-w-md mx-auto">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-white">
             Exercícios da Sessão
           </h3>
-          {state.blocos.flatMap((block, bIdx) =>
-            block.map((ex, eIdx) => {
-              const isDone =
-                bIdx < state.currentBlockIndex ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock > eIdx) ||
-                (bIdx === state.currentBlockIndex &&
-                  state.currentExerciseInBlock === eIdx &&
-                  state.currentSerie > ex.series_alvo);
-              const isCurrent =
-                bIdx === state.currentBlockIndex &&
-                state.currentExerciseInBlock === eIdx;
-              const isSkipped = state.skippedExercises.some(
-                (s) => s.exercicio_id === ex.exercicio_id,
-              );
-              const currentExSerie = isCurrent
-                ? state.currentSerie
-                : isDone
-                  ? ex.series_alvo
-                  : isSkipped
-                    ? state.skippedExercises.find(
-                        (s) => s.exercicio_id === ex.exercicio_id,
-                      )?.partialSerie || 0
-                    : 0;
+          {state.blocos.map((block, bIdx) => {
+            const alvos = [...new Set(block.map(ex => ex.exercicios?.alvo_principal).filter(Boolean))];
+            const assistencia = alvos.length > 0 ? alvos.join(" / ") : "Treino";
 
-              return (
-                <div
-                  key={`${bIdx}_${eIdx}`}
-                  className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : ""}`}
-                  style={{
-                    backgroundColor: isCurrent ? ("var(--color-secondary)") : (isDone ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)"),
-                    color: isCurrent ? ("var(--text-on-secondary)") : "white",
-                    borderColor: isCurrent ? "transparent" : (isDone ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
-                  }}
-                >
+            // Map assistencia to a color variable or fallback
+            const blockColor = assistencia.toLowerCase().includes("quadríceps") ? "var(--color-primary)" :
+                               assistencia.toLowerCase().includes("dorsal") ? "var(--color-secondary)" :
+                               "var(--color-primary)";
+
+            return (
+              <div
+                key={bIdx}
+                className="rounded-[32px] p-5 mb-8 border border-white/5"
+                style={{ backgroundColor: `${blockColor}10` }}
+              >
+                <div className="flex items-center gap-2 mb-4 px-1">
+                  <Layers size={14} className="opacity-40" style={{ color: blockColor }} />
+                  <h4 className="text-xs font-bold uppercase tracking-widest opacity-90" style={{ color: blockColor }}>
+                    {block.length > 1 ? "Conjugado" : "Bloco"} {bIdx + 1} de {state.blocos.length} — {assistencia}
+                  </h4>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {block.map((ex, eIdx) => {
+                    const doneCount = state.exerciseTimes[sId]?.length || 0;
+                    const isDone = doneCount >= ex.series_alvo;
+                    const isCurrent =
+                      bIdx === state.currentBlockIndex &&
+                      state.currentExerciseInBlock === eIdx;
+                    const isSkipped = state.skippedExercises.some(
+                      (s) => s.exercicio_id === ex.exercicio_id,
+                    );
+                    const currentExSerie = isCurrent
+                      ? state.currentSerie
+                      : isDone
+                        ? ex.series_alvo
+                        : isSkipped
+                          ? state.skippedExercises.find(
+                              (s) => s.exercicio_id === ex.exercicio_id,
+                            )?.partialSerie || 0
+                          : 0;
+
+                    const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
+                    const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
+
+                    return (
+                      <div
+                        key={`${bIdx}_${eIdx}`}
+                        id={isCurrent ? "active-exercise" : undefined}
+                        onClick={() => {
+                          if (!isCurrent) {
+                            dispatch({
+                              type: "MANUAL_OVERRIDE",
+                              bIdx,
+                              eIdx,
+                              sNum: (state.exerciseTimes[sId]?.length || 0) + 1,
+                            });
+                          }
+                        }}
+                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
+                        style={{
+                          backgroundColor: isCurrent
+                            ? activeColor
+                            : (isSkipped && !isCurrent)
+                              ? "rgba(239, 68, 68, 0.15)"
+                              : isDone
+                                ? "rgba(16, 185, 129, 0.1)"
+                                : "rgba(255, 255, 255, 0.05)",
+                          color: isCurrent
+                            ? textOnActive
+                            : (isSkipped && !isCurrent)
+                              ? "#fca5a5"
+                              : "white",
+                          borderColor: isCurrent
+                            ? "transparent"
+                            : (isSkipped && !isCurrent)
+                              ? "rgba(239, 68, 68, 0.6)"
+                              : isDone
+                                ? "#10b98140"
+                                : "rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : "bg-white/5 text-white/40"}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : (isSkipped && !isCurrent) ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
                       >
-                        {isDone ? (
+                        {(isSkipped && !isCurrent) ? (
+                          <CircleX size={16} />
+                        ) : isDone ? (
                           <CheckCircle2 size={16} />
                         ) : (
                           <Dumbbell size={16} />
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-sm text-white">
-                          {ex.exercicios.nome}
-                        </p>
-                        <div className="flex gap-2 items-center">
-                          <p className="text-[10px] opacity-60 font-medium text-white">
-                            Séries: {currentExSerie}/{ex.series_alvo}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`font-bold text-sm leading-tight ${isCurrent ? "text-white" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
+                            {ex.exercicios.nome}
                           </p>
-                          {state.cargas[ex.exercicio_id] > 0 && (
-                            <span className="text-[10px] font-black opacity-80 flex items-center gap-1 text-white">
-                              <Dumbbell size={10} />{" "}
-                              {state.cargas[ex.exercicio_id]}kg
-                            </span>
+                          {isCurrent && (
+                            <div
+                              className={`flex items-center gap-1.5 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "bg-black/20 border-white/20" : "bg-black/5 border-transparent opacity-40 hover:opacity-100"}`}
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMetronomeActive(!metronomeActive);
+                                }}
+                                className="hover:scale-110 transition text-white"
+                              >
+                                {metronomeActive ? (
+                                  <Pause size={12} fill="currentColor" />
+                                ) : (
+                                  <Play size={12} fill="currentColor" />
+                                )}
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={bpm}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) =>
+                                    setBpm(
+                                      Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
+                                    )
+                                  }
+                                  className="bg-transparent w-6 text-center text-[10px] font-black outline-none text-white"
+                                />
+                                <span className="text-[7px] font-black opacity-60">BPM</span>
+                              </div>
+                            </div>
                           )}
                         </div>
+                        {!isCurrent && (
+                          <div className="flex gap-2 items-center">
+                            <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60 text-white"}`}>
+                              Séries: {currentExSerie}/{ex.series_alvo}
+                            </p>
+                            {state.cargas[sId] > 0 && (
+                              <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80 text-white"}`}>
+                                <Dumbbell size={10} />{" "}
+                                {state.cargas[sId]}kg
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="relative">
                       <button
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setOpenMenuExId(
                             openMenuExId === ex.exercicio_id
                               ? null
                               : ex.exercicio_id,
-                          )
-                        }
+                          );
+                        }}
                         className="p-2 hover:bg-black/10 rounded-lg transition"
                       >
                         <MoreVertical size={16} />
                       </button>
                       {openMenuExId === ex.exercicio_id && (
-                        <div className="absolute right-0 bottom-full mb-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
+                        <div
+                          className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100 p-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => {
                               dispatch({
                                 type: "MANUAL_OVERRIDE",
                                 bIdx,
                                 eIdx,
-                                sNum:
-                                  currentExSerie > 0 &&
-                                  currentExSerie <= ex.series_alvo
-                                    ? currentExSerie
-                                    : 1,
+                                sNum: currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1,
                               });
                               setOpenMenuExId(null);
                             }}
-                            className="w-full p-3 text-left text-xs font-bold hover:bg-white/5 flex items-center gap-2 text-white"
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
                           >
-                            <RotateCcw size={14} /> Voltar ao exercício
+                            <RotateCcw size={14} className="text-white/40" /> Focar Exercício
+                          </button>
+
+                          <div className="h-px bg-white/5 my-1" />
+
+                          <button
+                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: -1 })}
+                            disabled={eIdx === 0}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <ArrowUp size={14} className="text-white/40" /> Mover para cima
+                          </button>
+
+                          <button
+                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: 1 })}
+                            disabled={eIdx === block.length - 1}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <ArrowDown size={14} className="text-white/40" /> Mover para baixo
+                          </button>
+
+                          <div className="h-px bg-white/5 my-1" />
+
+                          <button
+                            onClick={() => {
+                              setSelectorConfig({ isOpen: true, bIdx, eIdx, mode: 'replace' });
+                              setOpenMenuExId(null);
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <Edit2 size={14} className="text-white/40" /> Alterar Exercício
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setExerciseToDelete({ ...ex, bIdx, eIdx });
+                              setOpenMenuExId(null);
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} className="opacity-60" /> Excluir
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    {[...Array(ex.series_alvo)].map((_, sIdx) => {
-                      const sNum = sIdx + 1;
-                      const execTime =
-                        state.exerciseTimes[ex.exercicio_id]?.[sIdx];
-                      const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
-                      const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
-                      const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
-                      const isCurrentS =
-                        isCurrent && sNum === state.currentSerie;
-                      const liveExec =
-                        isCurrentS && state.isTimerActive ? state.timer : null;
-                      const liveRest =
-                        state.activeRestTimers[ex.exercicio_id] &&
-                        sNum === state.exerciseTimes[ex.exercicio_id]?.length
-                          ? state.activeRestTimers[ex.exercicio_id].seconds
-                          : null;
-                      const nextPendingSNum =
-                        (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
-                      const isNextPending = sNum === nextPendingSNum;
-                      const isExecuted = sNum < nextPendingSNum;
-
-                      return (
-                        <div
-                          key={sIdx}
-                          className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all ${isCurrentS ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10" : isExecuted ? "bg-black/20 border-white/5" : "bg-black/5 border-transparent"}`}
-                        >
-                          <button
-                            onClick={() => {
-                              if (isNextPending && !isCurrentS) {
-                                dispatch({
-                                  type: "MANUAL_OVERRIDE",
-                                  bIdx,
-                                  eIdx,
-                                  sNum,
-                                });
-                                showToast(
-                                  `Foco alterado para Série ${sNum}`,
-                                  "info",
-                                );
-                              }
-                            }}
-                            className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
-                            style={{
-                              backgroundColor: isCurrentS
-                                ? "rgba(255,255,255,0.2)"
-                                : isNextPending
-                                  ? "var(--color-secondary)"
-                                  : "transparent",
-                              opacity: isCurrentS || isNextPending ? 1 : 0.4,
-                            }}
-                          >
-                            Série {sNum}
-                          </button>
-                          <div
-                            className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={load || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "load",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                className="bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none text-white placeholder:text-white/20"
-                              />
-                              <span className="text-[8px] font-bold opacity-40 text-white">
-                                kg
+                  {isCurrent ? (
+                    <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                      {/* Integrated Timer */}
+                      <div
+                        className={`rounded-2xl p-3 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
+                      >
+                        <div className="flex flex-col">
+                          <p className="text-[10px] font-bold uppercase mb-1 opacity-60">Tempo de Execução</p>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-3xl font-mono font-black">{formatTime(state.timer)}</p>
+                            {lastExecutionTimes[ex.exercicio_id] > 0 && (
+                              <span className="text-[10px] font-bold opacity-30">
+                                Ref: {formatTime(lastExecutionTimes[ex.exercicio_id])}
                               </span>
-                            </div>
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={reps || ""}
-                                placeholder="-"
-                                onChange={(e) =>
-                                  dispatch({
-                                    type: "SET_VALUE",
-                                    fieldType: "reps",
-                                    exId: ex.exercicio_id,
-                                    sIdx,
-                                    val: e.target.value,
-                                  })
-                                }
-                                className="bg-transparent w-6 text-center font-bold text-[10px] outline-none text-white opacity-60 placeholder:text-white/20"
-                              />
-                              <span className="text-[7px] font-bold opacity-30 uppercase text-white">
-                                reps
-                              </span>
-                            </div>
-                          </div>
-                          <div
-                            className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
-                          >
-                            <div className="flex items-center gap-1">
-                              <Clock
-                                size={8}
-                                className="opacity-30 text-white"
-                              />
-                              {liveExec !== null ? (
-                                <span className="font-mono font-bold text-[9px] text-white">
-                                  {" "}
-                                  {formatTime(liveExec)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? Math.floor(execTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                  <span className="text-[9px] font-bold opacity-30 text-white">
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      execTime !== null &&
-                                      execTime !== undefined
-                                        ? String(execTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!execTime && execTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "exec",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                            <div
-                              className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
-                            >
-                              {liveRest !== null ? (
-                                <span className="font-mono text-[8px] font-bold">
-                                  {" "}
-                                  {formatTime(liveRest)}{" "}
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-0.5">
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? Math.floor(restTime / 60)
-                                        : ""
-                                    }
-                                    placeholder="0"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "mins",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                  <span className="text-[8px] font-bold opacity-30 text-white">
-                                    :
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={
-                                      restTime !== null &&
-                                      restTime !== undefined
-                                        ? String(restTime % 60).padStart(2, "0")
-                                        : ""
-                                    }
-                                    placeholder="00"
-                                    readOnly={!restTime && restTime !== 0}
-                                    onChange={(e) =>
-                                      dispatch({
-                                        type: "SET_VALUE",
-                                        fieldType: "rest",
-                                        exId: ex.exercicio_id,
-                                        sIdx,
-                                        val: e.target.value,
-                                        part: "secs",
-                                      })
-                                    }
-                                    onFocus={(e) => e.target.select()}
-                                    className="bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none text-white placeholder:text-white/20"
-                                  />
-                                </div>
-                              )}
-                            </div>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); dispatch({ type: "RESET_TIMER" }); }}
+                            className="p-2 opacity-40 hover:opacity-100 transition"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                          {!state.isTimerActive && state.timer === 0 ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dispatch({ type: "START_SERIES", sessionId: sId });
+                              }}
+                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-black shadow-lg"
+                            >
+                              <Play fill="currentColor" size={20} className="ml-1" />
+                            </button>
+                          ) : state.isTimerActive ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dispatch({
+                                  type: "STOP_SERIES",
+                                  payload: {
+                                    sessionId: sId,
+                                    currentInputLoad: parseFloat(state.cargas[sId]) || 0,
+                                    currentInputReps: parseInt(state.repsFeitas[sId]) || 0,
+                                    nomeEx: ex.exercicios.nome,
+                                    seriesAlvo: ex.series_alvo,
+                                  },
+                                });
+                              }}
+                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/20"
+                            >
+                              <Square fill="currentColor" size={18} />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Integrated Inputs */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-black/20 p-3 rounded-2xl">
+                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
+                          <input
+                            type="number"
+                            value={state.cargas[sId] ?? ""}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", sId: sId, val: e.target.value })}
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                          />
+                        </div>
+                        <div className="bg-black/20 p-3 rounded-2xl">
+                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
+                          <input
+                            type="number"
+                            value={state.repsFeitas[sId] ?? ""}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", sId: sId, val: e.target.value })}
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Integrated Action Button */}
+                      {!state.isTimerActive && state.timer > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dispatch({ type: "ADVANCE_STEP", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
+                          }}
+                          disabled={savingSession}
+                          className="w-full py-3 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-emerald-500 text-white shadow-lg active:scale-95 transition-all"
+                        >
+                          {savingSession ? "Salvando..." : (() => {
+                            const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
+                            const isLastInBlock = state.executionMode === "isolated"
+                              ? state.currentExerciseInBlock === block.length - 1 && state.currentSerie === ex.series_alvo
+                              : block.every(candidate => (state.exerciseTimes[candidate.exercicio_id]?.length || 0) >= candidate.series_alvo);
+
+                            if (isLastInBlock) {
+                              if (isLastBlock) return <><Save /> Finalizar Treino</>;
+                              return <><ChevronRight /> Próximo Bloco</>;
+                            }
+                            return <><ChevronRight /> Próxima Série</>;
+                          })()}
+                        </button>
+                      )}
+
+                      {!state.isCatchupPhase && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
+                          }}
+                          disabled={state.isTimerActive || savingSession}
+                          className="w-full py-1 text-[10px] font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                        >
+                          <SkipForward size={12} /> Pular Exercício
+                        </button>
+                      )}
+
+                      <div className="mt-6 pt-6 border-t border-white/10">
+                        <div className="flex justify-between items-center w-full mb-2">
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenSeriesMenuExId(openSeriesMenuExId === sId ? null : sId);
+                              }}
+                              className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+
+                            {openSeriesMenuExId === sId && (
+                              <div
+                                className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest">Alterar Séries</p>
+                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                                    <button
+                                      key={n}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: n });
+                                        setOpenSeriesMenuExId(null);
+                                      }}
+                                      className={`aspect-square rounded-lg font-black text-xs transition-all ${ex.series_alvo === n ? "bg-white text-black" : "bg-white/5 hover:bg-white/10 text-white"}`}
+                                    >
+                                      {n}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: Math.max(1, ex.series_alvo - 1) });
+                                    setOpenSeriesMenuExId(null);
+                                  }}
+                                  className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Trash2 size={12} /> Remover Última
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex overflow-x-auto gap-2 py-3 px-2 max-w-full scrollbar-none">
+                          {[...Array(ex.series_alvo)].map((_, sIdx) => {
+                            const sNum = sIdx + 1;
+                            const execTime =
+                              state.exerciseTimes[sId]?.[sIdx];
+                            const restTime = state.restTimes[sId]?.[sIdx];
+                            const load = state.exerciseLoads[sId]?.[sIdx];
+                            const reps = state.exerciseReps[sId]?.[sIdx];
+                            const isCurrentS =
+                              isCurrent && sNum === state.currentSerie;
+                            const liveExec =
+                              isCurrentS && state.isTimerActive ? state.timer : null;
+                            const liveRest =
+                              state.activeRestTimers[sId] &&
+                              sNum === state.exerciseTimes[sId]?.length
+                                ? state.activeRestTimers[sId].seconds
+                                : null;
+                            const nextPendingSNum =
+                              (state.exerciseTimes[sId]?.length || 0) + 1;
+                            const isNextPending = sNum === nextPendingSNum;
+                            const isExecuted = sNum < nextPendingSNum;
+
+                            return (
+                              <div
+                                key={sIdx}
+                                className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
+                                  isCurrentS
+                                    ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
+                                    : isSkipped
+                                      ? isExecuted
+                                        ? "bg-red-950/60 border-red-500/10"
+                                        : isNextPending
+                                          ? "bg-red-500/10 border-red-500/40"
+                                          : "bg-red-950/20 border-transparent"
+                                      : isExecuted
+                                        ? "bg-black/20 border-white/5"
+                                        : "bg-black/5 border-transparent"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => {
+                                    if (isNextPending && !isCurrentS) {
+                                      dispatch({
+                                        type: "MANUAL_OVERRIDE",
+                                        bIdx,
+                                        eIdx,
+                                        sNum,
+                                      });
+                                      showToast(
+                                        `Foco alterado para Série ${sNum}`,
+                                        "info",
+                                      );
+                                    }
+                                  }}
+                                  className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
+                                  style={{
+                                    backgroundColor: isCurrentS
+                                      ? "rgba(255,255,255,0.2)"
+                                      : isNextPending
+                                        ? "var(--color-secondary)"
+                                        : "transparent",
+                                    opacity: isCurrentS || isNextPending ? 1 : 0.4,
+                                  }}
+                                >
+                                  {sNum}
+                                </button>
+                                <div
+                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                >
+                                  <div className="flex items-center gap-0.5">
+                                    <input
+                                      type="number"
+                                      value={load || ""}
+                                      placeholder="-"
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType: "load",
+                                          sId,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                    />
+                                    <span className={`text-[8px] font-bold opacity-40 ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                      kg
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-0.5">
+                                    <input
+                                      type="number"
+                                      value={reps || ""}
+                                      placeholder="-"
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        dispatch({
+                                          type: "SET_VALUE",
+                                          fieldType: "reps",
+                                          sId,
+                                          sIdx,
+                                          val: e.target.value,
+                                        })
+                                      }
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                    />
+                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                      reps
+                                    </span>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    <Clock
+                                      size={8}
+                                      className={`opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}
+                                    />
+                                    {liveExec !== null ? (
+                                      <span className="font-mono font-bold text-[9px] text-white">
+                                        {" "}
+                                        {formatTime(liveExec)}{" "}
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-0.5">
+                                        <input
+                                          type="number"
+                                          value={
+                                            execTime !== null &&
+                                            execTime !== undefined
+                                              ? Math.floor(execTime / 60)
+                                              : ""
+                                          }
+                                          placeholder="0"
+                                          readOnly={!execTime && execTime !== 0}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "exec",
+                                              sId,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "mins",
+                                            })
+                                          }
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                        <span className={`text-[9px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                          :
+                                        </span>
+                                        <input
+                                          type="number"
+                                          value={
+                                            execTime !== null &&
+                                            execTime !== undefined
+                                              ? String(execTime % 60).padStart(2, "0")
+                                              : ""
+                                          }
+                                          placeholder="00"
+                                          readOnly={!execTime && execTime !== 0}
+                                    onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "exec",
+                                              sId,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "secs",
+                                            })
+                                          }
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div
+                                    className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
+                                  >
+                                    {liveRest !== null ? (
+                                      <span className="font-mono text-[8px] font-bold">
+                                        {" "}
+                                        {formatTime(liveRest)}{" "}
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-0.5">
+                                        <input
+                                          type="number"
+                                          value={
+                                            restTime !== null &&
+                                            restTime !== undefined
+                                              ? Math.floor(restTime / 60)
+                                              : ""
+                                          }
+                                          placeholder="0"
+                                          readOnly={!restTime && restTime !== 0}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "rest",
+                                              sId,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "mins",
+                                            })
+                                          }
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                        <span className={`text-[8px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                          :
+                                        </span>
+                                        <input
+                                          type="number"
+                                          value={
+                                            restTime !== null &&
+                                            restTime !== undefined
+                                              ? String(restTime % 60).padStart(2, "0")
+                                              : ""
+                                          }
+                                          placeholder="00"
+                                          readOnly={!restTime && restTime !== 0}
+                                    onFocus={(e) => e.target.select()}
+                                          onChange={(e) =>
+                                            dispatch({
+                                              type: "SET_VALUE",
+                                              fieldType: "rest",
+                                              sId,
+                                              sIdx,
+                                              val: e.target.value,
+                                              part: "secs",
+                                            })
+                                          }
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: ex.series_alvo + 1 });
+                            }}
+                            className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
+                          >
+                            <Plus size={20} className="text-white/60" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              );
-            }),
-          )}
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectorConfig({ isOpen: true, bIdx, eIdx: null, mode: 'add' });
+                  }}
+                  className="w-full mt-4 py-2 border border-dashed border-white/10 rounded-xl text-[10px] font-black uppercase text-white/40 hover:text-white/80 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} /> Adicionar Exercício
+                </button>
+              </div>
+            );
+          })}
+
+          <button
+            onClick={() => dispatch({ type: "ADD_BLOCK" })}
+            className="w-full py-8 border-2 border-dashed border-white/10 rounded-[32px] text-white/40 font-black uppercase tracking-[0.2em] text-xs hover:text-white/80 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-3 mb-12"
+          >
+            <PlusCircle size={32} className="opacity-40" />
+            Novo Bloco Conjugado
+          </button>
         </div>
 
         {state.showCheckoutModal && (
@@ -1485,7 +1687,7 @@ const Training = () => {
       </div>
 
       <footer
-        className="fixed bottom-0 left-0 right-0 p-6 border-t backdrop-blur-xl z-50"
+        className="py-3 px-6 border-t backdrop-blur-xl z-50"
         style={{
           backgroundColor: "rgba(0, 0, 0, 0.8)",
           borderColor: "rgba(255, 255, 255, 0.1)",
@@ -1493,13 +1695,13 @@ const Training = () => {
       >
         <div className="max-w-md mx-auto">
           {Object.keys(state.activeRestTimers).length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {Object.entries(state.activeRestTimers).map(([exId, data]) => {
+            <div className="flex flex-wrap gap-2 mb-2">
+              {Object.entries(state.activeRestTimers).map(([sId, data]) => {
                 const isPrimary =
-                  parseInt(exId) === currentBlock[0]?.exercicio_id;
+                  sId === currentBlock[state.currentExerciseInBlock]?.sessionId;
                 return (
                   <div
-                    key={exId}
+                    key={sId}
                     className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
                     style={{
                       backgroundColor: isPrimary ? "var(--color-primary)" : "var(--color-secondary)",
@@ -1519,8 +1721,8 @@ const Training = () => {
                         {data.title}
                       </span>
                       <button
-                        onClick={() => dismissRestTimer(exId)}
-                        data-testid={`dismiss-rest-${exId}`}
+                        onClick={() => dismissRestTimer(sId)}
+                        data-testid={`dismiss-rest-${sId}`}
                         className="p-1 hover:bg-black/10 rounded-md"
                       >
                         <X size={12} />
@@ -1531,7 +1733,7 @@ const Training = () => {
               })}
             </div>
           )}
-          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3 text-white">
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 text-white">
             <span>Progresso Geral</span>
             <span>
               {(() => {
@@ -1565,7 +1767,7 @@ const Training = () => {
                     state.currentExerciseInBlock;
                   return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
                 })()}%`,
-                backgroundColor: false
+                backgroundColor: letra === "A"
                   ? "var(--color-primary)"
                   : "var(--color-secondary)",
               }}
@@ -1573,6 +1775,72 @@ const Training = () => {
           </div>
         </div>
       </footer>
+
+      {selectorConfig.isOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-start justify-center p-6 pt-4 h-[100svh]">
+          <div className="bg-[#121212] border border-white/10 w-full max-w-md rounded-[32px] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 min-h-[400px] max-h-[calc(100svh-32px)]">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5 rounded-t-[32px]">
+              <h3 className="text-lg font-black uppercase tracking-widest text-white">
+                {selectorConfig.mode === 'add' ? 'Adicionar Exercício' : 'Alterar Exercício'}
+              </h3>
+              <button
+                onClick={() => setSelectorConfig({ ...selectorConfig, isOpen: false })}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={20} className="text-white/60" />
+              </button>
+            </div>
+            <div className="p-6">
+              <ExerciseSelector
+                onSelect={(exerciseData) => {
+                  if (selectorConfig.mode === 'add') {
+                    dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx: selectorConfig.bIdx, exerciseData });
+                  } else {
+                    dispatch({ type: "REPLACE_EXERCISE", bIdx: selectorConfig.bIdx, eIdx: selectorConfig.eIdx, exerciseData });
+                  }
+                  setSelectorConfig({ ...selectorConfig, isOpen: false });
+                  showToast(selectorConfig.mode === 'add' ? "Exercício adicionado!" : "Exercício alterado!", "success");
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exerciseToDelete && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
+            <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-white text-center mb-2">
+              Excluir Exercício?
+            </h2>
+            <p className="text-slate-400 text-center text-sm mb-8">
+              Tem certeza que deseja remover <strong>{exerciseToDelete.exercicios?.nome}</strong> deste treino? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  dispatch({ type: "REMOVE_EXERCISE", bIdx: exerciseToDelete.bIdx, eIdx: exerciseToDelete.eIdx });
+                  setExerciseToDelete(null);
+                  showToast("Exercício removido", "info");
+                }}
+                className="w-full py-4 bg-red-600 text-white rounded-2xl font-black shadow-lg hover:bg-red-700 transition"
+              >
+                Sim, Excluir
+              </button>
+              <button
+                onClick={() => setExerciseToDelete(null)}
+                className="w-full py-4 bg-white/5 text-slate-400 rounded-2xl font-bold hover:bg-white/10 transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
