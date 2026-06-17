@@ -91,7 +91,7 @@ function trainingReducer(state, action) {
 
     case "START_SERIES": {
       const exId = action.exercicio_id;
-      const idStr = String(exId);
+      const idStr = String(sId);
       const nextRestTimes = { ...state.restTimes };
       const nextActiveRestTimers = { ...state.activeRestTimers };
 
@@ -120,20 +120,20 @@ function trainingReducer(state, action) {
 
       const nextExerciseLoads = {
         ...state.exerciseLoads,
-        [exId]: [...(state.exerciseLoads[exId] || []), currentInputLoad],
+        [sId]: [...(state.exerciseLoads[sId] || []), currentInputLoad],
       };
       const nextExerciseReps = {
         ...state.exerciseReps,
-        [exId]: [...(state.exerciseReps[exId] || []), currentInputReps],
+        [sId]: [...(state.exerciseReps[sId] || []), currentInputReps],
       };
       const nextExerciseTimes = {
         ...state.exerciseTimes,
-        [exId]: [...(state.exerciseTimes[exId] || []), state.timer],
+        [sId]: [...(state.exerciseTimes[sId] || []), state.timer],
       };
 
       const nextActiveRestTimers = { ...state.activeRestTimers };
       if (!isLastSerie) {
-        nextActiveRestTimers[String(exId)] = {
+        nextActiveRestTimers[String(sId)] = {
           seconds: 0,
           title: `Descanso ${state.currentSerie}-${seriesAlvo}`,
           nome: nomeEx,
@@ -163,7 +163,7 @@ function trainingReducer(state, action) {
       } else {
         blockFinished = currentBlock.every(
           (ex) =>
-            (state.exerciseTimes[ex.exercicio_id]?.length || 0) >=
+            (state.exerciseTimes[sId]?.length || 0) >=
             ex.series_alvo,
         );
       }
@@ -239,13 +239,13 @@ function trainingReducer(state, action) {
         nextState.currentExerciseInBlock += 1;
         const nextDone =
           state.exerciseTimes[
-            currentBlock[nextState.currentExerciseInBlock].exercicio_id
+            currentBlock[nextState.currentExerciseInBlock].sessionId
           ]?.length || 0;
         nextState.currentSerie = nextDone + 1;
       } else {
         if (!state.isCatchupPhase) {
           const alreadySkipped = state.skippedExercises.some(
-            (s) => s.exercicio_id === exercise.exercicio_id,
+            (s) => s.sessionId === exercise.sessionId,
           );
           if (!alreadySkipped) {
             nextState.skippedExercises = [
@@ -263,13 +263,13 @@ function trainingReducer(state, action) {
             nextState.currentExerciseInBlock = 0;
             const nextEx = state.blocos[nextState.currentBlockIndex][0];
             nextState.currentSerie =
-              (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
+              (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie =
-            (state.exerciseTimes[nextEx.exercicio_id]?.length || 0) + 1;
+            (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
         }
       }
       return nextState;
@@ -302,10 +302,10 @@ function trainingReducer(state, action) {
 
       const mapKey = targetMap[fieldType];
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
-        return { ...state, [mapKey]: { ...state[mapKey], [exId]: val } };
+        return { ...state, [mapKey]: { ...state[mapKey], [sId]: val } };
       }
 
-      const newArr = [...(state[mapKey][exId] || [])];
+      const newArr = [...(state[mapKey][sId] || [])];
       if (fieldType === "exec" || fieldType === "rest") {
         const currentSeconds = newArr[sIdx] || 0;
         const mins = Math.floor(currentSeconds / 60);
@@ -316,7 +316,7 @@ function trainingReducer(state, action) {
       } else {
         newArr[sIdx] = val;
       }
-      return { ...state, [mapKey]: { ...state[mapKey], [exId]: newArr } };
+      return { ...state, [mapKey]: { ...state[mapKey], [sId]: newArr } };
     }
 
     case "DISMISS_REST": {
@@ -367,7 +367,7 @@ function trainingReducer(state, action) {
       const updateBlocks = (blocks) =>
         blocks.map((block) =>
           block.map((ex) =>
-            ex.exercicio_id === exId ? { ...ex, series_alvo: newAlvo } : ex,
+            ex.sessionId === sId ? { ...ex, series_alvo: newAlvo } : ex,
           ),
         );
       return {
@@ -439,9 +439,11 @@ function trainingReducer(state, action) {
       const newBlocks = [...state.blocos];
       const block = [...newBlocks[bIdx]];
       const oldEx = block[eIdx];
+      const newSId = `rep-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
 
       const updatedEx = {
         ...oldEx,
+        sessionId: newSId,
         exercicio_id: exerciseData.id,
         exercicios: {
           nome: exerciseData.nome,
@@ -456,12 +458,12 @@ function trainingReducer(state, action) {
         ...state,
         blocos: newBlocks,
         originalBlocos: newBlocks,
-        exerciseTimes: { ...state.exerciseTimes, [updatedEx.exercicio_id]: state.exerciseTimes[oldEx.exercicio_id] || [] },
-        restTimes: { ...state.restTimes, [updatedEx.exercicio_id]: state.restTimes[oldEx.exercicio_id] || [] },
-        exerciseLoads: { ...state.exerciseLoads, [updatedEx.exercicio_id]: state.exerciseLoads[oldEx.exercicio_id] || [] },
-        exerciseReps: { ...state.exerciseReps, [updatedEx.exercicio_id]: state.exerciseReps[oldEx.exercicio_id] || [] },
-        cargas: { ...state.cargas, [updatedEx.exercicio_id]: state.cargas[oldEx.exercicio_id] || 0 },
-        repsFeitas: { ...state.repsFeitas, [updatedEx.exercicio_id]: state.repsFeitas[oldEx.exercicio_id] || 10 }
+        exerciseTimes: { ...state.exerciseTimes, [newSId]: [] },
+        restTimes: { ...state.restTimes, [newSId]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [newSId]: [] },
+        exerciseReps: { ...state.exerciseReps, [newSId]: [] },
+        cargas: { ...state.cargas, [newSId]: 0 },
+        repsFeitas: { ...state.repsFeitas, [newSId]: 10 }
       };
     }
 
@@ -549,6 +551,7 @@ const Training = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingSession, setSavingSession] = useState(false);
+  const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
   const [openSeriesMenuExId, setOpenSeriesMenuExId] = useState(null);
   const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add' });
@@ -753,19 +756,19 @@ const Training = () => {
       const initialExReps = {};
 
       data.forEach((ex) => {
-        initialCargas[ex.exercicio_id] = lastLoads[ex.exercicio_id] ?? 0;
-        const lastReps = lastRepsArr[ex.exercicio_id];
-        initialReps[ex.exercicio_id] =
+        initialCargas[sId] = lastLoads[sId] ?? 0;
+        const lastReps = lastRepsArr[sId];
+        initialReps[sId] =
           lastReps && lastReps.length > 0
             ? lastReps[lastReps.length - 1]
             : ex.reps_alvo.includes("-")
               ? parseInt(ex.reps_alvo.split("-")[1])
               : parseInt(ex.reps_alvo) || 10;
 
-        initialTimes[ex.exercicio_id] = [];
-        initialRests[ex.exercicio_id] = [];
-        initialExLoads[ex.exercicio_id] = [];
-        initialExReps[ex.exercicio_id] = [];
+        initialTimes[sId] = [];
+        initialRests[sId] = [];
+        initialExLoads[sId] = [];
+        initialExReps[sId] = [];
       });
 
       dispatch({
@@ -792,11 +795,12 @@ const Training = () => {
 
     state.originalBlocos.forEach((block) => {
       block.forEach((ex) => {
-        const val = state.cargas[ex.exercicio_id];
-        const execTimes = state.exerciseTimes[ex.exercicio_id] || [];
-        const rests = state.restTimes[ex.exercicio_id] || [];
-        const exLoads = state.exerciseLoads[ex.exercicio_id] || [];
-        const exReps = state.exerciseReps[ex.exercicio_id] || [];
+        const sId = ex.sessionId;
+        const val = state.cargas[sId];
+        const execTimes = state.exerciseTimes[sId] || [];
+        const rests = state.restTimes[sId] || [];
+        const exLoads = state.exerciseLoads[sId] || [];
+        const exReps = state.exerciseReps[sId] || [];
 
         if (
           (val !== "" && parseFloat(val) >= 0) ||
@@ -813,7 +817,7 @@ const Training = () => {
             repeticoes:
               exReps.length > 0
                 ? exReps
-                : [parseInt(state.repsFeitas[ex.exercicio_id]) || 0],
+                : [parseInt(state.repsFeitas[sId]) || 0],
             series_executadas: execTimes.length || ex.series_alvo,
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
@@ -849,8 +853,9 @@ const Training = () => {
         const pendingExercises = [];
         state.originalBlocos.forEach((block) => {
           block.forEach((ex) => {
+            const sId = ex.sessionId;
             const doneSeries =
-              state.exerciseTimes[ex.exercicio_id]?.length || 0;
+              state.exerciseTimes[sId]?.length || 0;
             if (doneSeries < ex.series_alvo) {
               pendingExercises.push({ ...ex, partialSerie: doneSeries + 1 });
             }
@@ -883,7 +888,7 @@ const Training = () => {
     );
 
 
-  const dismissRestTimer = (exId) => dispatch({ type: "DISMISS_REST", exId });
+  const dismissRestTimer = (sId) => dispatch({ type: "DISMISS_REST", exId });
 
   return (
     <div
@@ -913,45 +918,37 @@ const Training = () => {
             Treino {letra}
           </span>
         </div>
-        <div className="flex gap-2">
-          <div
-            className={`flex items-center gap-2 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "text-white" : "opacity-60"}`}
-            style={{
-              backgroundColor: metronomeActive
-                ? letra === "A"
-                  ? "var(--color-primary)"
-                  : "var(--color-secondary)"
-                : "transparent",
-              borderColor: letra === "A"
-                ? "var(--color-primary)"
-                : "var(--color-secondary)",
-            }}
+        <div className="relative">
+          <button
+            onClick={() => setShowPageMenu(!showPageMenu)}
+            className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
-            <button
-              onClick={() => setMetronomeActive(!metronomeActive)}
-              className="hover:scale-110 transition text-white"
+            <MoreHorizontal />
+          </button>
+          {showPageMenu && (
+            <div
+              className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100 p-1"
+              onClick={(e) => e.stopPropagation()}
             >
-              {metronomeActive ? (
-                <Pause size={16} fill="currentColor" />
-              ) : (
-                <Play size={16} fill="currentColor" />
-              )}
-            </button>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={bpm}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) =>
-                  setBpm(
-                    Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
-                  )
-                }
-                className="bg-transparent w-8 text-center text-xs font-bold outline-none text-white"
-              />
-              <span className="text-[8px] font-bold opacity-60">BPM</span>
+              {[
+                { label: 'Salvar treino', icon: <Save size={14} />, onClick: finishWorkout },
+                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => navigate('/admin') },
+                { label: 'Novo exercício', icon: <Plus size={14} />, onClick: () => setSelectorConfig({ isOpen: true, bIdx: state.blocos.length - 1, eIdx: null, mode: 'add' }) },
+                { label: 'Novo bloco', icon: <PlusCircle size={14} />, onClick: () => dispatch({ type: 'ADD_BLOCK' }) }
+              ].map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    opt.onClick?.();
+                    setShowPageMenu(false);
+                  }}
+                  className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
+                >
+                  <span className="text-white/40">{opt.icon}</span> {opt.label}
+                </button>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -991,7 +988,7 @@ const Training = () => {
 
                 <div className="flex flex-col gap-3">
                   {block.map((ex, eIdx) => {
-                    const doneCount = state.exerciseTimes[ex.exercicio_id]?.length || 0;
+                    const doneCount = state.exerciseTimes[sId]?.length || 0;
                     const isDone = doneCount >= ex.series_alvo;
                     const isCurrent =
                       bIdx === state.currentBlockIndex &&
@@ -1009,6 +1006,9 @@ const Training = () => {
                             )?.partialSerie || 0
                           : 0;
 
+                    const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
+                    const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
+
                     return (
                       <div
                         key={`${bIdx}_${eIdx}`}
@@ -1019,21 +1019,21 @@ const Training = () => {
                               type: "MANUAL_OVERRIDE",
                               bIdx,
                               eIdx,
-                              sNum: (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1,
+                              sNum: (state.exerciseTimes[sId]?.length || 0) + 1,
                             });
                           }
                         }}
                         className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
                         style={{
                           backgroundColor: isCurrent
-                            ? "var(--color-secondary)"
+                            ? activeColor
                             : (isSkipped && !isCurrent)
                               ? "rgba(239, 68, 68, 0.15)"
                               : isDone
                                 ? "rgba(16, 185, 129, 0.1)"
                                 : "rgba(255, 255, 255, 0.05)",
                           color: isCurrent
-                            ? "var(--text-on-secondary)"
+                            ? textOnActive
                             : (isSkipped && !isCurrent)
                               ? "#fca5a5"
                               : "white",
@@ -1059,19 +1059,54 @@ const Training = () => {
                           <Dumbbell size={16} />
                         )}
                       </div>
-                      <div>
-                        <p className={`font-bold text-sm ${isCurrent ? "text-white" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
-                          {ex.exercicios.nome}
-                        </p>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`font-bold text-sm leading-tight ${isCurrent ? "text-white" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
+                            {ex.exercicios.nome}
+                          </p>
+                          {isCurrent && (
+                            <div
+                              className={`flex items-center gap-1.5 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "bg-black/20 border-white/20" : "bg-black/5 border-transparent opacity-40 hover:opacity-100"}`}
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMetronomeActive(!metronomeActive);
+                                }}
+                                className="hover:scale-110 transition text-white"
+                              >
+                                {metronomeActive ? (
+                                  <Pause size={12} fill="currentColor" />
+                                ) : (
+                                  <Play size={12} fill="currentColor" />
+                                )}
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={bpm}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) =>
+                                    setBpm(
+                                      Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
+                                    )
+                                  }
+                                  className="bg-transparent w-6 text-center text-[10px] font-black outline-none text-white"
+                                />
+                                <span className="text-[7px] font-black opacity-60">BPM</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {!isCurrent && (
                           <div className="flex gap-2 items-center">
                             <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60 text-white"}`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
-                            {state.cargas[ex.exercicio_id] > 0 && (
+                            {state.cargas[sId] > 0 && (
                               <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80 text-white"}`}>
                                 <Dumbbell size={10} />{" "}
-                                {state.cargas[ex.exercicio_id]}kg
+                                {state.cargas[sId]}kg
                               </span>
                             )}
                           </div>
@@ -1184,7 +1219,7 @@ const Training = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                dispatch({ type: "START_SERIES", exercicio_id: ex.exercicio_id });
+                                dispatch({ type: "START_SERIES", sessionId: sId });
                               }}
                               className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-black shadow-lg"
                             >
@@ -1197,9 +1232,9 @@ const Training = () => {
                                 dispatch({
                                   type: "STOP_SERIES",
                                   payload: {
-                                    exId: ex.exercicio_id,
-                                    currentInputLoad: parseFloat(state.cargas[ex.exercicio_id]) || 0,
-                                    currentInputReps: parseInt(state.repsFeitas[ex.exercicio_id]) || 0,
+                                    sessionId: sId,
+                                    currentInputLoad: parseFloat(state.cargas[sId]) || 0,
+                                    currentInputReps: parseInt(state.repsFeitas[sId]) || 0,
                                     nomeEx: ex.exercicios.nome,
                                     seriesAlvo: ex.series_alvo,
                                   },
@@ -1219,9 +1254,9 @@ const Training = () => {
                           <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
                           <input
                             type="number"
-                            value={state.cargas[ex.exercicio_id] ?? ""}
+                            value={state.cargas[sId] ?? ""}
                             onFocus={(e) => e.target.select()}
-                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", exId: ex.exercicio_id, val: e.target.value })}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", sId: sId, val: e.target.value })}
                             className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                           />
                         </div>
@@ -1229,9 +1264,9 @@ const Training = () => {
                           <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
                           <input
                             type="number"
-                            value={state.repsFeitas[ex.exercicio_id] ?? ""}
+                            value={state.repsFeitas[sId] ?? ""}
                             onFocus={(e) => e.target.select()}
-                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", exId: ex.exercicio_id, val: e.target.value })}
+                            onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", sId: sId, val: e.target.value })}
                             className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
                           />
                         </div>
@@ -1282,14 +1317,14 @@ const Training = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenSeriesMenuExId(openSeriesMenuExId === ex.exercicio_id ? null : ex.exercicio_id);
+                                setOpenSeriesMenuExId(openSeriesMenuExId === sId ? null : sId);
                               }}
                               className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
                             >
                               <MoreHorizontal size={14} />
                             </button>
 
-                            {openSeriesMenuExId === ex.exercicio_id && (
+                            {openSeriesMenuExId === sId && (
                               <div
                                 className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200"
                                 onClick={(e) => e.stopPropagation()}
@@ -1301,7 +1336,7 @@ const Training = () => {
                                       key={n}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: n });
+                                        dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: n });
                                         setOpenSeriesMenuExId(null);
                                       }}
                                       className={`aspect-square rounded-lg font-black text-xs transition-all ${ex.series_alvo === n ? "bg-white text-black" : "bg-white/5 hover:bg-white/10 text-white"}`}
@@ -1313,7 +1348,7 @@ const Training = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: Math.max(1, ex.series_alvo - 1) });
+                                    dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: Math.max(1, ex.series_alvo - 1) });
                                     setOpenSeriesMenuExId(null);
                                   }}
                                   className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
@@ -1328,21 +1363,21 @@ const Training = () => {
                           {[...Array(ex.series_alvo)].map((_, sIdx) => {
                             const sNum = sIdx + 1;
                             const execTime =
-                              state.exerciseTimes[ex.exercicio_id]?.[sIdx];
-                            const restTime = state.restTimes[ex.exercicio_id]?.[sIdx];
-                            const load = state.exerciseLoads[ex.exercicio_id]?.[sIdx];
-                            const reps = state.exerciseReps[ex.exercicio_id]?.[sIdx];
+                              state.exerciseTimes[sId]?.[sIdx];
+                            const restTime = state.restTimes[sId]?.[sIdx];
+                            const load = state.exerciseLoads[sId]?.[sIdx];
+                            const reps = state.exerciseReps[sId]?.[sIdx];
                             const isCurrentS =
                               isCurrent && sNum === state.currentSerie;
                             const liveExec =
                               isCurrentS && state.isTimerActive ? state.timer : null;
                             const liveRest =
-                              state.activeRestTimers[ex.exercicio_id] &&
-                              sNum === state.exerciseTimes[ex.exercicio_id]?.length
-                                ? state.activeRestTimers[ex.exercicio_id].seconds
+                              state.activeRestTimers[sId] &&
+                              sNum === state.exerciseTimes[sId]?.length
+                                ? state.activeRestTimers[sId].seconds
                                 : null;
                             const nextPendingSNum =
-                              (state.exerciseTimes[ex.exercicio_id]?.length || 0) + 1;
+                              (state.exerciseTimes[sId]?.length || 0) + 1;
                             const isNextPending = sNum === nextPendingSNum;
                             const isExecuted = sNum < nextPendingSNum;
 
@@ -1403,7 +1438,7 @@ const Training = () => {
                                         dispatch({
                                           type: "SET_VALUE",
                                           fieldType: "load",
-                                          exId: ex.exercicio_id,
+                                          sId,
                                           sIdx,
                                           val: e.target.value,
                                         })
@@ -1424,7 +1459,7 @@ const Training = () => {
                                         dispatch({
                                           type: "SET_VALUE",
                                           fieldType: "reps",
-                                          exId: ex.exercicio_id,
+                                          sId,
                                           sIdx,
                                           val: e.target.value,
                                         })
@@ -1466,7 +1501,7 @@ const Training = () => {
                                             dispatch({
                                               type: "SET_VALUE",
                                               fieldType: "exec",
-                                              exId: ex.exercicio_id,
+                                              sId,
                                               sIdx,
                                               val: e.target.value,
                                               part: "mins",
@@ -1492,7 +1527,7 @@ const Training = () => {
                                             dispatch({
                                               type: "SET_VALUE",
                                               fieldType: "exec",
-                                              exId: ex.exercicio_id,
+                                              sId,
                                               sIdx,
                                               val: e.target.value,
                                               part: "secs",
@@ -1528,7 +1563,7 @@ const Training = () => {
                                             dispatch({
                                               type: "SET_VALUE",
                                               fieldType: "rest",
-                                              exId: ex.exercicio_id,
+                                              sId,
                                               sIdx,
                                               val: e.target.value,
                                               part: "mins",
@@ -1554,7 +1589,7 @@ const Training = () => {
                                             dispatch({
                                               type: "SET_VALUE",
                                               fieldType: "rest",
-                                              exId: ex.exercicio_id,
+                                              sId,
                                               sIdx,
                                               val: e.target.value,
                                               part: "secs",
@@ -1572,7 +1607,7 @@ const Training = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              dispatch({ type: "UPDATE_SERIES_ALVO", exId: ex.exercicio_id, newAlvo: ex.series_alvo + 1 });
+                              dispatch({ type: "UPDATE_SERIES_ALVO", sId, newAlvo: ex.series_alvo + 1 });
                             }}
                             className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
                           >
@@ -1661,12 +1696,12 @@ const Training = () => {
         <div className="max-w-md mx-auto">
           {Object.keys(state.activeRestTimers).length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
-              {Object.entries(state.activeRestTimers).map(([exId, data]) => {
+              {Object.entries(state.activeRestTimers).map(([sId, data]) => {
                 const isPrimary =
-                  parseInt(exId) === currentBlock[state.currentExerciseInBlock]?.exercicio_id;
+                  sId === currentBlock[state.currentExerciseInBlock]?.sessionId;
                 return (
                   <div
-                    key={exId}
+                    key={sId}
                     className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
                     style={{
                       backgroundColor: isPrimary ? "var(--color-primary)" : "var(--color-secondary)",
@@ -1686,8 +1721,8 @@ const Training = () => {
                         {data.title}
                       </span>
                       <button
-                        onClick={() => dismissRestTimer(exId)}
-                        data-testid={`dismiss-rest-${exId}`}
+                        onClick={() => dismissRestTimer(sId)}
+                        data-testid={`dismiss-rest-${sId}`}
                         className="p-1 hover:bg-black/10 rounded-md"
                       >
                         <X size={12} />
