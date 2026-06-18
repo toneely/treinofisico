@@ -450,6 +450,49 @@ function trainingReducer(state, action) {
       };
     }
 
+    case "MOVE_TO_BLOCK": {
+      const { bIdx, eIdx, direction } = action;
+      const newBlocks = [...state.blocos];
+      const targetBlockIdx = bIdx + direction;
+
+      const [exercise] = newBlocks[bIdx].splice(eIdx, 1);
+
+      if (newBlocks[bIdx].length === 0) {
+        newBlocks.splice(bIdx, 1);
+      } else {
+        newBlocks[bIdx] = newBlocks[bIdx].map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
+      }
+
+      if (targetBlockIdx < 0) {
+        // Create new block at the beginning
+        newBlocks.unshift([{ ...exercise, numero_bloco: 1, ordem_execucao: 1 }]);
+      } else if (targetBlockIdx >= newBlocks.length) {
+        // Create new block at the end
+        const nextNum = (newBlocks[newBlocks.length - 1]?.[0]?.numero_bloco || 0) + 1;
+        newBlocks.push([{ ...exercise, numero_bloco: nextNum, ordem_execucao: 1 }]);
+      } else {
+        // Add to existing block
+        newBlocks[targetBlockIdx].push({
+          ...exercise,
+          numero_bloco: newBlocks[targetBlockIdx][0].numero_bloco,
+          ordem_execucao: newBlocks[targetBlockIdx].length + 1
+        });
+      }
+
+      // Re-normalize all block numbers
+      const normalizedBlocks = newBlocks.map((block, idx) =>
+        block.map(ex => ({ ...ex, numero_bloco: idx + 1 }))
+      );
+
+      return {
+        ...state,
+        blocos: normalizedBlocks,
+        originalBlocos: normalizedBlocks,
+        currentBlockIndex: 0, // Reset focus to avoid index errors after drastic structural changes
+        currentExerciseInBlock: 0
+      };
+    }
+
     case "REPLACE_EXERCISE": {
       const { bIdx, eIdx, exerciseData } = action;
       const newBlocks = [...state.blocos];
@@ -1110,6 +1153,7 @@ const Training = () => {
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
+                    const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
 
                     return (
                       <div
@@ -1129,19 +1173,21 @@ const Training = () => {
                         style={{
                           backgroundColor: isCurrent
                             ? activeColor
-                            : (isSkipped && !isCurrent)
+                            : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
-                              : isDone
-                                ? "rgba(16, 185, 129, 0.1)"
-                                : "rgba(255, 255, 255, 0.05)",
+                              : (isSkipped && !isCurrent)
+                                ? "rgba(239, 68, 68, 0.15)"
+                                : isDone
+                                  ? "rgba(16, 185, 129, 0.1)"
+                                  : "rgba(255, 255, 255, 0.05)",
                           color: isCurrent
                             ? textOnActive
-                            : (isSkipped && !isCurrent)
+                            : (isSkipped && !isCurrent) || isAbandoned
                               ? "#fca5a5"
                               : "white",
                           borderColor: isCurrent
                             ? "transparent"
-                            : (isSkipped && !isCurrent)
+                            : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
                                 ? "#10b98140"
@@ -1151,12 +1197,14 @@ const Training = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`rounded-lg flex items-center justify-center transition-all ${isCurrent ? "w-8 h-8 bg-black/10" : !isStarted ? "w-6 h-6 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-8 h-8 bg-white/5 text-white/40"}`}
+                        className={`rounded-lg flex items-center justify-center transition-all ${isCurrent ? "w-8 h-8 bg-black/10" : isAbandoned ? "bg-red-500/20 text-red-400 w-8 h-8" : !isStarted ? "w-6 h-6 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-8 h-8 bg-white/5 text-white/40"}`}
                       >
                         {(isSkipped && !isCurrent) ? (
                           <CircleX size={!isStarted && !isCurrent ? 12 : 16} />
+                        ) : isAbandoned ? (
+                          <AlertTriangle size={16} />
                         ) : isDone ? (
-                          <CheckCircle2 size={!isStarted && !isCurrent ? 12 : 16} />
+                          <CheckCircle2 size={!isStarted && !isCurrent ? 12 : 16} className={isCurrent ? "" : "text-emerald-500"} />
                         ) : (
                           <Dumbbell size={!isStarted && !isCurrent ? 12 : 16} />
                         )}
@@ -1203,23 +1251,9 @@ const Training = () => {
                         >
                           <button
                             onClick={() => {
-                              dispatch({
-                                type: "MANUAL_OVERRIDE",
-                                bIdx,
-                                eIdx,
-                                sNum: currentExSerie > 0 && currentExSerie <= ex.series_alvo ? currentExSerie : 1,
-                              });
+                              dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: -1 });
                               setOpenMenuExId(null);
                             }}
-                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
-                          >
-                            <RotateCcw size={14} className="text-white/40" /> Focar Exercício
-                          </button>
-
-                          <div className="h-px bg-white/5 my-1" />
-
-                          <button
-                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: -1 })}
                             disabled={eIdx === 0}
                             className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
                           >
@@ -1227,11 +1261,38 @@ const Training = () => {
                           </button>
 
                           <button
-                            onClick={() => dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: 1 })}
+                            onClick={() => {
+                              dispatch({ type: "MOVE_EXERCISE", bIdx, eIdx, direction: 1 });
+                              setOpenMenuExId(null);
+                            }}
                             disabled={eIdx === block.length - 1}
                             className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 disabled:opacity-20 flex items-center gap-3 text-white transition-colors"
                           >
                             <ArrowDown size={14} className="text-white/40" /> Mover para baixo
+                          </button>
+
+                          <div className="h-px bg-white/5 my-1" />
+
+                          <button
+                            onClick={() => {
+                              dispatch({ type: "MOVE_TO_BLOCK", bIdx, eIdx, direction: -1 });
+                              setOpenMenuExId(null);
+                              showToast("Exercício movido para o bloco acima", "info");
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <Layers size={14} className="text-white/40 rotate-180" /> Mover para bloco acima
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              dispatch({ type: "MOVE_TO_BLOCK", bIdx, eIdx, direction: 1 });
+                              setOpenMenuExId(null);
+                              showToast("Exercício movido para o bloco abaixo", "info");
+                            }}
+                            className="w-full p-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 flex items-center gap-3 text-white transition-colors"
+                          >
+                            <Layers size={14} className="text-white/40" /> Mover para bloco abaixo
                           </button>
 
                           <div className="h-px bg-white/5 my-1" />
@@ -1413,7 +1474,7 @@ const Training = () => {
                         <div className="h-px bg-white/5 my-2" />
                       )}
 
-                      <div className={`${isCurrent ? "mt-6 pt-6 border-t" : ""} ${isCurrent ? "border-current/10" : "border-transparent"}`}>
+                      <div className={`${isCurrent ? "mt-6 pt-6" : ""} border-transparent`}>
                         {isCurrent && (
                         <div className="flex justify-between items-center w-full mb-2">
                           <p className="text-xs uppercase tracking-wider font-semibold opacity-70 text-inherit">SÉRIES</p>
@@ -1591,7 +1652,7 @@ const Training = () => {
                                   </div>
                                 </div>
                                 <div
-                                  className={`flex flex-col items-center w-full pt-2 border-t border-current/10 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
