@@ -49,17 +49,31 @@ const WorkoutManager = ({ overrideUserId = null }) => {
     // When overrideUserId is explicitly null, we want to save with user_id as null (global template)
     const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
 
+    // Check for uniqueness based on user_id and letra
+    const { data: existing } = await supabase
+      .from("treinos")
+      .select("id")
+      .eq("letra", formData.letra)
+      .filter("user_id", userId === null ? "is" : "eq", userId)
+      .not("id", "eq", isEditing || 0)
+      .maybeSingle();
+
+    if (existing) {
+      showToast(`A letra "${formData.letra}" já está em uso para este escopo.`, "error");
+      return;
+    }
+
     if (isEditing) {
       const query = supabase
         .from("treinos")
         .update({ ...formData, user_id: userId })
         .eq("id", isEditing);
 
-      // Handle null check in where clause for update
-      if (userId === null) {
-        query.is("user_id", null);
-      } else {
+      // The update should respect the multitenancy if it's not a global template
+      if (userId !== null) {
         query.eq("user_id", userId);
+      } else {
+        query.is("user_id", null);
       }
 
       const { error } = await query;

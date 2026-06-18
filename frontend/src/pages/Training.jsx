@@ -54,6 +54,7 @@ const initialState = {
   executionMode: "alternated",
   isTimerActive: false,
   timer: 0,
+  timerStartedAt: null,
   status: "IDLE", // IDLE, EXECUTING, RESTING, COMPLETED
   exerciseTimes: {}, // { sessionId: [s1, s2...] }
   restTimes: {}, // { sessionId: [s1, s2...] }
@@ -75,16 +76,25 @@ function trainingReducer(state, action) {
       return { ...state, ...action.payload, status: "IDLE" };
 
     case "TICK": {
+      const now = Date.now();
       const nextActiveRestTimers = { ...state.activeRestTimers };
       Object.keys(nextActiveRestTimers).forEach((id) => {
-        nextActiveRestTimers[id] = {
-          ...nextActiveRestTimers[id],
-          seconds: nextActiveRestTimers[id].seconds + 1,
-        };
+        if (nextActiveRestTimers[id].startedAt) {
+          nextActiveRestTimers[id] = {
+            ...nextActiveRestTimers[id],
+            seconds: Math.floor((now - nextActiveRestTimers[id].startedAt) / 1000),
+          };
+        }
       });
+
+      let nextTimer = state.timer;
+      if (state.isTimerActive && state.timerStartedAt) {
+        nextTimer = Math.floor((now - state.timerStartedAt) / 1000);
+      }
+
       return {
         ...state,
-        timer: state.isTimerActive ? state.timer + 1 : state.timer,
+        timer: nextTimer,
         activeRestTimers: nextActiveRestTimers,
       };
     }
@@ -105,6 +115,7 @@ function trainingReducer(state, action) {
       return {
         ...state,
         timer: 0,
+        timerStartedAt: Date.now(),
         isTimerActive: true,
         status: "EXECUTING",
         restTimes: nextRestTimes,
@@ -136,6 +147,7 @@ function trainingReducer(state, action) {
       const nextActiveRestTimers = { ...state.activeRestTimers };
       if (!isLastSerie) {
         nextActiveRestTimers[String(sessionId)] = {
+          startedAt: Date.now(),
           seconds: 0,
           title: `Descanso ${state.currentSerie}-${seriesAlvo}`,
           nome: nomeEx,
@@ -145,6 +157,7 @@ function trainingReducer(state, action) {
       return {
         ...state,
         isTimerActive: false,
+        timerStartedAt: null,
         status: "RESTING",
         exerciseLoads: nextExerciseLoads,
         exerciseReps: nextExerciseReps,
@@ -315,6 +328,8 @@ function trainingReducer(state, action) {
       };
 
       const mapKey = targetMap[fieldType];
+      if (!mapKey) return state;
+
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
         return { ...state, [mapKey]: { ...state[mapKey], [sessionId]: val } };
       }
@@ -626,7 +641,13 @@ function trainingReducer(state, action) {
     }
 
     case "RESET_TIMER":
-      return { ...state, timer: 0, isTimerActive: false, status: "IDLE" };
+      return {
+        ...state,
+        timer: 0,
+        timerStartedAt: null,
+        isTimerActive: false,
+        status: "IDLE",
+      };
 
     default:
       return state;
@@ -776,6 +797,21 @@ const Training = () => {
     if (saved) {
       const stateData = JSON.parse(saved);
       if (stateData.letra === letra) {
+        const now = Date.now();
+        // Recalculate timer if it was active
+        if (stateData.isTimerActive && stateData.timerStartedAt) {
+          stateData.timer = Math.floor((now - stateData.timerStartedAt) / 1000);
+        }
+        // Recalculate rest timers
+        if (stateData.activeRestTimers) {
+          Object.keys(stateData.activeRestTimers).forEach(id => {
+            if (stateData.activeRestTimers[id].startedAt) {
+              stateData.activeRestTimers[id].seconds = Math.floor(
+                (now - stateData.activeRestTimers[id].startedAt) / 1000
+              );
+            }
+          });
+        }
         dispatch({ type: "INIT_SESSION", payload: stateData });
         setLoading(false);
 
@@ -954,7 +990,7 @@ const Training = () => {
 
     setSavingSession(true);
     try {
-      // 1. Check if training already exists
+      // 1. Check if training already exists (multitenancy aware)
       const { data: existing } = await supabase
         .from("treinos")
         .select("id")
@@ -975,7 +1011,7 @@ const Training = () => {
           .eq("letra_treino", saveAsLetter.toUpperCase());
       } else {
         // Create the training entry if it doesn't exist
-        await supabase
+        const { error: insertError } = await supabase
           .from("treinos")
           .insert([{
             user_id: authUser.id,
@@ -983,6 +1019,7 @@ const Training = () => {
             nome: `Treino ${saveAsLetter.toUpperCase()}`,
             subtitulo: "Treino personalizado"
           }]);
+        if (insertError) throw insertError;
       }
 
       // 2. Prepare new blocks

@@ -126,6 +126,7 @@ const Inicio = () => {
       setLoading(false);
     } else if (workoutsData && workoutsData.length === 0) {
       // New user? Clone global templates
+      console.log("Nenhum treino encontrado para o usuário, iniciando onboarding...");
       await cloneGlobalWorkouts(authUser.id);
     } else {
       setLoading(false);
