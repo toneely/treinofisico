@@ -17,38 +17,9 @@ import WorkoutManager from "../components/WorkoutManager";
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("onboarding");
   const [subTab, setSubTab] = useState("workouts");
-  const [moldeUserId, setMoldeUserId] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMoldeUser();
-  }, []);
-
-  const fetchMoldeUser = async () => {
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from("usuarios")
-        .select("id")
-        .eq("nome", "Tone Ely")
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        setMoldeUserId(data.id);
-      } else {
-        const { data: byEmail } = await supabase
-          .from("usuarios")
-          .select("id")
-          .eq("email_referencia", "molde@treinofisico.com.br")
-          .maybeSingle();
-        setMoldeUserId(byEmail?.id);
-      }
-    } catch (e) {
-      console.warn("Could not fetch molde user:", e);
-    }
-    setLoading(false);
-  };
+  // moldeUserId set to null represents global templates (where user_id is NULL)
+  const [moldeUserId] = useState(null);
+  const [loading] = useState(false);
 
   if (loading)
     return (

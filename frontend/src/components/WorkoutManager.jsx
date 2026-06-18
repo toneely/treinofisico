@@ -22,11 +22,15 @@ const WorkoutManager = ({ overrideUserId = null }) => {
 
   const fetchWorkouts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("treinos")
-      .select("*")
-      .eq("user_id", overrideUserId || authUser.id)
-      .order("letra", { ascending: true });
+    let query = supabase.from("treinos").select("*").order("letra", { ascending: true });
+
+    if (overrideUserId === null) {
+      query = query.is("user_id", null);
+    } else {
+      query = query.eq("user_id", overrideUserId || authUser.id);
+    }
+
+    const { data, error } = await query;
     if (error) {
       showToast("Erro ao buscar treinos: " + error.message, "error");
     } else {
@@ -42,13 +46,23 @@ const WorkoutManager = ({ overrideUserId = null }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const userId = overrideUserId || authUser.id;
+    // When overrideUserId is explicitly null, we want to save with user_id as null (global template)
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+
     if (isEditing) {
-      const { error } = await supabase
+      const query = supabase
         .from("treinos")
         .update({ ...formData, user_id: userId })
-        .eq("id", isEditing)
-        .eq("user_id", userId);
+        .eq("id", isEditing);
+
+      // Handle null check in where clause for update
+      if (userId === null) {
+        query.is("user_id", null);
+      } else {
+        query.eq("user_id", userId);
+      }
+
+      const { error } = await query;
       if (error)
         showToast("Erro ao atualizar treino: " + error.message, "error");
       else {
@@ -85,17 +99,21 @@ const WorkoutManager = ({ overrideUserId = null }) => {
   };
 
   const handleDelete = async (id) => {
-    const userId = overrideUserId || authUser.id;
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
     if (
       window.confirm(
         "Tem certeza que deseja excluir este treino? Isso pode afetar a visualização de blocos.",
       )
     ) {
-      const { error } = await supabase
-        .from("treinos")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", userId);
+      const query = supabase.from("treinos").delete().eq("id", id);
+
+      if (userId === null) {
+        query.is("user_id", null);
+      } else {
+        query.eq("user_id", userId);
+      }
+
+      const { error } = await query;
       if (error) showToast("Erro ao excluir treino: " + error.message, "error");
       else {
         showToast("Treino excluído!", "success");

@@ -121,10 +121,68 @@ const Inicio = () => {
       .eq("user_id", authUser.id)
       .order("letra");
 
-    if (workoutsData) {
+    if (workoutsData && workoutsData.length > 0) {
       setWorkouts(workoutsData);
+      setLoading(false);
+    } else if (workoutsData && workoutsData.length === 0) {
+      // New user? Clone global templates
+      await cloneGlobalWorkouts(authUser.id);
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const cloneGlobalWorkouts = async (targetUserId) => {
+    try {
+      // 1. Fetch global templates
+      const { data: globalTreinos } = await supabase
+        .from("treinos")
+        .select("*")
+        .is("user_id", null);
+
+      if (!globalTreinos || globalTreinos.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: globalBlocos } = await supabase
+        .from("blocos_treino")
+        .select("*")
+        .is("user_id", null);
+
+      // 2. Clone treinos
+      const userTreinos = globalTreinos.map(({ id, created_at, ...rest }) => ({
+        ...rest,
+        user_id: targetUserId,
+      }));
+
+      const { error: tError } = await supabase.from("treinos").insert(userTreinos);
+      if (tError) throw tError;
+
+      // 3. Clone blocos
+      if (globalBlocos && globalBlocos.length > 0) {
+        const userBlocos = globalBlocos.map(({ id, created_at, ...rest }) => ({
+          ...rest,
+          user_id: targetUserId,
+        }));
+        const { error: bError } = await supabase.from("blocos_treino").insert(userBlocos);
+        if (bError) throw bError;
+      }
+
+      // 4. Final fetch to update UI
+      const { data: finalWorkouts } = await supabase
+        .from("treinos")
+        .select("*")
+        .eq("user_id", targetUserId)
+        .order("letra");
+
+      setWorkouts(finalWorkouts || []);
+    } catch (err) {
+      console.error("Erro ao clonar treinos padrão:", err);
+      showToast("Não foi possível carregar os treinos padrão.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startTraining = (letra) => {

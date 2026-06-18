@@ -65,16 +65,23 @@ const ExerciseSelector = ({
 
   const fetchResults = async () => {
     setLoading(true);
-    const userId = overrideUserId || authUser.id;
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
 
     // Search personal library
-    const { data: personal } = await supabase
+    let query = supabase
       .from("exercicios")
       .select("id, nome, alvo_principal, is_global:id(id)") // logic flag
-      .eq("user_id", userId)
       .eq("modalidade", modalidade)
       .ilike("nome", `%${searchTerm}%`)
       .limit(10);
+
+    if (userId === null) {
+      query = query.is("user_id", null);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data: personal } = await query;
 
     // Search global library
     const { data: global } = await supabase
@@ -106,15 +113,21 @@ const ExerciseSelector = ({
     if (exercise.is_global) {
       // Copy-on-Write Logic
       setLoading(true);
-      const userId = overrideUserId || authUser.id;
+      const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
 
       // Double check if it was already copied (race condition or existing)
-      const { data: existing } = await supabase
+      let query = supabase
         .from("exercicios")
         .select("id")
-        .eq("user_id", userId)
-        .eq("nome", exercise.nome)
-        .maybeSingle();
+        .eq("nome", exercise.nome);
+
+      if (userId === null) {
+        query = query.is("user_id", null);
+      } else {
+        query = query.eq("user_id", userId);
+      }
+
+      const { data: existing } = await query.maybeSingle();
 
       if (existing) {
         finalId = existing.id;
