@@ -1124,7 +1124,7 @@ const Training = () => {
                             });
                           }
                         }}
-                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02] text-white" : "cursor-pointer"}`}
+                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02]" : "cursor-pointer"}`}
                         style={{
                           backgroundColor: isCurrent
                             ? activeColor
@@ -1150,7 +1150,7 @@ const Training = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10 text-white" : (isSkipped && !isCurrent) ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10" : (isSkipped && !isCurrent) ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
                       >
                         {(isSkipped && !isCurrent) ? (
                           <CircleX size={16} />
@@ -1162,17 +1162,17 @@ const Training = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`font-bold text-sm leading-tight ${isCurrent ? "text-white" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
+                            <p className={`font-bold text-sm leading-tight ${isCurrent ? "text-inherit" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
                             {ex.exercicios.nome}
                           </p>
                         </div>
                         {!isCurrent && (
                           <div className="flex gap-2 items-center">
-                            <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60 text-white"}`}>
+                            <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"}`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
                             {state.cargas[sessionId] > 0 && (
-                              <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80 text-white"}`}>
+                              <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80"}`}>
                                 <Dumbbell size={10} />{" "}
                                 {state.cargas[sessionId]}kg
                               </span>
@@ -1191,9 +1191,9 @@ const Training = () => {
                               : ex.sessionId,
                           );
                         }}
-                        className="p-2 hover:bg-black/10 rounded-lg transition"
+                        className={`p-2 rounded-lg transition ${isCurrent ? "hover:bg-black/10" : "hover:bg-white/10"}`}
                       >
-                        <MoreVertical size={16} />
+                        <MoreVertical size={16} className={isCurrent ? "text-inherit" : "text-white/40"} />
                       </button>
                       {openMenuExId === ex.sessionId && (
                         <div
@@ -1266,107 +1266,113 @@ const Training = () => {
                         className={`rounded-2xl p-3 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
                       >
                         <div className="flex flex-col">
-                          <p className="text-[10px] font-bold uppercase mb-1 opacity-60">Tempo de Execução</p>
+                          <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Tempo de Execução</p>
                           <div className="flex items-baseline gap-2">
                             <p className="text-3xl font-mono font-black">{formatTime(state.timer)}</p>
                             {lastExecutionTimes[ex.exercicio_id] > 0 && (
-                              <span className="text-[10px] font-bold opacity-30">
+                              <span className="text-[10px] font-bold opacity-50">
                                 Ref: {formatTime(lastExecutionTimes[ex.exercicio_id])}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex items-center gap-1.5 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "bg-black/20 border-white/20" : "bg-black/5 border-transparent opacity-40 hover:opacity-100"}`}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMetronomeActive(!metronomeActive);
-                              }}
-                              className="hover:scale-110 transition text-white"
-                            >
-                              {metronomeActive ? (
-                                <Pause size={12} fill="currentColor" />
-                              ) : (
-                                <Play size={12} fill="currentColor" />
-                              )}
-                            </button>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={bpm}
-                                onFocus={(e) => e.target.select()}
-                                onChange={(e) =>
-                                  setBpm(
-                                    Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
-                                  )
-                                }
-                                className="bg-transparent w-6 text-center text-[10px] font-black outline-none text-white"
-                              />
-                              <span className="text-[7px] font-black opacity-60">BPM</span>
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-4">
                           <button
                             onClick={(e) => { e.stopPropagation(); dispatch({ type: "RESET_TIMER" }); }}
                             className="p-2 opacity-40 hover:opacity-100 transition"
                           >
                             <RotateCcw size={16} />
                           </button>
-                          {!state.isTimerActive && state.timer === 0 ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                dispatch({ type: "START_SERIES", sessionId: sessionId });
-                              }}
-                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-black shadow-lg"
+                          <div className="flex flex-col items-center gap-2">
+                            {!state.isTimerActive && state.timer === 0 ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dispatch({ type: "START_SERIES", sessionId: sessionId });
+                                }}
+                                className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-lg active:scale-95 transition-transform"
+                              >
+                                <Play fill="black" size={20} className="ml-1" />
+                              </button>
+                            ) : state.isTimerActive ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dispatch({
+                                    type: "STOP_SERIES",
+                                    payload: {
+                                      sessionId: sessionId,
+                                      currentInputLoad: parseFloat(state.cargas[sessionId]) || 0,
+                                      currentInputReps: parseInt(state.repsFeitas[sessionId]) || 0,
+                                      nomeEx: ex.exercicios.nome,
+                                      seriesAlvo: ex.series_alvo,
+                                    },
+                                  });
+                                }}
+                                className="w-12 h-12 rounded-full flex items-center justify-center bg-black/20 active:scale-95 transition-transform"
+                              >
+                                <Square fill="currentColor" size={18} />
+                              </button>
+                            ) : (
+                               <div className="w-12 h-12" /> // Placeholder to maintain spacing if timer is stopped but not zero
+                            )}
+
+                            {/* Relocated Metronome Player */}
+                            <div
+                              className={`flex items-center gap-1.5 p-1 px-2 rounded-lg border transition-all ${metronomeActive ? "bg-black/20 border-current/20" : "bg-black/5 border-transparent opacity-40 hover:opacity-100"}`}
                             >
-                              <Play fill="currentColor" size={20} className="ml-1" />
-                            </button>
-                          ) : state.isTimerActive ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                dispatch({
-                                  type: "STOP_SERIES",
-                                  payload: {
-                                    sessionId: sessionId,
-                                    currentInputLoad: parseFloat(state.cargas[sessionId]) || 0,
-                                    currentInputReps: parseInt(state.repsFeitas[sessionId]) || 0,
-                                    nomeEx: ex.exercicios.nome,
-                                    seriesAlvo: ex.series_alvo,
-                                  },
-                                });
-                              }}
-                              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/20"
-                            >
-                              <Square fill="currentColor" size={18} />
-                            </button>
-                          ) : null}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMetronomeActive(!metronomeActive);
+                                }}
+                                className="hover:scale-110 transition"
+                              >
+                                {metronomeActive ? (
+                                  <Pause size={12} fill="currentColor" />
+                                ) : (
+                                  <Play size={12} fill="currentColor" />
+                                )}
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={bpm}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) =>
+                                    setBpm(
+                                      Math.max(30, Math.min(240, parseInt(e.target.value) || 60)),
+                                    )
+                                  }
+                                  className="bg-transparent w-6 text-center text-[10px] font-black outline-none placeholder:text-inherit"
+                                />
+                                <span className="text-[7px] font-black opacity-70">BPM</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
                       {/* Integrated Inputs */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-black/20 p-3 rounded-2xl">
-                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Carga (kg)</label>
+                          <label className="text-[10px] font-bold opacity-70 uppercase block mb-1">Carga (kg)</label>
                           <input
                             type="number"
                             value={state.cargas[sessionId] ?? ""}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentCarga", sessionId: sessionId, val: e.target.value })}
-                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full placeholder:text-inherit"
                           />
                         </div>
                         <div className="bg-black/20 p-3 rounded-2xl">
-                          <label className="text-[10px] font-bold opacity-50 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
+                          <label className="text-[10px] font-bold opacity-70 uppercase block mb-1">Reps ({ex.reps_alvo})</label>
                           <input
                             type="number"
                             value={state.repsFeitas[sessionId] ?? ""}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => dispatch({ type: "SET_VALUE", fieldType: "currentReps", sessionId: sessionId, val: e.target.value })}
-                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full text-white"
+                            className="bg-transparent text-2xl font-mono font-bold outline-none w-full placeholder:text-inherit"
                           />
                         </div>
                       </div>
@@ -1379,7 +1385,8 @@ const Training = () => {
                             dispatch({ type: "ADVANCE_STEP", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
                           }}
                           disabled={savingSession}
-                          className="w-full py-3 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-emerald-500 text-white shadow-lg active:scale-95 transition-all"
+                          className="w-full py-3 rounded-2xl font-black text-lg flex items-center justify-center gap-3 bg-white shadow-lg active:scale-95 transition-all"
+                          style={{ color: activeColor }}
                         >
                           {savingSession ? "Salvando..." : (() => {
                             const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
@@ -1403,24 +1410,24 @@ const Training = () => {
                             dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
                           }}
                           disabled={state.isTimerActive || savingSession}
-                          className="w-full py-1 text-[10px] font-bold opacity-40 hover:opacity-100 transition flex items-center justify-center gap-2"
+                          className="w-full py-1 text-[10px] font-bold opacity-70 hover:opacity-100 transition flex items-center justify-center gap-2 text-inherit"
                         >
                           <SkipForward size={12} /> Pular Exercício
                         </button>
                       )}
 
-                      <div className="mt-6 pt-6 border-t border-white/10">
+                      <div className={`mt-6 pt-6 border-t ${isCurrent ? "border-current/10" : "border-white/10"}`}>
                         <div className="flex justify-between items-center w-full mb-2">
-                          <p className="text-xs uppercase tracking-wider font-semibold opacity-60">SÉRIES</p>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-70 text-inherit">SÉRIES</p>
                           <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setOpenSeriesMenuExId(openSeriesMenuExId === sessionId ? null : sessionId);
                               }}
-                              className="p-1 hover:bg-white/10 rounded-md opacity-40 hover:opacity-100 transition"
+                              className={`p-1 rounded-md opacity-40 hover:opacity-100 transition ${isCurrent ? "hover:bg-black/10" : "hover:bg-white/10"}`}
                             >
-                              <MoreHorizontal size={14} />
+                              <MoreHorizontal size={14} className="text-inherit" />
                             </button>
 
                             {openSeriesMenuExId === sessionId && (
@@ -1485,7 +1492,7 @@ const Training = () => {
                                 key={sessionIdx}
                                 className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
                                   isCurrentS
-                                    ? "bg-white/20 border-white/40 ring-4 ring-white/10 scale-[1.05] z-10"
+                                    ? "bg-current/20 border-current/40 ring-4 ring-current/10 scale-[1.05] z-10"
                                     : isSkipped
                                       ? isExecuted
                                         ? "bg-red-950/60 border-red-500/10"
@@ -1493,8 +1500,8 @@ const Training = () => {
                                           ? "bg-red-500/10 border-red-500/40"
                                           : "bg-red-950/20 border-transparent"
                                       : isExecuted
-                                        ? "bg-black/20 border-white/5"
-                                        : "bg-black/5 border-transparent"
+                                        ? "bg-current/10 border-current/5"
+                                        : "bg-current/5 border-transparent"
                                 }`}
                               >
                                 <button
@@ -1512,13 +1519,15 @@ const Training = () => {
                                       );
                                     }
                                   }}
-                                  className="font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all text-white"
+                                  className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all ${isCurrent ? "text-inherit" : "text-white"}`}
                                   style={{
                                     backgroundColor: isCurrentS
-                                      ? "rgba(255,255,255,0.2)"
-                                      : isNextPending
-                                        ? "var(--color-secondary)"
-                                        : "transparent",
+                                      ? "rgba(0,0,0,0.1)"
+                                      : (isNextPending && isCurrent)
+                                        ? "rgba(0,0,0,0.1)"
+                                        : isNextPending
+                                          ? "var(--color-secondary)"
+                                          : "transparent",
                                     opacity: isCurrentS || isNextPending ? 1 : 0.4,
                                   }}
                                 >
@@ -1542,9 +1551,9 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
                                     />
-                                    <span className={`text-[8px] font-bold opacity-40 ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[8px] font-bold opacity-40 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       kg
                                     </span>
                                   </div>
@@ -1563,23 +1572,23 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
                                     />
-                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       reps
                                     </span>
                                   </div>
                                 </div>
                                 <div
-                                  className={`flex flex-col items-center w-full pt-2 border-t border-white/5 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-current/10 gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
                                       size={8}
-                                      className={`opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}
+                                      className={`opacity-30 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-400" : "text-white"}`}
                                     />
                                     {liveExec !== null ? (
-                                      <span className="font-mono font-bold text-[9px] text-white">
+                                      <span className="font-mono font-bold text-[9px] text-inherit">
                                         {" "}
                                         {formatTime(liveExec)}{" "}
                                       </span>
@@ -1606,9 +1615,9 @@ const Training = () => {
                                               part: "mins",
                                             })
                                           }
-                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
                                         />
-                                        <span className={`text-[9px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                        <span className={`text-[9px] font-bold opacity-30 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-400" : ""}`}>
                                           :
                                         </span>
                                         <input
@@ -1632,7 +1641,7 @@ const Training = () => {
                                               part: "secs",
                                             })
                                           }
-                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
                                         />
                                       </div>
                                     )}
@@ -1641,7 +1650,7 @@ const Training = () => {
                                     className={`flex items-center gap-1 ${liveRest !== null ? " animate-pulse" : "opacity-30"}`}
                                   >
                                     {liveRest !== null ? (
-                                      <span className="font-mono text-[8px] font-bold">
+                                      <span className="font-mono text-[8px] font-bold text-inherit">
                                         {" "}
                                         {formatTime(liveRest)}{" "}
                                       </span>
@@ -1668,9 +1677,9 @@ const Training = () => {
                                               part: "mins",
                                             })
                                           }
-                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
                                         />
-                                        <span className={`text-[8px] font-bold opacity-30 ${isSkipped ? "text-red-400" : "text-white"}`}>
+                                        <span className={`text-[8px] font-bold opacity-30 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-400" : ""}`}>
                                           :
                                         </span>
                                         <input
@@ -1694,7 +1703,7 @@ const Training = () => {
                                               part: "secs",
                                             })
                                           }
-                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
                                         />
                                       </div>
                                     )}
@@ -1708,9 +1717,9 @@ const Training = () => {
                               e.stopPropagation();
                               dispatch({ type: "UPDATE_SERIES_ALVO", sessionId, newAlvo: ex.series_alvo + 1 });
                             }}
-                            className="p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px]"
+                            className={`p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px] ${isCurrent ? "border-current/20 bg-black/5 hover:bg-black/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                           >
-                            <Plus size={20} className="text-white/60" />
+                            <Plus size={20} className="opacity-60 text-inherit" />
                           </button>
                         </div>
                       </div>
@@ -1801,7 +1810,7 @@ const Training = () => {
                 return (
                   <div
                     key={sessionId}
-                    className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10 text-white"
+                    className="flex-1 min-w-[140px] p-2.5 px-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom duration-500 border border-white/10"
                     style={{
                       backgroundColor: isPrimary ? "var(--color-primary)" : "var(--color-secondary)",
                       color: isPrimary ? "var(--text-on-primary)" : "var(--text-on-secondary)"
