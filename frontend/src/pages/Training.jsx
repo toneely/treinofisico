@@ -431,65 +431,98 @@ function trainingReducer(state, action) {
 
       if (targetIdx < 0 || targetIdx >= block.length) return state;
 
+      // Stable focus preservation: remember what was focused before structural changes
+      const currentActiveEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
+      const currentSessionId = currentActiveEx?.sessionId;
+
       const [moved] = block.splice(eIdx, 1);
       block.splice(targetIdx, 0, moved);
 
       const updatedBlock = block.map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
       newBlocks[bIdx] = updatedBlock;
 
+      let nextBlockIdx = state.currentBlockIndex;
       let nextExIdx = state.currentExerciseInBlock;
-      if (state.currentBlockIndex === bIdx && state.currentExerciseInBlock === eIdx) {
-        nextExIdx = targetIdx;
+
+      if (currentSessionId) {
+        newBlocks.forEach((b, bi) => {
+          const ei = b.findIndex(ex => ex.sessionId === currentSessionId);
+          if (ei !== -1) {
+            nextBlockIdx = bi;
+            nextExIdx = ei;
+          }
+        });
       }
 
       return {
         ...state,
         blocos: newBlocks,
         originalBlocos: newBlocks,
+        currentBlockIndex: nextBlockIdx,
         currentExerciseInBlock: nextExIdx
       };
     }
 
     case "MOVE_TO_BLOCK": {
       const { bIdx, eIdx, direction } = action;
-      const newBlocks = [...state.blocos];
-      const targetBlockIdx = bIdx + direction;
+      const newBlocks = state.blocos.map(b => [...b]);
+
+      // Preservation coordinates
+      const currentActiveEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
+      const currentSessionId = currentActiveEx?.sessionId;
 
       const [exercise] = newBlocks[bIdx].splice(eIdx, 1);
+      const sourceWasEmpty = newBlocks[bIdx].length === 0;
 
-      if (newBlocks[bIdx].length === 0) {
+      if (sourceWasEmpty) {
         newBlocks.splice(bIdx, 1);
-      } else {
-        newBlocks[bIdx] = newBlocks[bIdx].map((ex, idx) => ({ ...ex, ordem_execucao: idx + 1 }));
       }
 
-      if (targetBlockIdx < 0) {
-        // Create new block at the beginning
-        newBlocks.unshift([{ ...exercise, numero_bloco: 1, ordem_execucao: 1 }]);
-      } else if (targetBlockIdx >= newBlocks.length) {
-        // Create new block at the end
-        const nextNum = (newBlocks[newBlocks.length - 1]?.[0]?.numero_bloco || 0) + 1;
-        newBlocks.push([{ ...exercise, numero_bloco: nextNum, ordem_execucao: 1 }]);
+      // Calculate target block index in the NEW array
+      // If we move down (direction 1) and we removed a block before the target,
+      // the target block index stays the same (bIdx + 1 became bIdx).
+      // If we move up (direction -1), targetBlockIdx is just bIdx - 1.
+
+      let finalTargetIdx = bIdx + direction;
+      if (direction === 1 && sourceWasEmpty) {
+        finalTargetIdx = bIdx;
+      }
+
+      if (finalTargetIdx < 0) {
+        newBlocks.unshift([exercise]);
+      } else if (finalTargetIdx >= newBlocks.length) {
+        newBlocks.push([exercise]);
       } else {
-        // Add to existing block
-        newBlocks[targetBlockIdx].push({
-          ...exercise,
-          numero_bloco: newBlocks[targetBlockIdx][0].numero_bloco,
-          ordem_execucao: newBlocks[targetBlockIdx].length + 1
+        newBlocks[finalTargetIdx].push(exercise);
+      }
+
+      // Re-normalize everything
+      const normalizedBlocks = newBlocks.map((block, idx) =>
+        block.map((ex, exIdx) => ({
+          ...ex,
+          numero_bloco: idx + 1,
+          ordem_execucao: exIdx + 1
+        }))
+      );
+
+      let nextBlockIdx = 0;
+      let nextExIdx = 0;
+      if (currentSessionId) {
+        normalizedBlocks.forEach((b, bi) => {
+          const ei = b.findIndex(ex => ex.sessionId === currentSessionId);
+          if (ei !== -1) {
+            nextBlockIdx = bi;
+            nextExIdx = ei;
+          }
         });
       }
-
-      // Re-normalize all block numbers
-      const normalizedBlocks = newBlocks.map((block, idx) =>
-        block.map(ex => ({ ...ex, numero_bloco: idx + 1 }))
-      );
 
       return {
         ...state,
         blocos: normalizedBlocks,
         originalBlocos: normalizedBlocks,
-        currentBlockIndex: 0, // Reset focus to avoid index errors after drastic structural changes
-        currentExerciseInBlock: 0
+        currentBlockIndex: nextBlockIdx,
+        currentExerciseInBlock: nextExIdx
       };
     }
 
