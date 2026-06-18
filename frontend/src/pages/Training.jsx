@@ -1105,10 +1105,11 @@ const Training = () => {
                           ? state.skippedExercises.find(
                               (s) => s.sessionId === ex.sessionId,
                             )?.partialSerie || 0
-                          : 0;
+                          : doneCount;
 
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
+                    const isStarted = doneCount > 0;
 
                     return (
                       <div
@@ -1124,7 +1125,7 @@ const Training = () => {
                             });
                           }
                         }}
-                        className={`relative p-4 rounded-2xl border transition-all ${isCurrent ? "scale-[1.02]" : "cursor-pointer"}`}
+                        className={`relative rounded-2xl border transition-all duration-300 ${isCurrent ? "p-4 scale-[1.02]" : !isStarted ? "p-2.5 py-2 cursor-pointer" : "p-4 cursor-pointer"}`}
                         style={{
                           backgroundColor: isCurrent
                             ? activeColor
@@ -1150,30 +1151,30 @@ const Training = () => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? "bg-black/10" : (isSkipped && !isCurrent) ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}
+                        className={`rounded-lg flex items-center justify-center transition-all ${isCurrent ? "w-8 h-8 bg-black/10" : !isStarted ? "w-6 h-6 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-8 h-8 bg-white/5 text-white/40"}`}
                       >
                         {(isSkipped && !isCurrent) ? (
-                          <CircleX size={16} />
+                          <CircleX size={!isStarted && !isCurrent ? 12 : 16} />
                         ) : isDone ? (
-                          <CheckCircle2 size={16} />
+                          <CheckCircle2 size={!isStarted && !isCurrent ? 12 : 16} />
                         ) : (
-                          <Dumbbell size={16} />
+                          <Dumbbell size={!isStarted && !isCurrent ? 12 : 16} />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between gap-2">
-                            <p className={`font-bold text-sm leading-tight ${isCurrent ? "text-inherit" : (isSkipped && !isCurrent) ? "text-red-300" : "text-white"}`}>
+                            <p className={`font-bold leading-tight ${isCurrent ? "text-inherit text-sm" : !isStarted ? "text-xs" : (isSkipped && !isCurrent) ? "text-red-300 text-sm" : "text-white text-sm"}`}>
                             {ex.exercicios.nome}
                           </p>
                         </div>
                         {!isCurrent && (
-                          <div className="flex gap-2 items-center">
-                            <p className={`text-[10px] font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"}`}>
+                          <div className="flex gap-3 items-center">
+                            <p className={`font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"} ${!isStarted ? "text-[9px]" : "text-[10px]"}`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
-                            {state.cargas[sessionId] > 0 && (
-                              <span className={`text-[10px] font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80"}`}>
-                                <Dumbbell size={10} />{" "}
+                            {(state.cargas[sessionId] > 0 || !isStarted) && (
+                              <span className={`font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80"} ${!isStarted ? "text-[9px]" : "text-[10px]"}`}>
+                                <Dumbbell size={!isStarted ? 9 : 10} />{" "}
                                 {state.cargas[sessionId]}kg
                               </span>
                             )}
@@ -1259,8 +1260,10 @@ const Training = () => {
                     </div>
                   </div>
 
-                  {isCurrent ? (
-                    <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                  {isCurrent || isStarted ? (
+                    <div className={`mt-4 space-y-3 transition-all duration-500 ${isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
+                      {isCurrent && (
+                        <>
                       {/* Integrated Timer */}
                       <div
                         className={`rounded-2xl p-3 flex items-center justify-between transition-all ${state.isTimerActive ? "bg-black/20 ring-1 ring-white/20" : "bg-black/10"}`}
@@ -1403,20 +1406,15 @@ const Training = () => {
                         </button>
                       )}
 
-                      {!state.isCatchupPhase && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            dispatch({ type: "SKIP_EXERCISE", payload: { currentBlock: state.blocos[state.currentBlockIndex] } });
-                          }}
-                          disabled={state.isTimerActive || savingSession}
-                          className="w-full py-1 text-[10px] font-bold opacity-70 hover:opacity-100 transition flex items-center justify-center gap-2 text-inherit"
-                        >
-                          <SkipForward size={12} /> Pular Exercício
-                        </button>
+                        </>
                       )}
 
-                      <div className={`mt-6 pt-6 border-t ${isCurrent ? "border-current/10" : "border-white/10"}`}>
+                      {(!isCurrent && isStarted) && (
+                        <div className="h-px bg-white/5 my-2" />
+                      )}
+
+                      <div className={`${isCurrent ? "mt-6 pt-6 border-t" : ""} ${isCurrent ? "border-current/10" : "border-transparent"}`}>
+                        {isCurrent && (
                         <div className="flex justify-between items-center w-full mb-2">
                           <p className="text-xs uppercase tracking-wider font-semibold opacity-70 text-inherit">SÉRIES</p>
                           <div className="relative">
@@ -1465,7 +1463,8 @@ const Training = () => {
                             )}
                           </div>
                         </div>
-                        <div className="flex overflow-x-auto gap-2 py-3 px-2 max-w-full scrollbar-none">
+                        )}
+                        <div className={`flex overflow-x-auto gap-2 max-w-full scrollbar-none ${isCurrent ? "py-3 px-2" : "py-1"}`}>
                           {[...Array(ex.series_alvo)].map((_, sessionIdx) => {
                             const sNum = sessionIdx + 1;
                             const execTime =
@@ -1537,6 +1536,7 @@ const Training = () => {
                                   className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
                                 >
                                   <div className="flex items-center gap-0.5">
+                                    {isCurrent ? (
                                     <input
                                       type="number"
                                       value={load || ""}
@@ -1551,13 +1551,19 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 text-inherit`}
                                     />
+                                    ) : (
+                                      <span className={`font-mono font-black text-[11px] ${load ? "" : "opacity-20"}`}>
+                                        {load || "-"}
+                                      </span>
+                                    )}
                                     <span className={`text-[8px] font-bold opacity-40 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       kg
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-0.5">
+                                    {isCurrent ? (
                                     <input
                                       type="number"
                                       value={reps || ""}
@@ -1572,8 +1578,13 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "text-white placeholder:text-white"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 text-inherit`}
                                     />
+                                    ) : (
+                                      <span className={`font-bold text-[10px] opacity-60 ${reps ? "" : "opacity-20"}`}>
+                                        {reps || "-"}
+                                      </span>
+                                    )}
                                     <span className={`text-[7px] font-bold opacity-30 uppercase ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       reps
                                     </span>
@@ -1594,55 +1605,63 @@ const Training = () => {
                                       </span>
                                     ) : (
                                       <div className="flex items-center gap-0.5">
-                                        <input
-                                          type="number"
-                                          value={
-                                            execTime !== null &&
-                                            execTime !== undefined
-                                              ? Math.floor(execTime / 60)
-                                              : ""
-                                          }
-                                          placeholder="0"
-                                          readOnly={!execTime && execTime !== 0}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) =>
-                                            dispatch({
-                                              type: "SET_VALUE",
-                                              fieldType: "exec",
-                                              sessionId,
-                                              sessionIdx,
-                                              val: e.target.value,
-                                              part: "mins",
-                                            })
-                                          }
-                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
-                                        />
-                                        <span className={`text-[9px] font-bold opacity-30 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-400" : ""}`}>
-                                          :
-                                        </span>
-                                        <input
-                                          type="number"
-                                          value={
-                                            execTime !== null &&
-                                            execTime !== undefined
-                                              ? String(execTime % 60).padStart(2, "0")
-                                              : ""
-                                          }
-                                          placeholder="00"
-                                          readOnly={!execTime && execTime !== 0}
-                                    onFocus={(e) => e.target.select()}
-                                          onChange={(e) =>
-                                            dispatch({
-                                              type: "SET_VALUE",
-                                              fieldType: "exec",
-                                              sessionId,
-                                              sessionIdx,
-                                              val: e.target.value,
-                                              part: "secs",
-                                            })
-                                          }
-                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
-                                        />
+                                        {isCurrent ? (
+                                        <>
+                                          <input
+                                            type="number"
+                                            value={
+                                              execTime !== null &&
+                                              execTime !== undefined
+                                                ? Math.floor(execTime / 60)
+                                                : ""
+                                            }
+                                            placeholder="0"
+                                            readOnly={!execTime && execTime !== 0}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) =>
+                                              dispatch({
+                                                type: "SET_VALUE",
+                                                fieldType: "exec",
+                                                sessionId,
+                                                sessionIdx,
+                                                val: e.target.value,
+                                                part: "mins",
+                                              })
+                                            }
+                                            className={`bg-transparent w-4 text-right font-mono font-bold text-[9px] outline-none placeholder:opacity-20 text-inherit`}
+                                          />
+                                          <span className={`text-[9px] font-bold opacity-30 text-inherit`}>
+                                            :
+                                          </span>
+                                          <input
+                                            type="number"
+                                            value={
+                                              execTime !== null &&
+                                              execTime !== undefined
+                                                ? String(execTime % 60).padStart(2, "0")
+                                                : ""
+                                            }
+                                            placeholder="00"
+                                            readOnly={!execTime && execTime !== 0}
+                                      onFocus={(e) => e.target.select()}
+                                            onChange={(e) =>
+                                              dispatch({
+                                                type: "SET_VALUE",
+                                                fieldType: "exec",
+                                                sessionId,
+                                                sessionIdx,
+                                                val: e.target.value,
+                                                part: "secs",
+                                              })
+                                            }
+                                            className={`bg-transparent w-5 text-left font-mono font-bold text-[9px] outline-none placeholder:opacity-20 text-inherit`}
+                                          />
+                                        </>
+                                        ) : (
+                                          <span className={`font-mono font-bold text-[9px] ${execTime !== null ? "" : "opacity-20"}`}>
+                                            {execTime !== null ? formatTime(execTime) : "0:00"}
+                                          </span>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -1656,55 +1675,63 @@ const Training = () => {
                                       </span>
                                     ) : (
                                       <div className="flex items-center gap-0.5">
-                                        <input
-                                          type="number"
-                                          value={
-                                            restTime !== null &&
-                                            restTime !== undefined
-                                              ? Math.floor(restTime / 60)
-                                              : ""
-                                          }
-                                          placeholder="0"
-                                          readOnly={!restTime && restTime !== 0}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) =>
-                                            dispatch({
-                                              type: "SET_VALUE",
-                                              fieldType: "rest",
-                                              sessionId,
-                                              sessionIdx,
-                                              val: e.target.value,
-                                              part: "mins",
-                                            })
-                                          }
-                                          className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
-                                        />
-                                        <span className={`text-[8px] font-bold opacity-30 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-400" : ""}`}>
-                                          :
-                                        </span>
-                                        <input
-                                          type="number"
-                                          value={
-                                            restTime !== null &&
-                                            restTime !== undefined
-                                              ? String(restTime % 60).padStart(2, "0")
-                                              : ""
-                                          }
-                                          placeholder="00"
-                                          readOnly={!restTime && restTime !== 0}
-                                    onFocus={(e) => e.target.select()}
-                                          onChange={(e) =>
-                                            dispatch({
-                                              type: "SET_VALUE",
-                                              fieldType: "rest",
-                                              sessionId,
-                                              sessionIdx,
-                                              val: e.target.value,
-                                              part: "secs",
-                                            })
-                                          }
-                                          className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-200 placeholder:text-red-200" : "placeholder:text-inherit"}`}
-                                        />
+                                        {isCurrent ? (
+                                        <>
+                                          <input
+                                            type="number"
+                                            value={
+                                              restTime !== null &&
+                                              restTime !== undefined
+                                                ? Math.floor(restTime / 60)
+                                                : ""
+                                            }
+                                            placeholder="0"
+                                            readOnly={!restTime && restTime !== 0}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) =>
+                                              dispatch({
+                                                type: "SET_VALUE",
+                                                fieldType: "rest",
+                                                sessionId,
+                                                sessionIdx,
+                                                val: e.target.value,
+                                                part: "mins",
+                                              })
+                                            }
+                                            className={`bg-transparent w-4 text-right font-mono font-bold text-[8px] outline-none placeholder:opacity-20 text-inherit`}
+                                          />
+                                          <span className={`text-[8px] font-bold opacity-30 text-inherit`}>
+                                            :
+                                          </span>
+                                          <input
+                                            type="number"
+                                            value={
+                                              restTime !== null &&
+                                              restTime !== undefined
+                                                ? String(restTime % 60).padStart(2, "0")
+                                                : ""
+                                            }
+                                            placeholder="00"
+                                            readOnly={!restTime && restTime !== 0}
+                                      onFocus={(e) => e.target.select()}
+                                            onChange={(e) =>
+                                              dispatch({
+                                                type: "SET_VALUE",
+                                                fieldType: "rest",
+                                                sessionId,
+                                                sessionIdx,
+                                                val: e.target.value,
+                                                part: "secs",
+                                              })
+                                            }
+                                            className={`bg-transparent w-5 text-left font-mono font-bold text-[8px] outline-none placeholder:opacity-20 text-inherit`}
+                                          />
+                                        </>
+                                        ) : (
+                                          <span className={`font-mono font-bold text-[8px] ${restTime !== null ? "" : "opacity-20"}`}>
+                                            {restTime !== null ? formatTime(restTime) : "0:00"}
+                                          </span>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -1712,15 +1739,17 @@ const Training = () => {
                               </div>
                             );
                           })}
+                          {isCurrent && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               dispatch({ type: "UPDATE_SERIES_ALVO", sessionId, newAlvo: ex.series_alvo + 1 });
                             }}
-                            className={`p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px] ${isCurrent ? "border-current/20 bg-black/5 hover:bg-black/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                            className={`p-2.5 py-3 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed transition-all opacity-40 hover:opacity-100 min-h-[80px] shrink-0 min-w-[60px] border-current/20 bg-black/5 hover:bg-black/10`}
                           >
                             <Plus size={20} className="opacity-60 text-inherit" />
                           </button>
+                          )}
                         </div>
                       </div>
                     </div>
