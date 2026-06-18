@@ -55,13 +55,13 @@ const initialState = {
   isTimerActive: false,
   timer: 0,
   status: "IDLE", // IDLE, EXECUTING, RESTING, COMPLETED
-  exerciseTimes: {}, // { exercicio_id: [s1, s2...] }
-  restTimes: {}, // { exercicio_id: [s1, s2...] }
-  activeRestTimers: {}, // { exercicio_id: { seconds: number, title: string, nome: string } }
-  cargas: {}, // { exercicio_id: last_used_load }
-  exerciseLoads: {}, // { exercicio_id: [s1, s2...] }
-  repsFeitas: {}, // { exercicio_id: current_input_reps }
-  exerciseReps: {}, // { exercicio_id: [s1, s2...] }
+  exerciseTimes: {}, // { sessionId: [s1, s2...] }
+  restTimes: {}, // { sessionId: [s1, s2...] }
+  activeRestTimers: {}, // { sessionId: { seconds: number, title: string, nome: string } }
+  cargas: {}, // { sessionId: last_used_load }
+  exerciseLoads: {}, // { sessionId: [s1, s2...] }
+  repsFeitas: {}, // { sessionId: current_input_reps }
+  exerciseReps: {}, // { sessionId: [s1, s2...] }
   skippedExercises: [],
   isCatchupPhase: false,
   showCheckoutModal: false,
@@ -116,15 +116,18 @@ function trainingReducer(state, action) {
       const { sessionId, currentInputLoad, currentInputReps, nomeEx, seriesAlvo } =
         action.payload;
       const isLastSerie = state.currentSerie >= seriesAlvo;
+      const currentDone = state.exerciseTimes[sessionId]?.length || 0;
 
-      const nextExerciseLoads = {
-        ...state.exerciseLoads,
-        [sessionId]: [...(state.exerciseLoads[sessionId] || []), currentInputLoad],
-      };
-      const nextExerciseReps = {
-        ...state.exerciseReps,
-        [sessionId]: [...(state.exerciseReps[sessionId] || []), currentInputReps],
-      };
+      const nextExerciseLoads = { ...state.exerciseLoads };
+      const loads = [...(nextExerciseLoads[sessionId] || [])];
+      loads[currentDone] = currentInputLoad;
+      nextExerciseLoads[sessionId] = loads;
+
+      const nextExerciseReps = { ...state.exerciseReps };
+      const reps = [...(nextExerciseReps[sessionId] || [])];
+      reps[currentDone] = currentInputReps;
+      nextExerciseReps[sessionId] = reps;
+
       const nextExerciseTimes = {
         ...state.exerciseTimes,
         [sessionId]: [...(state.exerciseTimes[sessionId] || []), state.timer],
@@ -152,17 +155,22 @@ function trainingReducer(state, action) {
 
     case "ADVANCE_STEP": {
       const { currentBlock } = action.payload;
+      if (!currentBlock || currentBlock.length === 0) return state;
+
       let blockFinished = false;
 
       if (state.executionMode === "isolated" || currentBlock.length === 1) {
+        const currentEx = currentBlock[state.currentExerciseInBlock];
+        if (!currentEx) return state;
+
         blockFinished =
           state.currentExerciseInBlock === currentBlock.length - 1 &&
-          state.currentSerie >=
-            currentBlock[state.currentExerciseInBlock].series_alvo;
+          (state.exerciseTimes[currentEx.sessionId]?.length || 0) >=
+            currentEx.series_alvo;
       } else {
         blockFinished = currentBlock.every(
           (ex) =>
-            (state.exerciseTimes[sessionId]?.length || 0) >=
+            (state.exerciseTimes[ex.sessionId]?.length || 0) >=
             ex.series_alvo,
         );
       }
@@ -172,26 +180,30 @@ function trainingReducer(state, action) {
         if (isLastBlock) return { ...state, status: "COMPLETED" };
 
         const nextBlock = state.blocos[state.currentBlockIndex + 1];
+        if (!nextBlock || nextBlock.length === 0) return { ...state, status: "COMPLETED" };
+
         const firstEx = nextBlock[0];
         return {
           ...state,
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
-          currentSerie: (state.exerciseTimes[firstEx.exercicio_id]?.length || 0) + 1,
+          currentSerie: (state.exerciseTimes[firstEx.sessionId]?.length || 0) + 1,
           timer: 0,
           status: "IDLE",
-          skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== firstEx.exercicio_id)
+          skippedExercises: state.skippedExercises.filter(s => s.sessionId !== firstEx.sessionId)
         };
       }
 
       // Conjugated/Circuit Flow (A->B->C->A)
-      if (currentBlock.length > 1) {
+      if (state.executionMode === "alternated" && currentBlock.length > 1) {
         let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
 
         // Find next exercise in the circuit that still has pending series
         for (let i = 0; i < currentBlock.length; i++) {
           const candidate = currentBlock[nextExIdx];
-          const doneCount = state.exerciseTimes[candidate.exercicio_id]?.length || 0;
+          if (!candidate) break;
+
+          const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
           if (doneCount < candidate.series_alvo) {
             return {
               ...state,
@@ -199,7 +211,7 @@ function trainingReducer(state, action) {
               currentSerie: doneCount + 1,
               timer: 0,
               status: "IDLE",
-              skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== candidate.exercicio_id)
+              skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
           }
           nextExIdx = (nextExIdx + 1) % currentBlock.length;
@@ -218,7 +230,11 @@ function trainingReducer(state, action) {
 
     case "SKIP_EXERCISE": {
       const { currentBlock } = action.payload;
+      if (!currentBlock || currentBlock.length === 0) return state;
+
       const exercise = currentBlock[state.currentExerciseInBlock];
+      if (!exercise) return state;
+
       const isLastInBlock =
         state.currentExerciseInBlock === currentBlock.length - 1;
 
@@ -236,10 +252,8 @@ function trainingReducer(state, action) {
         !isLastInBlock
       ) {
         nextState.currentExerciseInBlock += 1;
-        const nextDone =
-          state.exerciseTimes[
-            currentBlock[nextState.currentExerciseInBlock].sessionId
-          ]?.length || 0;
+        const nextEx = currentBlock[nextState.currentExerciseInBlock];
+        const nextDone = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) : 0;
         nextState.currentSerie = nextDone + 1;
       } else {
         if (!state.isCatchupPhase) {
@@ -260,34 +274,35 @@ function trainingReducer(state, action) {
           } else {
             nextState.currentBlockIndex += 1;
             nextState.currentExerciseInBlock = 0;
-            const nextEx = state.blocos[nextState.currentBlockIndex][0];
-            nextState.currentSerie =
-              (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
+            const nextBlock = state.blocos[nextState.currentBlockIndex];
+            const nextEx = nextBlock ? nextBlock[0] : null;
+            nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
-          nextState.currentSerie =
-            (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
+          nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
         }
       }
       return nextState;
     }
 
     case "MANUAL_OVERRIDE": {
-      const targetEx = state.blocos[action.bIdx][action.eIdx];
+      const { bIdx, eIdx, sNum } = action;
+      if (!state.blocos[bIdx] || !state.blocos[bIdx][eIdx]) return state;
+
+      const targetEx = state.blocos[bIdx][eIdx];
       return {
         ...state,
-        currentBlockIndex: action.bIdx,
-        currentExerciseInBlock: action.eIdx,
-        currentSerie: action.sNum,
+        currentBlockIndex: bIdx,
+        currentExerciseInBlock: eIdx,
+        currentSerie: sNum,
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
-        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== targetEx.exercicio_id)
+        skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
     }
-
     case "SET_VALUE": {
       const { fieldType, sessionId, sessionIdx, val, part } = action;
       const targetMap = {
@@ -378,7 +393,9 @@ function trainingReducer(state, action) {
 
     case "ADD_EXERCISE_TO_BLOCK": {
       const { bIdx, exerciseData } = action;
+      const sessionId = `add-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       const newEx = {
+        sessionId,
         exercicio_id: exerciseData.id,
         ordem_execucao: state.blocos[bIdx].length + 1,
         series_alvo: 3,
@@ -397,12 +414,12 @@ function trainingReducer(state, action) {
         ...state,
         blocos: newBlocos,
         originalBlocos: newBlocos,
-        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
-        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
-        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
-        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
-        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+        exerciseTimes: { ...state.exerciseTimes, [sessionId]: [] },
+        restTimes: { ...state.restTimes, [sessionId]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
+        exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
+        cargas: { ...state.cargas, [sessionId]: 0 },
+        repsFeitas: { ...state.repsFeitas, [sessionId]: 10 }
       };
     }
 
@@ -500,13 +517,15 @@ function trainingReducer(state, action) {
         originalBlocos: newBlocks,
         currentBlockIndex: nextBlockIdx,
         currentExerciseInBlock: nextExIdx,
-        skippedExercises: state.skippedExercises.filter(s => s.exercicio_id !== removedEx.exercicio_id)
+        skippedExercises: state.skippedExercises.filter(s => s.sessionId !== removedEx.sessionId)
       };
     }
 
     case "ADD_BLOCK": {
       const nextNum = state.blocos.length + 1;
+      const sessionId = `block-${Date.now()}`;
       const newEx = {
+        sessionId,
         exercicio_id: Date.now(),
         ordem_execucao: 1,
         series_alvo: 3,
@@ -521,12 +540,12 @@ function trainingReducer(state, action) {
         ...state,
         blocos: newBlocos,
         originalBlocos: newBlocos,
-        exerciseTimes: { ...state.exerciseTimes, [newEx.exercicio_id]: [] },
-        restTimes: { ...state.restTimes, [newEx.exercicio_id]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [newEx.exercicio_id]: [] },
-        exerciseReps: { ...state.exerciseReps, [newEx.exercicio_id]: [] },
-        cargas: { ...state.cargas, [newEx.exercicio_id]: 0 },
-        repsFeitas: { ...state.repsFeitas, [newEx.exercicio_id]: 10 }
+        exerciseTimes: { ...state.exerciseTimes, [sessionId]: [] },
+        restTimes: { ...state.restTimes, [sessionId]: [] },
+        exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
+        exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
+        cargas: { ...state.cargas, [sessionId]: 0 },
+        repsFeitas: { ...state.repsFeitas, [sessionId]: 10 }
       };
     }
 
@@ -715,7 +734,7 @@ const Training = () => {
     if (error) {
       console.error("Erro ao buscar treino:", error);
     } else {
-      const exerciseIds = data.map((ex) => ex.exercicio_id);
+      const exerciseIds = [...new Set(data.map((ex) => ex.exercicio_id))];
       const { data: lastHistory } = await supabase
         .from("historico_cargas")
         .select(
@@ -725,17 +744,14 @@ const Training = () => {
         .order("data_treino", { ascending: false });
 
       const lastTimes = {};
-      const lastLoads = {};
+      const lastLoadsArr = {};
       const lastRepsArr = {};
       if (lastHistory) {
         lastHistory.forEach((h) => {
           if (!lastTimes[h.exercicio_id]) {
             lastTimes[h.exercicio_id] = h.tempo_total_segundos;
-            const loadArr = Array.isArray(h.carga) ? h.carga : [h.carga];
-            lastLoads[h.exercicio_id] = loadArr[loadArr.length - 1];
-            lastRepsArr[h.exercicio_id] = Array.isArray(h.repeticoes)
-              ? h.repeticoes
-              : [h.repeticoes];
+            lastLoadsArr[h.exercicio_id] = Array.isArray(h.carga) ? h.carga : [h.carga];
+            lastRepsArr[h.exercicio_id] = Array.isArray(h.repeticoes) ? h.repeticoes : [h.repeticoes];
           }
         });
       }
@@ -757,22 +773,25 @@ const Training = () => {
       const initialExReps = {};
 
       data.forEach((ex) => {
-        const sessionId = ex.sessionId || ex.id || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
-        ex.sessionId = sessionId; // Ensure sessionId exists
+        const sessionId = ex.sessionId || String(ex.id) || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
+        ex.sessionId = sessionId;
 
-        initialCargas[sessionId] = lastLoads[ex.exercicio_id] ?? 0;
-        const lastReps = lastRepsArr[ex.exercicio_id];
-        initialReps[sessionId] =
-          lastReps && lastReps.length > 0
-            ? lastReps[lastReps.length - 1]
-            : ex.reps_alvo.includes("-")
-              ? parseInt(ex.reps_alvo.split("-")[1])
-              : parseInt(ex.reps_alvo) || 10;
+        const histLoads = lastLoadsArr[ex.exercicio_id] || [];
+        const histReps = lastRepsArr[ex.exercicio_id] || [];
+
+        // Pre-fill the input fields with the last value from history
+        initialCargas[sessionId] = histLoads.length > 0 ? histLoads[histLoads.length - 1] : 0;
+        initialReps[sessionId] = histReps.length > 0
+          ? histReps[histReps.length - 1]
+          : ex.reps_alvo.includes("-")
+            ? parseInt(ex.reps_alvo.split("-")[1])
+            : parseInt(ex.reps_alvo) || 10;
 
         initialTimes[sessionId] = [];
         initialRests[sessionId] = [];
-        initialExLoads[sessionId] = [];
-        initialExReps[sessionId] = [];
+        // Pre-fill the series grid with historical data
+        initialExLoads[sessionId] = histLoads;
+        initialExReps[sessionId] = histReps;
       });
 
       dispatch({
@@ -1076,7 +1095,7 @@ const Training = () => {
                       bIdx === state.currentBlockIndex &&
                       state.currentExerciseInBlock === eIdx;
                     const isSkipped = state.skippedExercises.some(
-                      (s) => s.exercicio_id === ex.exercicio_id,
+                      (s) => s.sessionId === ex.sessionId,
                     );
                     const currentExSerie = isCurrent
                       ? state.currentSerie
@@ -1084,7 +1103,7 @@ const Training = () => {
                         ? ex.series_alvo
                         : isSkipped
                           ? state.skippedExercises.find(
-                              (s) => s.exercicio_id === ex.exercicio_id,
+                              (s) => s.sessionId === ex.sessionId,
                             )?.partialSerie || 0
                           : 0;
 
@@ -1167,16 +1186,16 @@ const Training = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuExId(
-                            openMenuExId === ex.exercicio_id
+                            openMenuExId === ex.sessionId
                               ? null
-                              : ex.exercicio_id,
+                              : ex.sessionId,
                           );
                         }}
                         className="p-2 hover:bg-black/10 rounded-lg transition"
                       >
                         <MoreVertical size={16} />
                       </button>
-                      {openMenuExId === ex.exercicio_id && (
+                      {openMenuExId === ex.sessionId && (
                         <div
                           className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100 p-1"
                           onClick={(e) => e.stopPropagation()}
@@ -1364,9 +1383,9 @@ const Training = () => {
                         >
                           {savingSession ? "Salvando..." : (() => {
                             const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
-                            const isLastInBlock = state.executionMode === "isolated"
-                              ? state.currentExerciseInBlock === block.length - 1 && state.currentSerie === ex.series_alvo
-                              : block.every(candidate => (state.exerciseTimes[candidate.exercicio_id]?.length || 0) >= candidate.series_alvo);
+                            const isLastInBlock = state.executionMode === "isolated" || block.length === 1
+                              ? state.currentExerciseInBlock === block.length - 1 && state.currentSerie >= ex.series_alvo
+                              : block.every(candidate => (state.exerciseTimes[candidate.sessionId]?.length || 0) >= candidate.series_alvo);
 
                             if (isLastInBlock) {
                               if (isLastBlock) return <><Save /> Finalizar Treino</>;
