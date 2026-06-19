@@ -65,100 +65,55 @@ const ExerciseSelector = ({
 
   const fetchResults = async () => {
     setLoading(true);
-    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
 
-    // Search personal library
-    let query = supabase
-      .from("exercicios")
-      .select("id, nome, alvo_principal, is_global:id(id)") // logic flag
-      .eq("modalidade", modalidade)
-      .ilike("nome", `%${searchTerm}%`)
-      .limit(10);
-
-    if (userId === null) {
-      query = query.is("user_id", null);
-    } else {
-      query = query.eq("user_id", userId);
+    if (!userId) {
+      setLoading(false);
+      return;
     }
 
-    const { data: personal } = await query;
-
-    // Search global library
-    const { data: global } = await supabase
-      .from("exercicios_padrao")
-      .select("id, nome, alvo_principal")
-      .eq("modalidade", modalidade)
-      .ilike("nome", `%${searchTerm}%`)
-      .limit(10);
-
-    // Combine results (prioritize personal)
-    const combined = [...(personal || [])];
-    const personalNames = new Set(combined.map((e) => e.nome.toLowerCase()));
-
-    if (global) {
-      global.forEach((g) => {
-        if (!personalNames.has(g.nome.toLowerCase())) {
-          combined.push({ ...g, is_global: true });
-        }
+    try {
+      const { data, error } = await supabase.rpc('buscar_exercicios_unificados', {
+        p_termo_busca: searchTerm,
+        p_modalidade: modalidade,
+        p_user_id: userId
       });
-    }
 
-    setResults(combined);
-    setLoading(false);
+      if (error) throw error;
+      setResults(data || []);
+    } catch (error) {
+      console.error("Erro na busca unificada:", error);
+      // Fallback logic could go here if RPC is not yet implemented
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelection = async (exercise) => {
-    let finalId = exercise.id;
+    let finalId = exercise.id_pessoal;
 
-    if (exercise.is_global) {
-      // Copy-on-Write Logic
+    if (exercise.fonte === 'padrao') {
       setLoading(true);
-      const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+      const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
 
-      // Double check if it was already copied (race condition or existing)
-      let query = supabase
-        .from("exercicios")
-        .select("id")
-        .eq("nome", exercise.nome);
+      try {
+        const { data: newId, error } = await supabase.rpc('copiar_exercicio_padrao', {
+          p_exercicio_padrao_id: exercise.id_original,
+          p_user_id: userId
+        });
 
-      if (userId === null) {
-        query = query.is("user_id", null);
-      } else {
-        query = query.eq("user_id", userId);
+        if (error) throw error;
+        finalId = newId;
+      } catch (error) {
+        showToast("Erro ao vincular exercício: " + error.message, "error");
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
       }
-
-      const { data: existing } = await query.maybeSingle();
-
-      if (existing) {
-        finalId = existing.id;
-      } else {
-        // Fetch full global data to copy
-        const { data: globalData } = await supabase
-          .from("exercicios_padrao")
-          .select("*")
-          .eq("id", exercise.id)
-          .single();
-
-        if (globalData) {
-          const { id, ...copyData } = globalData;
-          const { data: newPersonal, error } = await supabase
-            .from("exercicios")
-            .insert([{ ...copyData, user_id: userId }])
-            .select()
-            .single();
-
-          if (error) {
-            showToast("Erro ao vincular exercício: " + error.message, "error");
-            setLoading(false);
-            return;
-          }
-          finalId = newPersonal.id;
-        }
-      }
-      setLoading(false);
     }
 
-    setSelectedEx(exercise);
+    setSelectedEx({ ...exercise, id: finalId });
     setIsOpen(false);
     onSelect({ ...exercise, id: finalId });
   };
@@ -237,7 +192,7 @@ const ExerciseSelector = ({
             ) : results.length > 0 ? (
               results.map((ex) => (
                 <button
-                  key={`${ex.is_global ? "g" : "p"}_${ex.id}`}
+                  key={`${ex.fonte}_${ex.id_original}`}
                   onClick={() => handleSelection(ex)}
                   className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-zinc-800 flex items-center justify-between border-b border-black/5 dark:border-zinc-800/30 last:border-0 transition-colors"
                 >
@@ -247,7 +202,7 @@ const ExerciseSelector = ({
                       {ex.alvo_principal}
                     </p>
                   </div>
-                  {ex.is_global ? (
+                  {ex.fonte === 'padrao' ? (
                     <span
                       className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase"
                       style={{
