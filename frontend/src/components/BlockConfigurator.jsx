@@ -87,6 +87,44 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     setLoading(false);
   };
 
+  const handleExerciseSelect = async (blockIndex, exerciseIndex, exerciseData) => {
+    const newId = exerciseData.id;
+    const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
+
+    let seriesAlvo = 3;
+    let repsAlvo = "10";
+
+    if (userId && newId) {
+      // Fetch history for this exercise
+      const { data: history } = await supabase
+        .from("historico_cargas")
+        .select("repeticoes")
+        .eq("exercicio_id", newId)
+        .eq("user_id", userId)
+        .order("data_treino", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (history && history.repeticoes && history.repeticoes.length > 0) {
+        seriesAlvo = history.repeticoes.length;
+        const reps = history.repeticoes;
+        const min = Math.min(...reps);
+        const max = Math.max(...reps);
+        repsAlvo = min === max ? String(min) : `${min}-${max}`;
+        showToast("Dados herdados do histórico!", "info");
+      }
+    }
+
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex].exercicios[exerciseIndex] = {
+      ...newBlocks[blockIndex].exercicios[exerciseIndex],
+      exercicio_id: newId,
+      series_alvo: seriesAlvo,
+      reps_alvo: repsAlvo
+    };
+    setBlocks(newBlocks);
+  };
+
   const addBlock = () => {
     const nextNumber =
       blocks.length > 0 ? Math.max(...blocks.map((b) => b.numero)) + 1 : 1;
@@ -96,7 +134,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
         numero: nextNumber,
         exercicios: [
           {
-            exercicio_id: exercises[0]?.id,
+            exercicio_id: null,
             ordem_execucao: 1,
             series_alvo: 3,
             reps_alvo: "10",
@@ -113,7 +151,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     const block = newBlocks[blockIndex];
     if (block.exercicios.length < 2) {
       block.exercicios.push({
-        exercicio_id: exercises[0]?.id,
+        exercicio_id: null,
         ordem_execucao: 2,
         series_alvo: 3,
         reps_alvo: "10",
@@ -137,7 +175,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     setBlocks(newBlocks);
   };
 
-  const updateExercise = (blockIndex, exerciseIndex, field, value) => {
+  const updateExerciseField = (blockIndex, exerciseIndex, field, value) => {
     const newBlocks = [...blocks];
     newBlocks[blockIndex].exercicios[exerciseIndex][field] = value;
     setBlocks(newBlocks);
@@ -170,15 +208,17 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     }
 
     const toInsert = blocks.flatMap((b) =>
-      b.exercicios.map((ex) => ({
-        user_id: userId,
-        letra_treino: selectedWorkout,
-        numero_bloco: b.numero,
-        exercicio_id: ex.exercicio_id,
-        ordem_execucao: ex.ordem_execucao,
-        series_alvo: parseInt(ex.series_alvo),
-        reps_alvo: ex.reps_alvo,
-      })),
+      b.exercicios
+        .filter(ex => ex.exercicio_id) // Safety filter
+        .map((ex) => ({
+          user_id: userId,
+          letra_treino: selectedWorkout,
+          numero_bloco: b.numero,
+          exercicio_id: ex.exercicio_id,
+          ordem_execucao: ex.ordem_execucao,
+          series_alvo: parseInt(ex.series_alvo),
+          reps_alvo: ex.reps_alvo,
+        })),
     );
 
     if (toInsert.length > 0) {
@@ -286,8 +326,8 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                         </label>
                         <ExerciseSelector
                           currentExerciseId={ex.exercicio_id}
-                          onSelect={(newId) =>
-                            updateExercise(bIdx, eIdx, "exercicio_id", newId)
+                          onSelect={(exerciseData) =>
+                            handleExerciseSelect(bIdx, eIdx, exerciseData)
                           }
                           overrideUserId={overrideUserId}
                         />
@@ -300,7 +340,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                           type="number"
                           value={ex.series_alvo}
                           onChange={(e) =>
-                            updateExercise(
+                            updateExerciseField(
                               bIdx,
                               eIdx,
                               "series_alvo",
@@ -318,7 +358,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                           type="text"
                           value={ex.reps_alvo}
                           onChange={(e) =>
-                            updateExercise(
+                            updateExerciseField(
                               bIdx,
                               eIdx,
                               "reps_alvo",
