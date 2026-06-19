@@ -409,7 +409,7 @@ function trainingReducer(state, action) {
     }
 
     case "ADD_EXERCISE_TO_BLOCK": {
-      const { bIdx, exerciseData, series_alvo, reps_alvo } = action;
+      const { bIdx, exerciseData, series_alvo, reps_alvo, inheritedLoads, inheritedReps } = action;
       const targetBIdx = bIdx ?? (state.blocos.length > 0 ? state.blocos.length - 1 : 0);
 
       const sessionId = `add-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
@@ -433,16 +433,19 @@ function trainingReducer(state, action) {
         newBlocos[targetBIdx] = [newEx];
       }
 
+      const lastLoad = inheritedLoads?.length > 0 ? inheritedLoads[inheritedLoads.length - 1] : 0;
+      const lastReps = inheritedReps?.length > 0 ? inheritedReps[inheritedReps.length - 1] : 10;
+
       return {
         ...state,
         blocos: newBlocos,
         originalBlocos: newBlocos,
         exerciseTimes: { ...state.exerciseTimes, [sessionId]: [] },
         restTimes: { ...state.restTimes, [sessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
-        exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
-        cargas: { ...state.cargas, [sessionId]: 0 },
-        repsFeitas: { ...state.repsFeitas, [sessionId]: 10 }
+        exerciseLoads: { ...state.exerciseLoads, [sessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [sessionId]: inheritedReps || [] },
+        cargas: { ...state.cargas, [sessionId]: lastLoad },
+        repsFeitas: { ...state.repsFeitas, [sessionId]: lastReps }
       };
     }
 
@@ -550,7 +553,7 @@ function trainingReducer(state, action) {
     }
 
     case "REPLACE_EXERCISE": {
-      const { bIdx, eIdx, exerciseData, series_alvo, reps_alvo } = action;
+      const { bIdx, eIdx, exerciseData, series_alvo, reps_alvo, inheritedLoads, inheritedReps } = action;
       const newBlocks = [...state.blocos];
       const block = [...newBlocks[bIdx]];
       const oldEx = block[eIdx];
@@ -571,16 +574,19 @@ function trainingReducer(state, action) {
       block[eIdx] = updatedEx;
       newBlocks[bIdx] = block;
 
+      const lastLoad = inheritedLoads?.length > 0 ? inheritedLoads[inheritedLoads.length - 1] : 0;
+      const lastReps = inheritedReps?.length > 0 ? inheritedReps[inheritedReps.length - 1] : 10;
+
       return {
         ...state,
         blocos: newBlocks,
         originalBlocos: newBlocks,
         exerciseTimes: { ...state.exerciseTimes, [newSessionId]: [] },
         restTimes: { ...state.restTimes, [newSessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: [] },
-        exerciseReps: { ...state.exerciseReps, [newSessionId]: [] },
-        cargas: { ...state.cargas, [newSessionId]: 0 },
-        repsFeitas: { ...state.repsFeitas, [newSessionId]: 10 }
+        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [newSessionId]: inheritedReps || [] },
+        cargas: { ...state.cargas, [newSessionId]: lastLoad },
+        repsFeitas: { ...state.repsFeitas, [newSessionId]: lastReps }
       };
     }
 
@@ -2230,6 +2236,8 @@ const Training = () => {
 
                     let seriesAlvo = null;
                     let repsAlvo = null;
+                    let inheritedLoads = null;
+                    let inheritedReps = null;
 
                     try {
                       const { data: history } = await supabase.rpc('get_ultima_performance', {
@@ -2240,9 +2248,11 @@ const Training = () => {
                       const lastPerf = history?.[0];
                       if (lastPerf && lastPerf.repeticoes && lastPerf.repeticoes.length > 0) {
                         seriesAlvo = lastPerf.repeticoes.length;
-                        const reps = lastPerf.repeticoes;
-                        const min = Math.min(...reps);
-                        const max = Math.max(...reps);
+                        inheritedReps = lastPerf.repeticoes;
+                        inheritedLoads = lastPerf.carga;
+
+                        const min = Math.min(...inheritedReps);
+                        const max = Math.max(...inheritedReps);
                         repsAlvo = min === max ? String(min) : `${min}-${max}`;
                         showToast("Dados herdados do histórico!", "info");
                       }
@@ -2256,7 +2266,9 @@ const Training = () => {
                         bIdx: selectorConfig.bIdx,
                         exerciseData,
                         series_alvo: seriesAlvo,
-                        reps_alvo: repsAlvo
+                        reps_alvo: repsAlvo,
+                        inheritedLoads,
+                        inheritedReps
                       });
                     } else {
                       dispatch({
@@ -2265,7 +2277,9 @@ const Training = () => {
                         eIdx: selectorConfig.eIdx,
                         exerciseData,
                         series_alvo: seriesAlvo,
-                        reps_alvo: repsAlvo
+                        reps_alvo: repsAlvo,
+                        inheritedLoads,
+                        inheritedReps
                       });
                     }
                     setSelectorConfig({ ...selectorConfig, isOpen: false, isFetchingHistory: false });
