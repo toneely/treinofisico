@@ -108,8 +108,10 @@ const WorkoutManager = ({ overrideUserId = null }) => {
     setFormData({
       letra: workout.letra,
       nome: workout.nome,
-      subtitulo: workout.subtitulo,
+      subtitulo: workout.subtitulo || "",
     });
+    // Smooth scroll to top form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {

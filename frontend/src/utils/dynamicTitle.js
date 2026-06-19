@@ -6,7 +6,6 @@ const routeTitles = {
   "/": "Início",
   "/login": "Entrar",
   "/admin": "Painel Administrativo",
-  "/configuracoes": "Configurações",
   "/historico": "Histórico",
   "/perfil": "Meu Perfil",
   "/treino": "Sessão Ativa",

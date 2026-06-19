@@ -231,12 +231,6 @@ const Inicio = () => {
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
           </div>
         </div>
-        <Link
-          to="/configuracoes"
-          className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 transition hover:opacity-70"
-        >
-          <Settings size={20} style={{ color: "var(--color-primary)" }} />
-        </Link>
       </header>
 
       {/* Tabs Navigation */}
@@ -309,6 +303,14 @@ const Inicio = () => {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
               Treinos Disponíveis
             </h3>
+
+            <WorkoutCard
+              title="Treino Livre"
+              subtitle="Iniciar treino em branco"
+              icon={<Play size={24} />}
+              onClick={() => startTraining("LIVRE")}
+              variant="indigo"
+            />
 
             {workouts.map((workout) => (
               <WorkoutCard

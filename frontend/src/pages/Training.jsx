@@ -662,6 +662,7 @@ const Training = () => {
   const location = useLocation();
   const isResuming =
     new URLSearchParams(location.search).get("resume") === "true";
+  const isFreeTraining = letra === "LIVRE";
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -672,7 +673,7 @@ const Training = () => {
   const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add' });
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
-  const [saveAsLetter, setSaveAsLetter] = useState("");
+  const [saveAsData, setSaveAsData] = useState({ letra: "", nome: "", subtitulo: "" });
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -690,6 +691,32 @@ const Training = () => {
   useEffect(() => {
     fetchData();
   }, [letra]);
+
+  const fetchWorkoutDetails = async () => {
+    if (!isFreeTraining) {
+      const { data } = await supabase
+        .from("treinos")
+        .select("letra, nome, subtitulo")
+        .eq("letra", letra)
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+      if (data) {
+        setSaveAsData({
+          letra: data.letra,
+          nome: data.nome,
+          subtitulo: data.subtitulo || "",
+        });
+      }
+    } else {
+      setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
+    }
+  };
+
+  useEffect(() => {
+    if (showSaveAsModal) {
+      fetchWorkoutDetails();
+    }
+  }, [showSaveAsModal]);
 
   useEffect(() => {
     if (!loading && state.blocos.length > 0) {
@@ -833,6 +860,25 @@ const Training = () => {
         setLastExecutionTimes(lastTimes);
         return;
       }
+    }
+
+    if (isFreeTraining) {
+      dispatch({
+        type: "INIT_SESSION",
+        payload: {
+          letra: "LIVRE",
+          blocos: [],
+          originalBlocos: [],
+          cargas: {},
+          repsFeitas: {},
+          exerciseTimes: {},
+          restTimes: {},
+          exerciseLoads: {},
+          exerciseReps: {},
+        },
+      });
+      setLoading(false);
+      return;
     }
 
     const { data, error } = await supabase
@@ -983,23 +1029,24 @@ const Training = () => {
   };
 
   const handleSaveAs = async () => {
-    if (!saveAsLetter) {
+    if (!saveAsData.letra) {
       showToast("Por favor, informe a letra do treino.", "info");
       return;
     }
 
     setSavingSession(true);
     try {
+      const targetLetra = saveAsData.letra.toUpperCase();
       // 1. Check if training already exists (multitenancy aware)
       const { data: existing } = await supabase
         .from("treinos")
         .select("id")
         .eq("user_id", authUser.id)
-        .eq("letra", saveAsLetter.toUpperCase())
+        .eq("letra", targetLetra)
         .maybeSingle();
 
       if (existing) {
-        if (!window.confirm(`O treino ${saveAsLetter.toUpperCase()} já existe. Deseja sobrescrevê-lo?`)) {
+        if (!window.confirm(`O treino ${targetLetra} já existe. Deseja sobrescrevê-lo?`)) {
           setSavingSession(false);
           return;
         }
@@ -1008,16 +1055,26 @@ const Training = () => {
           .from("blocos_treino")
           .delete()
           .eq("user_id", authUser.id)
-          .eq("letra_treino", saveAsLetter.toUpperCase());
+          .eq("letra_treino", targetLetra);
+
+        // Update the training entry
+        const { error: updateError } = await supabase
+          .from("treinos")
+          .update({
+            nome: saveAsData.nome,
+            subtitulo: saveAsData.subtitulo
+          })
+          .eq("id", existing.id);
+        if (updateError) throw updateError;
       } else {
         // Create the training entry if it doesn't exist
         const { error: insertError } = await supabase
           .from("treinos")
           .insert([{
             user_id: authUser.id,
-            letra: saveAsLetter.toUpperCase(),
-            nome: `Treino ${saveAsLetter.toUpperCase()}`,
-            subtitulo: "Treino personalizado"
+            letra: targetLetra,
+            nome: saveAsData.nome || `Treino ${targetLetra}`,
+            subtitulo: saveAsData.subtitulo || "Treino personalizado"
           }]);
         if (insertError) throw insertError;
       }
@@ -1028,7 +1085,7 @@ const Training = () => {
         block.forEach((ex, eIdx) => {
           newBlocks.push({
             user_id: authUser.id,
-            letra_treino: saveAsLetter.toUpperCase(),
+            letra_treino: targetLetra,
             exercicio_id: ex.exercicio_id,
             numero_bloco: bIdx + 1,
             ordem_execucao: eIdx + 1,
@@ -1044,7 +1101,7 @@ const Training = () => {
 
       if (error) throw error;
 
-      showToast(`Treino salvo como ${saveAsLetter.toUpperCase()}!`, "success");
+      showToast(`Treino salvo como ${targetLetra}!`, "success");
       setShowSaveAsModal(false);
     } catch (err) {
       showToast("Erro ao salvar: " + err.message, "error");
@@ -1053,10 +1110,23 @@ const Training = () => {
     }
   };
 
-  const handleNewTraining = () => {
-    if (window.confirm("Deseja iniciar um novo treino? O progresso atual não salvo será perdido.")) {
+  const handleDiscardTraining = () => {
+    if (window.confirm("Deseja descartar este treino? Todo o progresso será perdido e não será salvo no histórico.")) {
       localStorage.removeItem("active_training_session");
-      window.location.reload();
+      navigate("/inicio");
+      showToast("Treino descartado.", "info");
+    }
+  };
+
+  const handleGoBack = () => {
+    const hasProgress = Object.values(state.exerciseTimes).some(times => times.length > 0);
+    if (!hasProgress) {
+      localStorage.removeItem("active_training_session");
+      navigate("/inicio");
+    } else {
+      if (window.confirm("Deseja sair do treino? Seu progresso atual será salvo para continuar depois.")) {
+        navigate("/inicio");
+      }
     }
   };
 
@@ -1090,7 +1160,7 @@ const Training = () => {
     return (
       <div className="p-10 text-center text-slate-500">Iniciando treino...</div>
     );
-  if (!state.blocos.length)
+  if (!isFreeTraining && !state.blocos.length)
     return (
       <div className="p-10 text-center text-slate-500">
         Nenhum exercício encontrado.{" "}
@@ -1114,7 +1184,7 @@ const Training = () => {
       <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
         <div className="flex gap-2">
           <button
-            onClick={() => navigate("/inicio")}
+            onClick={handleGoBack}
             className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
             <ChevronLeft />
@@ -1128,7 +1198,7 @@ const Training = () => {
             {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
           </span>
           <span className="font-bold text-lg text-white uppercase tracking-tighter">
-            Treino {letra}
+            {isFreeTraining ? "Treino Livre" : `Treino ${letra}`}
           </span>
         </div>
         <div className="relative">
@@ -1144,11 +1214,13 @@ const Training = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {[
-                { label: 'Salvar treino', icon: <Save size={14} />, onClick: finishWorkout },
-                { label: 'Salvar como', icon: <PlusCircle size={14} />, onClick: () => setShowSaveAsModal(true) },
+                { label: 'Finalizar Treino', icon: <CheckCircle2 size={14} />, onClick: finishWorkout },
+                { label: 'Descartar Treino', icon: <Trash2 size={14} />, onClick: handleDiscardTraining },
+                { label: 'Salvar como Novo', icon: <PlusCircle size={14} />, onClick: () => setShowSaveAsModal(true) },
                 { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => navigate('/admin') },
-                { label: 'Novo treino', icon: <RotateCcw size={14} />, onClick: handleNewTraining },
-              ].map((opt, i) => (
+                { label: 'Novo Exercício', icon: <Plus size={14} />, onClick: () => setSelectorConfig({ isOpen: true, bIdx: state.blocos.length - 1, eIdx: null, mode: 'add' }), hidden: state.blocos.length === 0 },
+                { label: 'Novo Bloco', icon: <PlusCircle size={14} />, onClick: () => dispatch({ type: "ADD_BLOCK" }) },
+              ].filter(opt => !opt.hidden).map((opt, i) => (
                 <button
                   key={i}
                   onClick={() => {
@@ -2112,20 +2184,41 @@ const Training = () => {
 
       {showSaveAsModal && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
             <h2 className="text-2xl font-black text-white text-center mb-6 uppercase tracking-widest">
-              Salvar como
+              Salvar como Novo
             </h2>
-            <div className="mb-8">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Letra do Treino (Ex: D, E, F)</label>
-              <input
-                type="text"
-                value={saveAsLetter}
-                onChange={(e) => setSaveAsLetter(e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="Letra"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-black text-center text-2xl outline-none focus:border-white/40 transition-all uppercase"
-                autoFocus
-              />
+            <div className="space-y-4 mb-8">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1 ml-2">Letra</label>
+                <input
+                  type="text"
+                  value={saveAsData.letra}
+                  onChange={(e) => setSaveAsData({ ...saveAsData, letra: e.target.value.toUpperCase().slice(0, 2) })}
+                  placeholder="EX: D"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white font-bold outline-none focus:border-white/40 transition-all uppercase"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1 ml-2">Nome do Treino</label>
+                <input
+                  type="text"
+                  value={saveAsData.nome}
+                  onChange={(e) => setSaveAsData({ ...saveAsData, nome: e.target.value })}
+                  placeholder="Nome do Treino"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white font-bold outline-none focus:border-white/40 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1 ml-2">Subtítulo / Descrição</label>
+                <input
+                  type="text"
+                  value={saveAsData.subtitulo}
+                  onChange={(e) => setSaveAsData({ ...saveAsData, subtitulo: e.target.value })}
+                  placeholder="Opcional"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white font-bold outline-none focus:border-white/40 transition-all"
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-3">
               <button
