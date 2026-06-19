@@ -160,17 +160,15 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   const addExerciseToBlock = (blockIndex) => {
     const newBlocks = [...blocks];
     const block = newBlocks[blockIndex];
-    if (block.exercicios.length < 2) {
-      block.exercicios.push({
-        exercicio_id: null,
-        ordem_execucao: 2,
-        series_alvo: 3,
-        reps_alvo: "10",
-        letra_treino: selectedWorkout,
-        numero_bloco: block.numero,
-      });
-      setBlocks(newBlocks);
-    }
+    block.exercicios.push({
+      exercicio_id: null,
+      ordem_execucao: block.exercicios.length + 1,
+      series_alvo: 3,
+      reps_alvo: "10",
+      letra_treino: selectedWorkout,
+      numero_bloco: block.numero,
+    });
+    setBlocks(newBlocks);
   };
 
   const removeExerciseFromBlock = (blockIndex, exerciseIndex) => {
@@ -221,12 +219,12 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     const toInsert = blocks.flatMap((b) =>
       b.exercicios
         .filter(ex => ex.exercicio_id) // Safety filter
-        .map((ex) => ({
+        .map((ex, idx) => ({
           user_id: userId,
           letra_treino: selectedWorkout,
           numero_bloco: b.numero,
           exercicio_id: ex.exercicio_id,
-          ordem_execucao: ex.ordem_execucao,
+          ordem_execucao: idx + 1, // Recalculate order on save
           series_alvo: parseInt(ex.series_alvo),
           reps_alvo: ex.reps_alvo,
         })),
@@ -296,20 +294,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                 className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
               >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold ">Bloco {block.numero}</h3>
+                  <h3 className="font-bold ">
+                    {block.exercicios.length > 1 ? "Conjugado" : "Bloco"} {block.numero}
+                  </h3>
                   <div className="flex gap-2">
-                    {block.exercicios.length < 2 && (
-                      <button
-                        onClick={() => addExerciseToBlock(bIdx)}
-                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
-                        style={{
-                          color: "var(--color-primary)",
-                          backgroundColor: "var(--color-primary)10",
-                        }}
-                      >
-                        <Plus size={14} /> Adicionar Alternado
-                      </button>
-                    )}
+                    <button
+                      onClick={() => addExerciseToBlock(bIdx)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                      style={{
+                        color: "var(--color-primary)",
+                        backgroundColor: "var(--color-primary)10",
+                      }}
+                    >
+                      <Plus size={14} /> Adicionar Exercício Conjugado
+                    </button>
                     <button
                       onClick={() => {
                         const newBlocks = [...blocks];
@@ -331,9 +329,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                     >
                       <div className="flex-1 w-full flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {eIdx === 0
-                            ? "Exercício Principal"
-                            : "Exercício Alternado"}
+                          Exercício {eIdx + 1}
                         </label>
                         <ExerciseSelector
                           context="admin"
