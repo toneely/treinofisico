@@ -88,30 +88,41 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   };
 
   const handleExerciseSelect = async (blockIndex, exerciseIndex, exerciseData) => {
-    const newId = exerciseData.id;
+    const newId = parseInt(exerciseData.id);
     const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
+
+    console.log("Configurando herança para Exercício ID:", newId, "Usuário:", userId);
 
     let seriesAlvo = 3;
     let repsAlvo = "10";
 
     if (userId && newId) {
-      // Fetch history for this exercise
-      const { data: history } = await supabase
-        .from("historico_cargas")
-        .select("repeticoes")
-        .eq("exercicio_id", newId)
-        .eq("user_id", userId)
-        .order("data_treino", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      try {
+        // Use the new optimized RPC
+        const { data: history, error } = await supabase.rpc('get_ultima_performance', {
+          p_exercicio_id: newId,
+          p_user_id: userId
+        });
 
-      if (history && history.repeticoes && history.repeticoes.length > 0) {
-        seriesAlvo = history.repeticoes.length;
-        const reps = history.repeticoes;
-        const min = Math.min(...reps);
-        const max = Math.max(...reps);
-        repsAlvo = min === max ? String(min) : `${min}-${max}`;
-        showToast("Dados herdados do histórico!", "info");
+        if (error) throw error;
+
+        // history returns a table, get the first row
+        const lastPerf = history?.[0];
+
+        if (lastPerf && lastPerf.repeticoes && lastPerf.repeticoes.length > 0) {
+          seriesAlvo = lastPerf.repeticoes.length;
+          const reps = lastPerf.repeticoes;
+          const min = Math.min(...reps);
+          const max = Math.max(...reps);
+          repsAlvo = min === max ? String(min) : `${min}-${max}`;
+
+          console.log("Dados herdados com sucesso:", { seriesAlvo, repsAlvo });
+          showToast("Dados herdados do histórico!", "info");
+        } else {
+          console.log("Nenhum histórico encontrado para herança.");
+        }
+      } catch (err) {
+        console.error("Erro ao buscar histórico para herança:", err);
       }
     }
 
@@ -325,6 +336,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                             : "Exercício Alternado"}
                         </label>
                         <ExerciseSelector
+                          context="admin"
                           currentExerciseId={ex.exercicio_id}
                           onSelect={(exerciseData) =>
                             handleExerciseSelect(bIdx, eIdx, exerciseData)

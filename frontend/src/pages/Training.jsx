@@ -2216,6 +2216,7 @@ const Training = () => {
             </div>
             <div className="p-6">
               <ExerciseSelector
+                context="training"
                 onSelect={(exerciseData) => {
                   if (selectorConfig.mode === 'add') {
                     dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx: selectorConfig.bIdx, exerciseData });
