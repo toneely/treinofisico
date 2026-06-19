@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useCallback } from "react";
+import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import {
@@ -32,6 +32,8 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import ExerciseSelector from "../components/ExerciseSelector";
+import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -408,14 +410,16 @@ function trainingReducer(state, action) {
 
     case "ADD_EXERCISE_TO_BLOCK": {
       const { bIdx, exerciseData } = action;
+      const targetBIdx = bIdx ?? (state.blocos.length > 0 ? state.blocos.length - 1 : 0);
+
       const sessionId = `add-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       const newEx = {
         sessionId,
         exercicio_id: exerciseData.id,
-        ordem_execucao: state.blocos[bIdx].length + 1,
+        ordem_execucao: state.blocos[targetBIdx]?.length + 1 || 1,
         series_alvo: 3,
         reps_alvo: "10",
-        numero_bloco: state.blocos[bIdx][0]?.numero_bloco || bIdx + 1,
+        numero_bloco: state.blocos[targetBIdx]?.[0]?.numero_bloco || targetBIdx + 1,
         exercicios: {
           nome: exerciseData.nome,
           alvo_principal: exerciseData.alvo_principal
@@ -423,7 +427,11 @@ function trainingReducer(state, action) {
       };
 
       const newBlocos = [...state.blocos];
-      newBlocos[bIdx] = [...newBlocos[bIdx], newEx];
+      if (newBlocos[targetBIdx]) {
+        newBlocos[targetBIdx] = [...newBlocos[targetBIdx], newEx];
+      } else {
+        newBlocos[targetBIdx] = [newEx];
+      }
 
       return {
         ...state,
@@ -677,7 +685,18 @@ const Training = () => {
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [confirmationModal, setConfirmationModal] = useState({
+    isOpen: false,
+    onConfirm: () => {},
+    title: "",
+    message: "",
+    confirmText: "",
+    variant: "warning"
+  });
+
   const audioContextRef = React.useRef(null);
+  const scrollContainerRef = useRef(null);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -777,7 +796,7 @@ const Training = () => {
     if (loading || state.blocos.length === 0) return;
 
     const timer = setTimeout(() => {
-      const container = document.getElementById("scroll-container");
+      const container = scrollContainerRef.current;
       const activeCard = document.getElementById("active-exercise");
 
       if (container && activeCard) {
@@ -803,6 +822,23 @@ const Training = () => {
     state.currentSerie,
     Object.keys(state.activeRestTimers).length,
   ]);
+
+  // Click-outside and Scroll-to-close logic
+  useEffect(() => {
+    const handleScroll = () => {
+      if (showPageMenu) setShowPageMenu(false);
+      if (openMenuExId) setOpenMenuExId(null);
+      if (openSeriesMenuExId) setOpenSeriesMenuExId(null);
+    };
+
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (container) container.removeEventListener("scroll", handleScroll);
+    };
+  }, [showPageMenu, openMenuExId, openSeriesMenuExId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -1046,26 +1082,35 @@ const Training = () => {
         .maybeSingle();
 
       if (existing) {
-        if (!window.confirm(`O treino ${targetLetra} já existe. Deseja sobrescrevê-lo?`)) {
-          setSavingSession(false);
-          return;
-        }
-        // Delete existing blocks if overwriting
-        await supabase
-          .from("blocos_treino")
-          .delete()
-          .eq("user_id", authUser.id)
-          .eq("letra_treino", targetLetra);
+        setConfirmationModal({
+          isOpen: true,
+          title: "Sobrescrever Treino?",
+          message: `O treino ${targetLetra} já existe. Deseja sobrescrevê-lo?`,
+          confirmText: "Sim, Sobrescrever",
+          variant: "warning",
+          onConfirm: async () => {
+            // Delete existing blocks if overwriting
+            await supabase
+              .from("blocos_treino")
+              .delete()
+              .eq("user_id", authUser.id)
+              .eq("letra_treino", targetLetra);
 
-        // Update the training entry
-        const { error: updateError } = await supabase
-          .from("treinos")
-          .update({
-            nome: saveAsData.nome,
-            subtitulo: saveAsData.subtitulo
-          })
-          .eq("id", existing.id);
-        if (updateError) throw updateError;
+            // Update the training entry
+            const { error: updateError } = await supabase
+              .from("treinos")
+              .update({
+                nome: saveAsData.nome,
+                subtitulo: saveAsData.subtitulo
+              })
+              .eq("id", existing.id);
+            if (updateError) throw updateError;
+
+            await performSaveBlocks(targetLetra);
+          }
+        });
+        setSavingSession(false);
+        return;
       } else {
         // Create the training entry if it doesn't exist
         const { error: insertError } = await supabase
@@ -1077,45 +1122,55 @@ const Training = () => {
             subtitulo: saveAsData.subtitulo || "Treino personalizado"
           }]);
         if (insertError) throw insertError;
+
+        await performSaveBlocks(targetLetra);
       }
-
-      // 2. Prepare new blocks
-      const newBlocks = [];
-      state.blocos.forEach((block, bIdx) => {
-        block.forEach((ex, eIdx) => {
-          newBlocks.push({
-            user_id: authUser.id,
-            letra_treino: targetLetra,
-            exercicio_id: ex.exercicio_id,
-            numero_bloco: bIdx + 1,
-            ordem_execucao: eIdx + 1,
-            series_alvo: ex.series_alvo,
-            reps_alvo: ex.reps_alvo
-          });
-        });
-      });
-
-      const { error } = await supabase
-        .from("blocos_treino")
-        .insert(newBlocks);
-
-      if (error) throw error;
-
-      showToast(`Treino salvo como ${targetLetra}!`, "success");
-      setShowSaveAsModal(false);
     } catch (err) {
       showToast("Erro ao salvar: " + err.message, "error");
-    } finally {
       setSavingSession(false);
     }
   };
 
+  const performSaveBlocks = async (targetLetra) => {
+    const newBlocks = [];
+    state.blocos.forEach((block, bIdx) => {
+      block.forEach((ex, eIdx) => {
+        newBlocks.push({
+          user_id: authUser.id,
+          letra_treino: targetLetra,
+          exercicio_id: ex.exercicio_id,
+          numero_bloco: bIdx + 1,
+          ordem_execucao: eIdx + 1,
+          series_alvo: ex.series_alvo,
+          reps_alvo: ex.reps_alvo
+        });
+      });
+    });
+
+    const { error } = await supabase
+      .from("blocos_treino")
+      .insert(newBlocks);
+
+    if (error) throw error;
+
+    showToast(`Treino salvo como ${targetLetra}!`, "success");
+    setShowSaveAsModal(false);
+    setSavingSession(false);
+  };
+
   const handleDiscardTraining = () => {
-    if (window.confirm("Deseja descartar este treino? Todo o progresso será perdido e não será salvo no histórico.")) {
-      localStorage.removeItem("active_training_session");
-      navigate("/inicio");
-      showToast("Treino descartado.", "info");
-    }
+    setConfirmationModal({
+      isOpen: true,
+      title: "Descartar Treino?",
+      message: "Tem certeza? Todo o progresso desta sessão será perdido.",
+      confirmText: "Descartar",
+      variant: "danger",
+      onConfirm: () => {
+        localStorage.removeItem("active_training_session");
+        navigate("/inicio");
+        showToast("Treino descartado.", "info");
+      }
+    });
   };
 
   const handleGoBack = () => {
@@ -1124,10 +1179,26 @@ const Training = () => {
       localStorage.removeItem("active_training_session");
       navigate("/inicio");
     } else {
-      if (window.confirm("Deseja sair do treino? Seu progresso atual será salvo para continuar depois.")) {
-        navigate("/inicio");
-      }
+      setConfirmationModal({
+        isOpen: true,
+        title: "Sair do Treino?",
+        message: "Seu progresso atual será salvo para continuar depois.",
+        confirmText: "Sair e Salvar",
+        variant: "info",
+        onConfirm: () => navigate("/inicio")
+      });
     }
+  };
+
+  const promptFinishWorkout = () => {
+    setConfirmationModal({
+      isOpen: true,
+      title: "Finalizar Treino?",
+      message: "Deseja finalizar a sessão e salvar o histórico?",
+      confirmText: "Sim, Finalizar",
+      variant: "success",
+      onConfirm: finishWorkout
+    });
   };
 
   useEffect(() => {
@@ -1203,7 +1274,10 @@ const Training = () => {
         </div>
         <div className="relative">
           <button
-            onClick={() => setShowPageMenu(!showPageMenu)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowPageMenu(!showPageMenu);
+            }}
             className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
             <MoreHorizontal />
@@ -1214,12 +1288,10 @@ const Training = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {[
-                { label: 'Finalizar Treino', icon: <CheckCircle2 size={14} />, onClick: finishWorkout },
+                { label: 'Finalizar Treino', icon: <CheckCircle2 size={14} />, onClick: promptFinishWorkout },
                 { label: 'Descartar Treino', icon: <Trash2 size={14} />, onClick: handleDiscardTraining },
                 { label: 'Salvar como Novo', icon: <PlusCircle size={14} />, onClick: () => setShowSaveAsModal(true) },
-                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => navigate('/admin') },
-                { label: 'Novo Exercício', icon: <Plus size={14} />, onClick: () => setSelectorConfig({ isOpen: true, bIdx: state.blocos.length - 1, eIdx: null, mode: 'add' }), hidden: state.blocos.length === 0 },
-                { label: 'Novo Bloco', icon: <PlusCircle size={14} />, onClick: () => dispatch({ type: "ADD_BLOCK" }) },
+                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => setShowTemplateManager(true) },
               ].filter(opt => !opt.hidden).map((opt, i) => (
                 <button
                   key={i}
@@ -1239,10 +1311,12 @@ const Training = () => {
 
       <div
         id="scroll-container"
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-6 pt-0 relative"
         onClick={() => {
           setOpenMenuExId(null);
           setOpenSeriesMenuExId(null);
+          setShowPageMenu(false);
         }}
       >
         <div className="space-y-4 max-w-md mx-auto">
@@ -1975,13 +2049,23 @@ const Training = () => {
             );
           })}
 
-          <button
-            onClick={() => dispatch({ type: "ADD_BLOCK" })}
-            className="w-full py-8 border-2 border-dashed border-white/10 rounded-[32px] text-white/40 font-black uppercase tracking-[0.2em] text-xs hover:text-white/80 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-3 mb-12"
-          >
-            <PlusCircle size={32} className="opacity-40" />
-            Novo Bloco Conjugado
-          </button>
+          <div className="pt-8 pb-12 space-y-4">
+            <button
+              onClick={() => setSelectorConfig({ isOpen: true, bIdx: null, mode: 'add' })}
+              className="w-full py-6 bg-white/5 border-2 border-dashed border-white/10 rounded-[32px] text-white/60 font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+            >
+              <PlusCircle size={24} />
+              Adicionar Exercício
+            </button>
+
+            <button
+              onClick={() => dispatch({ type: "ADD_BLOCK" })}
+              className="w-full py-6 bg-white/5 border-2 border-dashed border-white/10 rounded-[32px] text-white/60 font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+            >
+              <Layers size={24} />
+              Novo Bloco Conjugado
+            </button>
+          </div>
         </div>
 
         {state.showCheckoutModal && (
@@ -2239,6 +2323,16 @@ const Training = () => {
         </div>,
         document.body
       )}
+
+      <WorkoutTemplateManager
+        isOpen={showTemplateManager}
+        onClose={() => setShowTemplateManager(false)}
+      />
+
+      <ConfirmationModal
+        {...confirmationModal}
+        onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+      />
     </div>
   );
 };
