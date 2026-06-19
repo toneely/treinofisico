@@ -337,6 +337,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                         </label>
                         <ExerciseSelector
                           context="admin"
+                          isAdminContext={overrideUserId === null}
                           currentExerciseId={ex.exercicio_id}
                           onSelect={(exerciseData) =>
                             handleExerciseSelect(bIdx, eIdx, exerciseData)

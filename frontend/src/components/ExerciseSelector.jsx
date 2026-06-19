@@ -9,6 +9,7 @@ const ExerciseSelector = ({
   onSelect,
   overrideUserId = null,
   context = "training", // 'training' or 'admin'
+  isAdminContext = false,
 }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
@@ -68,26 +69,54 @@ const ExerciseSelector = ({
 
   const fetchResults = async () => {
     setLoading(true);
-    const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
 
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (isAdminContext) {
+      // STRICT Global Library Search for Admin
+      try {
+        const { data, error } = await supabase
+          .from('exercicios_padrao')
+          .select('id, nome, alvo_principal')
+          .eq('modalidade', modalidade)
+          .ilike('nome', `%${searchTerm}%`)
+          .limit(20);
 
-    try {
-      const { data, error } = await supabase.rpc('buscar_exercicios_unificados', {
-        p_termo_busca: searchTerm,
-        p_modalidade: modalidade,
-        p_user_id: userId
-      });
+        if (error) throw error;
+        // Map to standard format used by selector
+        setResults(data?.map(ex => ({
+          id_original: ex.id,
+          nome: ex.nome,
+          alvo_principal: ex.alvo_principal,
+          fonte: 'padrao',
+          id_pessoal: null
+        })) || []);
+      } catch (error) {
+        console.error("Erro na busca administrativa:", error);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Unified Search for common users
+      const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
 
-      if (error) throw error;
-      setResults(data || []);
-    } catch (error) {
-      console.error("Erro na busca unificada:", error);
-    } finally {
-      setLoading(false);
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('buscar_exercicios_unificados', {
+          p_termo_busca: searchTerm,
+          p_modalidade: modalidade,
+          p_user_id: userId
+        });
+
+        if (error) throw error;
+        setResults(data || []);
+      } catch (error) {
+        console.error("Erro na busca unificada:", error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -96,7 +125,8 @@ const ExerciseSelector = ({
 
     if (exercise.fonte === 'padrao') {
       setLoading(true);
-      const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
+      // In Admin context, user_id is null for the copy
+      const userId = isAdminContext ? null : (overrideUserId === null ? (authUser?.id || null) : overrideUserId);
 
       try {
         const { data: newId, error } = await supabase.rpc('copiar_exercicio_padrao', {
