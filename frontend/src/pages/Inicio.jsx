@@ -119,7 +119,8 @@ const Inicio = () => {
       .from("treinos")
       .select("*")
       .eq("user_id", authUser.id)
-      .order("letra");
+      .order("ordem_exibicao", { ascending: true })
+      .order("letra", { ascending: true });
 
     if (workoutsData && workoutsData.length > 0) {
       setWorkouts(workoutsData);
@@ -175,7 +176,8 @@ const Inicio = () => {
         .from("treinos")
         .select("*")
         .eq("user_id", targetUserId)
-        .order("letra");
+        .order("ordem_exibicao", { ascending: true })
+        .order("letra", { ascending: true });
 
       setWorkouts(finalWorkouts || []);
     } catch (err) {

@@ -87,6 +87,55 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     setLoading(false);
   };
 
+  const handleExerciseSelect = async (blockIndex, exerciseIndex, exerciseData) => {
+    const newId = parseInt(exerciseData.id);
+    const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
+
+    console.log("Configurando herança para Exercício ID:", newId, "Usuário:", userId);
+
+    let seriesAlvo = 3;
+    let repsAlvo = "10";
+
+    if (userId && newId) {
+      try {
+        // Use the new optimized RPC
+        const { data: history, error } = await supabase.rpc('get_ultima_performance', {
+          p_exercicio_id: newId,
+          p_user_id: userId
+        });
+
+        if (error) throw error;
+
+        // history returns a table, get the first row
+        const lastPerf = history?.[0];
+
+        if (lastPerf && lastPerf.repeticoes && lastPerf.repeticoes.length > 0) {
+          seriesAlvo = lastPerf.repeticoes.length;
+          const reps = lastPerf.repeticoes;
+          const min = Math.min(...reps);
+          const max = Math.max(...reps);
+          repsAlvo = min === max ? String(min) : `${min}-${max}`;
+
+          console.log("Dados herdados com sucesso:", { seriesAlvo, repsAlvo });
+          showToast("Dados herdados do histórico!", "info");
+        } else {
+          console.log("Nenhum histórico encontrado para herança.");
+        }
+      } catch (err) {
+        console.error("Erro ao buscar histórico para herança:", err);
+      }
+    }
+
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex].exercicios[exerciseIndex] = {
+      ...newBlocks[blockIndex].exercicios[exerciseIndex],
+      exercicio_id: newId,
+      series_alvo: seriesAlvo,
+      reps_alvo: repsAlvo
+    };
+    setBlocks(newBlocks);
+  };
+
   const addBlock = () => {
     const nextNumber =
       blocks.length > 0 ? Math.max(...blocks.map((b) => b.numero)) + 1 : 1;
@@ -96,7 +145,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
         numero: nextNumber,
         exercicios: [
           {
-            exercicio_id: exercises[0]?.id,
+            exercicio_id: null,
             ordem_execucao: 1,
             series_alvo: 3,
             reps_alvo: "10",
@@ -111,17 +160,15 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   const addExerciseToBlock = (blockIndex) => {
     const newBlocks = [...blocks];
     const block = newBlocks[blockIndex];
-    if (block.exercicios.length < 2) {
-      block.exercicios.push({
-        exercicio_id: exercises[0]?.id,
-        ordem_execucao: 2,
-        series_alvo: 3,
-        reps_alvo: "10",
-        letra_treino: selectedWorkout,
-        numero_bloco: block.numero,
-      });
-      setBlocks(newBlocks);
-    }
+    block.exercicios.push({
+      exercicio_id: null,
+      ordem_execucao: block.exercicios.length + 1,
+      series_alvo: 3,
+      reps_alvo: "10",
+      letra_treino: selectedWorkout,
+      numero_bloco: block.numero,
+    });
+    setBlocks(newBlocks);
   };
 
   const removeExerciseFromBlock = (blockIndex, exerciseIndex) => {
@@ -137,7 +184,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     setBlocks(newBlocks);
   };
 
-  const updateExercise = (blockIndex, exerciseIndex, field, value) => {
+  const updateExerciseField = (blockIndex, exerciseIndex, field, value) => {
     const newBlocks = [...blocks];
     newBlocks[blockIndex].exercicios[exerciseIndex][field] = value;
     setBlocks(newBlocks);
@@ -170,15 +217,17 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
     }
 
     const toInsert = blocks.flatMap((b) =>
-      b.exercicios.map((ex) => ({
-        user_id: userId,
-        letra_treino: selectedWorkout,
-        numero_bloco: b.numero,
-        exercicio_id: ex.exercicio_id,
-        ordem_execucao: ex.ordem_execucao,
-        series_alvo: parseInt(ex.series_alvo),
-        reps_alvo: ex.reps_alvo,
-      })),
+      b.exercicios
+        .filter(ex => ex.exercicio_id) // Safety filter
+        .map((ex, idx) => ({
+          user_id: userId,
+          letra_treino: selectedWorkout,
+          numero_bloco: b.numero,
+          exercicio_id: ex.exercicio_id,
+          ordem_execucao: idx + 1, // Recalculate order on save
+          series_alvo: parseInt(ex.series_alvo),
+          reps_alvo: ex.reps_alvo,
+        })),
     );
 
     if (toInsert.length > 0) {
@@ -245,20 +294,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                 className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
               >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold ">Bloco {block.numero}</h3>
+                  <h3 className="font-bold ">
+                    {block.exercicios.length > 1 ? "Conjugado" : "Bloco"} {block.numero}
+                  </h3>
                   <div className="flex gap-2">
-                    {block.exercicios.length < 2 && (
-                      <button
-                        onClick={() => addExerciseToBlock(bIdx)}
-                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
-                        style={{
-                          color: "var(--color-primary)",
-                          backgroundColor: "var(--color-primary)10",
-                        }}
-                      >
-                        <Plus size={14} /> Adicionar Alternado
-                      </button>
-                    )}
+                    <button
+                      onClick={() => addExerciseToBlock(bIdx)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                      style={{
+                        color: "var(--color-primary)",
+                        backgroundColor: "var(--color-primary)10",
+                      }}
+                    >
+                      <Plus size={14} /> Adicionar Exercício Conjugado
+                    </button>
                     <button
                       onClick={() => {
                         const newBlocks = [...blocks];
@@ -280,14 +329,14 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                     >
                       <div className="flex-1 w-full flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {eIdx === 0
-                            ? "Exercício Principal"
-                            : "Exercício Alternado"}
+                          Exercício {eIdx + 1}
                         </label>
                         <ExerciseSelector
+                          context="admin"
+                          isAdminContext={overrideUserId === null}
                           currentExerciseId={ex.exercicio_id}
-                          onSelect={(newId) =>
-                            updateExercise(bIdx, eIdx, "exercicio_id", newId)
+                          onSelect={(exerciseData) =>
+                            handleExerciseSelect(bIdx, eIdx, exerciseData)
                           }
                           overrideUserId={overrideUserId}
                         />
@@ -300,7 +349,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                           type="number"
                           value={ex.series_alvo}
                           onChange={(e) =>
-                            updateExercise(
+                            updateExerciseField(
                               bIdx,
                               eIdx,
                               "series_alvo",
@@ -318,7 +367,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                           type="text"
                           value={ex.reps_alvo}
                           onChange={(e) =>
-                            updateExercise(
+                            updateExerciseField(
                               bIdx,
                               eIdx,
                               "reps_alvo",

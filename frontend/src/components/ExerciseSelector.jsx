@@ -8,6 +8,8 @@ const ExerciseSelector = ({
   currentExerciseId,
   onSelect,
   overrideUserId = null,
+  context = "training", // 'training' or 'admin'
+  isAdminContext = false,
 }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
@@ -30,6 +32,8 @@ const ExerciseSelector = ({
     "Cardio",
     "Luta",
   ];
+
+  const isDark = context === "training";
 
   useEffect(() => {
     if (currentExerciseId) {
@@ -65,100 +69,83 @@ const ExerciseSelector = ({
 
   const fetchResults = async () => {
     setLoading(true);
-    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
 
-    // Search personal library
-    let query = supabase
-      .from("exercicios")
-      .select("id, nome, alvo_principal, is_global:id(id)") // logic flag
-      .eq("modalidade", modalidade)
-      .ilike("nome", `%${searchTerm}%`)
-      .limit(10);
+    if (isAdminContext) {
+      // STRICT Global Library Search for Admin
+      try {
+        const { data, error } = await supabase
+          .from('exercicios_padrao')
+          .select('id, nome, alvo_principal')
+          .eq('modalidade', modalidade)
+          .ilike('nome', `%${searchTerm}%`)
+          .limit(20);
 
-    if (userId === null) {
-      query = query.is("user_id", null);
+        if (error) throw error;
+        // Map to standard format used by selector
+        setResults(data?.map(ex => ({
+          id_original: ex.id,
+          nome: ex.nome,
+          alvo_principal: ex.alvo_principal,
+          fonte: 'padrao',
+          id_pessoal: null
+        })) || []);
+      } catch (error) {
+        console.error("Erro na busca administrativa:", error);
+      } finally {
+        setLoading(false);
+      }
     } else {
-      query = query.eq("user_id", userId);
+      // Unified Search for common users
+      const userId = overrideUserId === null ? (authUser?.id || null) : overrideUserId;
+
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('buscar_exercicios_unificados', {
+          p_termo_busca: searchTerm,
+          p_modalidade: modalidade,
+          p_user_id: userId
+        });
+
+        if (error) throw error;
+        setResults(data || []);
+      } catch (error) {
+        console.error("Erro na busca unificada:", error);
+      } finally {
+        setLoading(false);
+      }
     }
-
-    const { data: personal } = await query;
-
-    // Search global library
-    const { data: global } = await supabase
-      .from("exercicios_padrao")
-      .select("id, nome, alvo_principal")
-      .eq("modalidade", modalidade)
-      .ilike("nome", `%${searchTerm}%`)
-      .limit(10);
-
-    // Combine results (prioritize personal)
-    const combined = [...(personal || [])];
-    const personalNames = new Set(combined.map((e) => e.nome.toLowerCase()));
-
-    if (global) {
-      global.forEach((g) => {
-        if (!personalNames.has(g.nome.toLowerCase())) {
-          combined.push({ ...g, is_global: true });
-        }
-      });
-    }
-
-    setResults(combined);
-    setLoading(false);
   };
 
   const handleSelection = async (exercise) => {
-    let finalId = exercise.id;
+    let finalId = exercise.id_pessoal;
 
-    if (exercise.is_global) {
-      // Copy-on-Write Logic
+    if (exercise.fonte === 'padrao') {
       setLoading(true);
-      const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+      // In Admin context, user_id is null for the copy
+      const userId = isAdminContext ? null : (overrideUserId === null ? (authUser?.id || null) : overrideUserId);
 
-      // Double check if it was already copied (race condition or existing)
-      let query = supabase
-        .from("exercicios")
-        .select("id")
-        .eq("nome", exercise.nome);
+      try {
+        const { data: newId, error } = await supabase.rpc('copiar_exercicio_padrao', {
+          p_exercicio_padrao_id: exercise.id_original,
+          p_user_id: userId
+        });
 
-      if (userId === null) {
-        query = query.is("user_id", null);
-      } else {
-        query = query.eq("user_id", userId);
+        if (error) throw error;
+        finalId = newId;
+      } catch (error) {
+        showToast("Erro ao vincular exercício: " + error.message, "error");
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
       }
-
-      const { data: existing } = await query.maybeSingle();
-
-      if (existing) {
-        finalId = existing.id;
-      } else {
-        // Fetch full global data to copy
-        const { data: globalData } = await supabase
-          .from("exercicios_padrao")
-          .select("*")
-          .eq("id", exercise.id)
-          .single();
-
-        if (globalData) {
-          const { id, ...copyData } = globalData;
-          const { data: newPersonal, error } = await supabase
-            .from("exercicios")
-            .insert([{ ...copyData, user_id: userId }])
-            .select()
-            .single();
-
-          if (error) {
-            showToast("Erro ao vincular exercício: " + error.message, "error");
-            setLoading(false);
-            return;
-          }
-          finalId = newPersonal.id;
-        }
-      }
-      setLoading(false);
     }
 
-    setSelectedEx(exercise);
+    setSelectedEx({ ...exercise, id: finalId });
     setIsOpen(false);
     onSelect({ ...exercise, id: finalId });
   };
@@ -178,7 +165,9 @@ const ExerciseSelector = ({
             className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${
               modalidade === m
                 ? "shadow-md"
-                : "bg-black/5 dark:bg-white/5 opacity-60 border border-black/10 dark:border-white/10"
+                : isDark
+                  ? "bg-white/5 opacity-60 border border-white/10"
+                  : "bg-black/5 opacity-60 border border-black/10"
             }`}
             style={
               modalidade === m
@@ -197,8 +186,11 @@ const ExerciseSelector = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 border border-black/10 dark:border-zinc-800 rounded-lg text-left text-sm bg-black/5 dark:bg-zinc-900/50 dark:text-slate-100 transition flex justify-between items-center"
-        style={{ hoverBorderColor: "var(--color-primary)" }}
+        className={`w-full p-2 border rounded-lg text-left text-sm transition flex justify-between items-center ${
+          isDark
+          ? "bg-zinc-900/50 border-white/10 text-white"
+          : "bg-black/5 border-black/10 text-slate-900"
+        }`}
       >
         <span className={selectedEx ? "font-medium" : "opacity-40"}>
           {selectedEx ? selectedEx.nome : "Selecionar exercício..."}
@@ -207,11 +199,15 @@ const ExerciseSelector = ({
       </button>
 
       {isOpen && (
-        <div className="absolute z-[110] mt-1 w-full bg-[var(--bg-gestao)] dark:bg-zinc-950 border border-black/10 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-2 border-b border-black/5 dark:border-zinc-800/50 flex gap-2">
+        <div className={`absolute z-[110] mt-1 w-full border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 ${
+          isDark
+          ? "bg-[#121212] border-white/10"
+          : "bg-white border-black/10"
+        }`}>
+          <div className={`p-2 border-b flex gap-2 ${isDark ? "border-white/5" : "border-black/5"}`}>
             <div className="relative flex-1">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-30 dark:text-zinc-500"
+                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-30"
                 size={12}
               />
               <input
@@ -220,7 +216,11 @@ const ExerciseSelector = ({
                 placeholder="Pesquisar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 bg-black/5 dark:bg-zinc-900/50 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)] text-inherit dark:text-slate-100 dark:placeholder:text-zinc-500"
+                className={`w-full pl-7 pr-2 py-1.5 border-none rounded-lg text-xs outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)] ${
+                  isDark
+                  ? "bg-white/5 text-white placeholder:text-zinc-500"
+                  : "bg-black/5 text-slate-900 placeholder:text-slate-400"
+                }`}
               />
             </div>
           </div>
@@ -237,17 +237,21 @@ const ExerciseSelector = ({
             ) : results.length > 0 ? (
               results.map((ex) => (
                 <button
-                  key={`${ex.is_global ? "g" : "p"}_${ex.id}`}
+                  key={`${ex.fonte}_${ex.id_original}`}
                   onClick={() => handleSelection(ex)}
-                  className="w-full p-3 text-left hover:bg-black/5 dark:hover:bg-zinc-800 flex items-center justify-between border-b border-black/5 dark:border-zinc-800/30 last:border-0 transition-colors"
+                  className={`w-full p-3 text-left flex items-center justify-between border-b last:border-0 transition-colors ${
+                    isDark
+                    ? "hover:bg-white/5 border-white/5 text-white"
+                    : "hover:bg-black/5 border-black/5 text-slate-900"
+                  }`}
                 >
-                  <div className="text-slate-900 dark:text-slate-100">
+                  <div>
                     <p className="text-xs font-bold">{ex.nome}</p>
-                    <p className="text-[10px] opacity-60 dark:text-zinc-400 dark:opacity-100">
+                    <p className={`text-[10px] opacity-60 ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
                       {ex.alvo_principal}
                     </p>
                   </div>
-                  {ex.is_global ? (
+                  {ex.fonte === 'padrao' ? (
                     <span
                       className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase"
                       style={{
@@ -263,7 +267,7 @@ const ExerciseSelector = ({
                 </button>
               ))
             ) : (
-              <div className="p-4 text-center text-xs opacity-40">
+              <div className={`p-4 text-center text-xs opacity-40 ${isDark ? "text-white" : "text-slate-900"}`}>
                 Nenhum exercício encontrado.
               </div>
             )}
