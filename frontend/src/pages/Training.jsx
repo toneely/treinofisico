@@ -409,7 +409,7 @@ function trainingReducer(state, action) {
     }
 
     case "ADD_EXERCISE_TO_BLOCK": {
-      const { bIdx, exerciseData } = action;
+      const { bIdx, exerciseData, series_alvo, reps_alvo } = action;
       const targetBIdx = bIdx ?? (state.blocos.length > 0 ? state.blocos.length - 1 : 0);
 
       const sessionId = `add-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
@@ -417,8 +417,8 @@ function trainingReducer(state, action) {
         sessionId,
         exercicio_id: exerciseData.id,
         ordem_execucao: state.blocos[targetBIdx]?.length + 1 || 1,
-        series_alvo: 3,
-        reps_alvo: "10",
+        series_alvo: series_alvo || 3,
+        reps_alvo: reps_alvo || "10",
         numero_bloco: state.blocos[targetBIdx]?.[0]?.numero_bloco || targetBIdx + 1,
         exercicios: {
           nome: exerciseData.nome,
@@ -550,7 +550,7 @@ function trainingReducer(state, action) {
     }
 
     case "REPLACE_EXERCISE": {
-      const { bIdx, eIdx, exerciseData } = action;
+      const { bIdx, eIdx, exerciseData, series_alvo, reps_alvo } = action;
       const newBlocks = [...state.blocos];
       const block = [...newBlocks[bIdx]];
       const oldEx = block[eIdx];
@@ -560,6 +560,8 @@ function trainingReducer(state, action) {
         ...oldEx,
         sessionId: newSessionId,
         exercicio_id: exerciseData.id,
+        series_alvo: series_alvo || oldEx.series_alvo,
+        reps_alvo: reps_alvo || oldEx.reps_alvo,
         exercicios: {
           nome: exerciseData.nome,
           alvo_principal: exerciseData.alvo_principal
@@ -678,7 +680,7 @@ const Training = () => {
   const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
   const [openSeriesMenuExId, setOpenSeriesMenuExId] = useState(null);
-  const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add' });
+  const [selectorConfig, setSelectorConfig] = useState({ isOpen: false, bIdx: null, eIdx: null, mode: 'add', isFetchingHistory: false });
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [saveAsData, setSaveAsData] = useState({ letra: "", nome: "", subtitulo: "" });
@@ -2215,18 +2217,62 @@ const Training = () => {
               </button>
             </div>
             <div className="p-6">
-              <ExerciseSelector
-                context="training"
-                onSelect={(exerciseData) => {
-                  if (selectorConfig.mode === 'add') {
-                    dispatch({ type: "ADD_EXERCISE_TO_BLOCK", bIdx: selectorConfig.bIdx, exerciseData });
-                  } else {
-                    dispatch({ type: "REPLACE_EXERCISE", bIdx: selectorConfig.bIdx, eIdx: selectorConfig.eIdx, exerciseData });
-                  }
-                  setSelectorConfig({ ...selectorConfig, isOpen: false });
-                  showToast(selectorConfig.mode === 'add' ? "Exercício adicionado!" : "Exercício alterado!", "success");
-                }}
-              />
+              {selectorConfig.isFetchingHistory ? (
+                <div className="py-10 text-center">
+                  <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Herdando histórico...</p>
+                </div>
+              ) : (
+                <ExerciseSelector
+                  context="training"
+                  onSelect={async (exerciseData) => {
+                    setSelectorConfig(prev => ({ ...prev, isFetchingHistory: true }));
+
+                    let seriesAlvo = null;
+                    let repsAlvo = null;
+
+                    try {
+                      const { data: history } = await supabase.rpc('get_ultima_performance', {
+                        p_exercicio_id: exerciseData.id,
+                        p_user_id: authUser.id
+                      });
+
+                      const lastPerf = history?.[0];
+                      if (lastPerf && lastPerf.repeticoes && lastPerf.repeticoes.length > 0) {
+                        seriesAlvo = lastPerf.repeticoes.length;
+                        const reps = lastPerf.repeticoes;
+                        const min = Math.min(...reps);
+                        const max = Math.max(...reps);
+                        repsAlvo = min === max ? String(min) : `${min}-${max}`;
+                        showToast("Dados herdados do histórico!", "info");
+                      }
+                    } catch (err) {
+                      console.error("Erro ao buscar herança no treino ativo:", err);
+                    }
+
+                    if (selectorConfig.mode === 'add') {
+                      dispatch({
+                        type: "ADD_EXERCISE_TO_BLOCK",
+                        bIdx: selectorConfig.bIdx,
+                        exerciseData,
+                        series_alvo: seriesAlvo,
+                        reps_alvo: repsAlvo
+                      });
+                    } else {
+                      dispatch({
+                        type: "REPLACE_EXERCISE",
+                        bIdx: selectorConfig.bIdx,
+                        eIdx: selectorConfig.eIdx,
+                        exerciseData,
+                        series_alvo: seriesAlvo,
+                        reps_alvo: repsAlvo
+                      });
+                    }
+                    setSelectorConfig({ ...selectorConfig, isOpen: false, isFetchingHistory: false });
+                    showToast(selectorConfig.mode === 'add' ? "Exercício adicionado!" : "Exercício alterado!", "success");
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
