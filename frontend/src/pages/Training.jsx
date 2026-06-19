@@ -2388,6 +2388,14 @@ const Training = () => {
       <WorkoutTemplateManager
         isOpen={showTemplateManager}
         onClose={() => setShowTemplateManager(false)}
+        currentLetra={letra}
+        hasActiveProgress={Object.values(state.exerciseTimes).some(times => times.length > 0)}
+        hasUnsavedChanges={JSON.stringify(state.blocos) !== JSON.stringify(state.originalBlocos)}
+        onFinishCurrent={finishWorkout}
+        onDiscardCurrent={() => {
+          localStorage.removeItem("active_training_session");
+          showToast("Treino anterior descartado.", "info");
+        }}
       />
 
       <ConfirmationModal
