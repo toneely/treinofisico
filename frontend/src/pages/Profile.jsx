@@ -14,13 +14,16 @@ import {
   Check,
   Image as ImageIcon,
   Upload,
+  Palette,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
+import { useAppearance } from "../context/AppearanceContext";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
+  const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -167,6 +170,12 @@ const Profile = () => {
     showToast("Sessão encerrada", "info");
   };
 
+  const handleColorChange = async (key, value) => {
+    const newSettings = { ...settings, [key]: value };
+    const { error } = await updateAppearance(newSettings);
+    if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
+  };
+
   if (loading)
     return (
       <div className="p-10 text-center text-slate-400">
@@ -238,6 +247,59 @@ const Profile = () => {
       </section>
 
       <div className="space-y-6">
+        <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
+            <Palette style={{ color: "var(--color-primary)" }} size={18} />
+            <h3 className="font-bold  uppercase text-xs tracking-widest">
+              Aparência
+            </h3>
+          </div>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Cor Primária / Destaque A
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={settings.color_ex_a}
+                    onChange={(e) => handleColorChange("color_ex_a", e.target.value)}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
+                  />
+                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
+                    {settings.color_ex_a}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Cor Secundária / Destaque B
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={settings.color_ex_b}
+                    onChange={(e) => handleColorChange("color_ex_b", e.target.value)}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
+                  />
+                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
+                    {settings.color_ex_b}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 text-amber-800">
+               <Palette className="shrink-0" size={20} />
+               <p className="text-xs font-medium leading-relaxed">
+                 A interface utiliza tons Claros para gestão e tons Escuros para a execução do treino. As cores acima definem os destaques e botões principais.
+               </p>
+            </div>
+          </div>
+        </section>
+
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
             <User style={{ color: "var(--color-primary)" }} size={18} />

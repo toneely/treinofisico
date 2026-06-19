@@ -27,11 +27,15 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   }, [selectedWorkout]);
 
   const fetchWorkouts = async () => {
-    const { data } = await supabase
-      .from("treinos")
-      .select("*")
-      .eq("user_id", overrideUserId || authUser.id)
-      .order("letra");
+    let query = supabase.from("treinos").select("*").order("letra");
+
+    if (overrideUserId === null) {
+      query = query.is("user_id", null);
+    } else {
+      query = query.eq("user_id", overrideUserId || authUser.id);
+    }
+
+    const { data } = await query;
 
     if (data && data.length > 0) {
       setWorkouts(data);
@@ -49,13 +53,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
 
   const fetchBlocks = async (letra) => {
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("blocos_treino")
       .select("*")
       .eq("letra_treino", letra)
-      .eq("user_id", overrideUserId || authUser.id)
       .order("numero_bloco", { ascending: true })
       .order("ordem_execucao", { ascending: true });
+
+    if (overrideUserId === null) {
+      query = query.is("user_id", null);
+    } else {
+      query = query.eq("user_id", overrideUserId || authUser.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) console.error(error);
     else {
@@ -134,13 +145,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    const userId = overrideUserId || authUser.id;
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
 
-    const { error: deleteError } = await supabase
+    const query = supabase
       .from("blocos_treino")
       .delete()
-      .eq("letra_treino", selectedWorkout)
-      .eq("user_id", userId);
+      .eq("letra_treino", selectedWorkout);
+
+    if (userId === null) {
+      query.is("user_id", null);
+    } else {
+      query.eq("user_id", userId);
+    }
+
+    const { error: deleteError } = await query;
 
     if (deleteError) {
       showToast(

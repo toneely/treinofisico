@@ -9,7 +9,6 @@ import History from './pages/History';
 import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
-import UserSettings from './pages/UserSettings';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 
@@ -99,14 +98,6 @@ const AppContent = () => {
             <AdminRoute>
               <Admin />
             </AdminRoute>
-          }
-        />
-        <Route
-          path="/configuracoes"
-          element={
-            <ProtectedRoute>
-              <UserSettings />
-            </ProtectedRoute>
           }
         />
         <Route

@@ -121,10 +121,69 @@ const Inicio = () => {
       .eq("user_id", authUser.id)
       .order("letra");
 
-    if (workoutsData) {
+    if (workoutsData && workoutsData.length > 0) {
       setWorkouts(workoutsData);
+      setLoading(false);
+    } else if (workoutsData && workoutsData.length === 0) {
+      // New user? Clone global templates
+      console.log("Nenhum treino encontrado para o usuário, iniciando onboarding...");
+      await cloneGlobalWorkouts(authUser.id);
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const cloneGlobalWorkouts = async (targetUserId) => {
+    try {
+      // 1. Fetch global templates
+      const { data: globalTreinos } = await supabase
+        .from("treinos")
+        .select("*")
+        .is("user_id", null);
+
+      if (!globalTreinos || globalTreinos.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: globalBlocos } = await supabase
+        .from("blocos_treino")
+        .select("*")
+        .is("user_id", null);
+
+      // 2. Clone treinos
+      const userTreinos = globalTreinos.map(({ id, created_at, ...rest }) => ({
+        ...rest,
+        user_id: targetUserId,
+      }));
+
+      const { error: tError } = await supabase.from("treinos").insert(userTreinos);
+      if (tError) throw tError;
+
+      // 3. Clone blocos
+      if (globalBlocos && globalBlocos.length > 0) {
+        const userBlocos = globalBlocos.map(({ id, created_at, ...rest }) => ({
+          ...rest,
+          user_id: targetUserId,
+        }));
+        const { error: bError } = await supabase.from("blocos_treino").insert(userBlocos);
+        if (bError) throw bError;
+      }
+
+      // 4. Final fetch to update UI
+      const { data: finalWorkouts } = await supabase
+        .from("treinos")
+        .select("*")
+        .eq("user_id", targetUserId)
+        .order("letra");
+
+      setWorkouts(finalWorkouts || []);
+    } catch (err) {
+      console.error("Erro ao clonar treinos padrão:", err);
+      showToast("Não foi possível carregar os treinos padrão.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startTraining = (letra) => {
@@ -172,12 +231,6 @@ const Inicio = () => {
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
           </div>
         </div>
-        <Link
-          to="/configuracoes"
-          className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400 transition hover:opacity-70"
-        >
-          <Settings size={20} style={{ color: "var(--color-primary)" }} />
-        </Link>
       </header>
 
       {/* Tabs Navigation */}
@@ -250,6 +303,14 @@ const Inicio = () => {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
               Treinos Disponíveis
             </h3>
+
+            <WorkoutCard
+              title="Treino Livre"
+              subtitle="Iniciar treino em branco"
+              icon={<Play size={24} />}
+              onClick={() => startTraining("LIVRE")}
+              variant="indigo"
+            />
 
             {workouts.map((workout) => (
               <WorkoutCard

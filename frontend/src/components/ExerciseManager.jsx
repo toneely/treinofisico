@@ -32,7 +32,11 @@ const ExerciseManager = ({
       .select("*")
       .order("nome", { ascending: true });
     if (targetTable === "exercicios") {
-      query = query.eq("user_id", overrideUserId || authUser.id);
+      if (overrideUserId === null) {
+        query = query.is("user_id", null);
+      } else {
+        query = query.eq("user_id", overrideUserId || authUser.id);
+      }
     }
     const { data, error } = await query;
     if (error) {
@@ -48,7 +52,7 @@ const ExerciseManager = ({
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const userId = overrideUserId || authUser.id;
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
     const payload = { ...formData };
     if (targetTable === "exercicios") {
       payload.user_id = userId;
@@ -58,7 +62,10 @@ const ExerciseManager = ({
         .from(targetTable)
         .update(payload)
         .eq("id", isEditing);
-      if (targetTable === "exercicios") query = query.eq("user_id", userId);
+      if (targetTable === "exercicios") {
+        if (userId === null) query = query.is("user_id", null);
+        else query = query.eq("user_id", userId);
+      }
       const { error } = await query;
       if (error)
         showToast("Erro ao atualizar exercício: " + error.message, "error");
@@ -104,10 +111,13 @@ const ExerciseManager = ({
     });
   };
   const handleDelete = async (id) => {
-    const userId = overrideUserId || authUser.id;
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
     if (window.confirm("Tem certeza que deseja excluir este exercício?")) {
       let query = supabase.from(targetTable).delete().eq("id", id);
-      if (targetTable === "exercicios") query = query.eq("user_id", userId);
+      if (targetTable === "exercicios") {
+        if (userId === null) query = query.is("user_id", null);
+        else query = query.eq("user_id", userId);
+      }
       const { error } = await query;
       if (error)
         showToast("Erro ao excluir exercício: " + error.message, "error");
