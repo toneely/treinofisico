@@ -6,40 +6,16 @@
 
 # Test info
 
-- Name: ux_enhancements.spec.js >> Verify Training V2 UX Enhancements
-- Location: frontend/tests/ux_enhancements.spec.js:3:1
+- Name: tests/ux_enhancements.spec.js >> Verify Training V2 UX Enhancements
+- Location: tests/ux_enhancements.spec.js:3:1
 
 # Error details
 
 ```
-Error: expect(locator).toBeVisible() failed
-
-Locator: locator('label:has-text("Carga (kg)") + input')
-Expected: visible
-Timeout: 5000ms
-Error: element(s) not found
-
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/treino/A
 Call log:
-  - Expect "toBeVisible" with timeout 5000ms
-  - waiting for locator('label:has-text("Carga (kg)") + input')
+  - navigating to "http://localhost:5173/treino/A", waiting until "load"
 
-```
-
-```yaml
-- img "Logo"
-- heading "Treino Físico" [level=1]
-- paragraph: Sua jornada para a excelência
-- button "Entrar com Google":
-  - img
-  - text: Entrar com Google
-- text: ou e-mail Seu E-mail
-- img
-- textbox "nome@email.com"
-- text: Senha
-- img
-- textbox "••••••••"
-- button "Entrar na Conta"
-- paragraph: Não tem uma conta? Cadastre-se
 ```
 
 # Test source
@@ -49,7 +25,8 @@ Call log:
   2  |
   3  | test('Verify Training V2 UX Enhancements', async ({ page }) => {
   4  |   // Go to a training session
-  5  |   await page.goto('http://localhost:5173/treino/A');
+> 5  |   await page.goto('http://localhost:5173/treino/A');
+     |              ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/treino/A
   6  |
   7  |   // Debug: Take screenshot if it fails
   8  |   await page.screenshot({ path: 'debug_training.png' });
@@ -60,8 +37,7 @@ Call log:
   13 |
   14 |   // 1. Verify Input behavior (Carga/Reps) - Now inside the active card
   15 |   const cargaInput = page.locator('label:has-text("Carga (kg)") + input');
-> 16 |   await expect(cargaInput).toBeVisible();
-     |                            ^ Error: expect(locator).toBeVisible() failed
+  16 |   await expect(cargaInput).toBeVisible();
   17 |   await cargaInput.focus();
   18 |   // It should be selected, but let's test clearing it
   19 |   await cargaInput.fill('');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import {
   Play,
@@ -27,6 +28,8 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
+  ListTodo,
+  CirclePlay,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -67,6 +70,7 @@ const initialState = {
   exerciseReps: {}, // { sessionId: [s1, s2...] }
   skippedExercises: [],
   isCatchupPhase: false,
+  trainingMode: "guided", // "guided" or "manual"
   showCheckoutModal: false,
   blocos: [],
   originalBlocos: [],
@@ -244,45 +248,58 @@ function trainingReducer(state, action) {
     }
 
     case "SKIP_EXERCISE": {
-      const { currentBlock } = action.payload;
-      if (!currentBlock || currentBlock.length === 0) return state;
+      const { sessionId } = action.payload;
+      const targetSessionId = sessionId || state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock]?.sessionId;
+      if (!targetSessionId) return state;
 
-      const exercise = currentBlock[state.currentExerciseInBlock];
-      if (!exercise) return state;
+      // Find where this exercise is
+      let targetEx = null;
+      let targetBIdx = -1;
+      let targetEIdx = -1;
 
-      const isLastInBlock =
-        state.currentExerciseInBlock === currentBlock.length - 1;
+      state.blocos.forEach((block, bIdx) => {
+        const eIdx = block.findIndex(ex => ex.sessionId === targetSessionId);
+        if (eIdx !== -1) {
+          targetEx = block[eIdx];
+          targetBIdx = bIdx;
+          targetEIdx = eIdx;
+        }
+      });
+
+      if (!targetEx) return state;
+
+      const isCurrent = targetBIdx === state.currentBlockIndex && targetEIdx === state.currentExerciseInBlock;
+
+      let nextSkipped = [...state.skippedExercises];
+      if (!state.isCatchupPhase) {
+        const alreadySkipped = nextSkipped.some(s => s.sessionId === targetSessionId);
+        if (!alreadySkipped) {
+          const doneCount = state.exerciseTimes[targetSessionId]?.length || 0;
+          nextSkipped.push({ ...targetEx, partialSerie: isCurrent ? state.currentSerie : doneCount + 1 });
+        }
+      }
+
+      if (!isCurrent) {
+        return { ...state, skippedExercises: nextSkipped };
+      }
+
+      // If it IS current, we need to advance focus
+      const currentBlock = state.blocos[state.currentBlockIndex];
+      const isLastInBlock = state.currentExerciseInBlock === currentBlock.length - 1;
 
       let nextState = {
         ...state,
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
-        skippedExercises: state.skippedExercises
+        skippedExercises: nextSkipped
       };
 
-      if (
-        state.executionMode === "alternated" &&
-        currentBlock.length > 1 &&
-        !isLastInBlock
-      ) {
+      if (state.executionMode === "alternated" && currentBlock.length > 1 && !isLastInBlock) {
         nextState.currentExerciseInBlock += 1;
         const nextEx = currentBlock[nextState.currentExerciseInBlock];
-        const nextDone = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) : 0;
-        nextState.currentSerie = nextDone + 1;
+        nextState.currentSerie = (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
       } else {
-        if (!state.isCatchupPhase) {
-          const alreadySkipped = state.skippedExercises.some(
-            (s) => s.sessionId === exercise.sessionId,
-          );
-          if (!alreadySkipped) {
-            nextState.skippedExercises = [
-              ...state.skippedExercises,
-              { ...exercise, partialSerie: state.currentSerie },
-            ];
-          }
-        }
-
         if (isLastInBlock) {
           if (state.currentBlockIndex === state.blocos.length - 1) {
             nextState.status = "COMPLETED";
@@ -299,6 +316,131 @@ function trainingReducer(state, action) {
           nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
         }
       }
+      return nextState;
+    }
+
+    case "COMPLETE_EXERCISE_MANUAL": {
+      const { sessionId } = action.payload;
+      if (!sessionId) return state;
+
+      let targetEx = null;
+      let targetBIdx = -1;
+      let targetEIdx = -1;
+
+      state.blocos.forEach((block, bIdx) => {
+        const eIdx = block.findIndex(ex => ex.sessionId === sessionId);
+        if (eIdx !== -1) {
+          targetEx = block[eIdx];
+          targetBIdx = bIdx;
+          targetEIdx = eIdx;
+        }
+      });
+
+      if (!targetEx) return state;
+
+      const seriesAlvo = targetEx.series_alvo;
+      const currentDone = state.exerciseTimes[sessionId]?.length || 0;
+
+      // If already done, do nothing
+      if (currentDone >= seriesAlvo) return state;
+
+      const nextExerciseTimes = { ...state.exerciseTimes };
+      const nextExerciseLoads = { ...state.exerciseLoads };
+      const nextExerciseReps = { ...state.exerciseReps };
+
+      const times = [...(nextExerciseTimes[sessionId] || [])];
+      const loads = [...(nextExerciseLoads[sessionId] || [])];
+      const repsArr = [...(nextExerciseReps[sessionId] || [])];
+
+      const cargaMeta = state.cargas[sessionId] || 0;
+      const repsMetaStr = targetEx.reps_alvo;
+      const repsMeta = repsMetaStr.includes("-") ? parseInt(repsMetaStr.split("-")[1]) : (parseInt(repsMetaStr) || 10);
+
+      for (let i = currentDone; i < seriesAlvo; i++) {
+        times[i] = 0; // Manual completion sets time to 0 or some default? Let's use 0.
+        loads[i] = cargaMeta;
+        repsArr[i] = state.repsFeitas[sessionId] || repsMeta;
+      }
+
+      nextExerciseTimes[sessionId] = times;
+      nextExerciseLoads[sessionId] = loads;
+      nextExerciseReps[sessionId] = repsArr;
+
+      const nextSkipped = state.skippedExercises.filter(s => s.sessionId !== sessionId);
+      const isCurrent = targetBIdx === state.currentBlockIndex && targetEIdx === state.currentExerciseInBlock;
+
+      if (!isCurrent) {
+        return {
+          ...state,
+          exerciseTimes: nextExerciseTimes,
+          exerciseLoads: nextExerciseLoads,
+          exerciseReps: nextExerciseReps,
+          skippedExercises: nextSkipped
+        };
+      }
+
+      // If it IS current, advance to next exercise/block
+      const nextState = {
+        ...state,
+        exerciseTimes: nextExerciseTimes,
+        exerciseLoads: nextExerciseLoads,
+        exerciseReps: nextExerciseReps,
+        skippedExercises: nextSkipped,
+        isTimerActive: false,
+        timer: 0,
+        status: "IDLE"
+      };
+
+      // Reuse ADVANCE_STEP logic essentially
+      const currentBlock = state.blocos[state.currentBlockIndex];
+      const isLastInBlock = state.currentExerciseInBlock === currentBlock.length - 1;
+
+      if (state.executionMode === "alternated" && currentBlock.length > 1 && !isLastInBlock) {
+        // Try to find next pending in circuit
+        let foundNext = false;
+        let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+        for (let i = 0; i < currentBlock.length; i++) {
+          const candidate = currentBlock[nextExIdx];
+          const done = nextExerciseTimes[candidate.sessionId]?.length || 0;
+          if (done < candidate.series_alvo) {
+            nextState.currentExerciseInBlock = nextExIdx;
+            nextState.currentSerie = done + 1;
+            foundNext = true;
+            break;
+          }
+          nextExIdx = (nextExIdx + 1) % currentBlock.length;
+        }
+
+        if (!foundNext) {
+          // All in block done
+          if (state.currentBlockIndex === state.blocos.length - 1) {
+            nextState.status = "COMPLETED";
+          } else {
+            nextState.currentBlockIndex += 1;
+            nextState.currentExerciseInBlock = 0;
+            const nextBlock = state.blocos[nextState.currentBlockIndex];
+            const nextEx = nextBlock ? nextBlock[0] : null;
+            nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+          }
+        }
+      } else {
+        if (isLastInBlock) {
+          if (state.currentBlockIndex === state.blocos.length - 1) {
+            nextState.status = "COMPLETED";
+          } else {
+            nextState.currentBlockIndex += 1;
+            nextState.currentExerciseInBlock = 0;
+            const nextBlock = state.blocos[nextState.currentBlockIndex];
+            const nextEx = nextBlock ? nextBlock[0] : null;
+            nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+          }
+        } else {
+          nextState.currentExerciseInBlock += 1;
+          const nextEx = currentBlock[nextState.currentExerciseInBlock];
+          nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+        }
+      }
+
       return nextState;
     }
 
@@ -375,11 +517,17 @@ function trainingReducer(state, action) {
       };
     }
 
-    case "TOGGLE_MODE":
+    case "TOGGLE_EXECUTION_MODE":
       return {
         ...state,
         executionMode:
           state.executionMode === "alternated" ? "isolated" : "alternated",
+      };
+
+    case "SET_TRAINING_MODE":
+      return {
+        ...state,
+        trainingMode: action.payload,
       };
 
     case "SHOW_CHECKOUT":
@@ -670,6 +818,68 @@ function trainingReducer(state, action) {
   }
 }
 
+
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent, isFirst, isDone, isEnabled }) => {
+  const x = useMotionValue(0);
+  const background = useTransform(
+    x,
+    [-100, 0, 100],
+    ["#4b5563", "rgba(0, 0, 0, 0)", "#10b981"]
+  );
+  const opacityRight = useTransform(x, [10, 50], [0, 1]);
+  const opacityLeft = useTransform(x, [-50, -10], [1, 0]);
+
+  // Bounce animation for the first card to show discoverability
+  const bounceControls = {
+    x: [0, 20, 0],
+    transition: { duration: 0.6, delay: 1, times: [0, 0.5, 1] }
+  };
+
+  const handleDragEnd = (event, info) => {
+    const threshold = 100;
+    if (info.offset.x > threshold) {
+      onSwipeRight();
+    } else if (info.offset.x < -threshold) {
+      onSwipeLeft();
+    }
+  };
+
+  if (isDone) return children;
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl">
+      {/* Background Actions */}
+      {isEnabled && (
+        <motion.div
+          style={{ background }}
+          className="absolute inset-0 flex items-center justify-between px-6"
+        >
+          <motion.div style={{ opacity: opacityRight }} className="flex items-center gap-2 text-white font-bold">
+            <CheckCircle2 size={24} />
+            <span>CONCLUIR</span>
+          </motion.div>
+          <motion.div style={{ opacity: opacityLeft }} className="flex items-center gap-2 text-white font-bold">
+            <span>PULAR</span>
+            <X size={24} />
+          </motion.div>
+        </motion.div>
+      )}
+
+      <motion.div
+        drag={isEnabled ? "x" : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.7}
+        onDragEnd={handleDragEnd}
+        style={{ x }}
+        animate={isFirst && !isDone && isEnabled ? bounceControls : {}}
+        className="relative z-10 touch-pan-y"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+};
+
 const Training = () => {
   const { showToast } = useToast();
   const { user: authUser } = useAuth();
@@ -709,144 +919,6 @@ const Training = () => {
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
-  const exercise = currentBlock[state.currentExerciseInBlock] || {
-    exercicios: {},
-    exercicio_id: null,
-    series_alvo: 0,
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [letra]);
-
-  const fetchWorkoutDetails = async () => {
-    if (!isFreeTraining) {
-      const { data } = await supabase
-        .from("treinos")
-        .select("letra, nome, subtitulo")
-        .eq("letra", letra)
-        .eq("user_id", authUser.id)
-        .maybeSingle();
-      if (data) {
-        setSaveAsData({
-          letra: data.letra,
-          nome: data.nome,
-          subtitulo: data.subtitulo || "",
-        });
-      }
-    } else {
-      setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
-    }
-  };
-
-  useEffect(() => {
-    if (showSaveAsModal) {
-      fetchWorkoutDetails();
-    }
-  }, [showSaveAsModal]);
-
-  useEffect(() => {
-    if (!loading && state.blocos.length > 0) {
-      localStorage.setItem(
-        "active_training_session",
-        JSON.stringify({ ...state, letra }),
-      );
-    }
-  }, [state, loading, letra]);
-
-  useEffect(() => {
-    let metronomeInterval = null;
-    if (metronomeActive) {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
-      }
-
-      const playClick = () => {
-        if (!audioContextRef.current) return;
-        const osc = audioContextRef.current.createOscillator();
-        const envelope = audioContextRef.current.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 1000;
-        envelope.gain.value = 0.1;
-        envelope.gain.exponentialRampToValueAtTime(
-          0.001,
-          audioContextRef.current.currentTime + 0.1,
-        );
-        osc.connect(envelope);
-        envelope.connect(audioContextRef.current.destination);
-        osc.start(audioContextRef.current.currentTime);
-        osc.stop(audioContextRef.current.currentTime + 0.1);
-      };
-
-      const intervalMs = (60 / bpm) * 1000;
-      playClick();
-      metronomeInterval = setInterval(playClick, intervalMs);
-    } else {
-      clearInterval(metronomeInterval);
-    }
-    return () => clearInterval(metronomeInterval);
-  }, [metronomeActive, bpm]);
-
-  useEffect(() => {
-    const hasActiveTimers =
-      state.isTimerActive || Object.keys(state.activeRestTimers).length > 0;
-    if (!hasActiveTimers) return;
-
-    const interval = setInterval(() => {
-      dispatch({ type: "TICK" });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [state.isTimerActive, state.activeRestTimers]);
-
-  useEffect(() => {
-    if (loading || state.blocos.length === 0) return;
-
-    const timer = setTimeout(() => {
-      const container = scrollContainerRef.current;
-      const activeCard = document.getElementById("active-exercise");
-
-      if (container && activeCard) {
-        const containerHeight = container.clientHeight;
-        const cardTop = activeCard.offsetTop;
-        const cardHeight = activeCard.offsetHeight;
-
-        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
-        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
-
-        container.scrollTo({
-          top: scrollTo,
-          behavior: "smooth",
-        });
-      }
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }, [
-    loading,
-    state.currentBlockIndex,
-    state.currentExerciseInBlock,
-    state.currentSerie,
-    Object.keys(state.activeRestTimers).length,
-  ]);
-
-  // Click-outside and Scroll-to-close logic
-  useEffect(() => {
-    const handleScroll = () => {
-      if (showPageMenu) setShowPageMenu(false);
-      if (openMenuExId) setOpenMenuExId(null);
-      if (openSeriesMenuExId) setOpenSeriesMenuExId(null);
-    };
-
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-    }
-    return () => {
-      if (container) container.removeEventListener("scroll", handleScroll);
-    };
-  }, [showPageMenu, openMenuExId, openSeriesMenuExId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -1013,6 +1085,26 @@ const Training = () => {
     setLoading(false);
   };
 
+  const fetchWorkoutDetails = async () => {
+    if (!isFreeTraining) {
+      const { data } = await supabase
+        .from("treinos")
+        .select("letra, nome, subtitulo")
+        .eq("letra", letra)
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+      if (data) {
+        setSaveAsData({
+          letra: data.letra,
+          nome: data.nome,
+          subtitulo: data.subtitulo || "",
+        });
+      }
+    } else {
+      setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
+    }
+  };
+
   const finishWorkout = async () => {
     setSavingSession(true);
     const historyData = [];
@@ -1071,6 +1163,122 @@ const Training = () => {
     }
     setSavingSession(false);
   };
+
+  useEffect(() => {
+    fetchData();
+  }, [letra]);
+
+
+  useEffect(() => {
+    if (showSaveAsModal) {
+      fetchWorkoutDetails();
+    }
+  }, [showSaveAsModal]);
+
+  useEffect(() => {
+    if (!loading && state.blocos.length > 0) {
+      localStorage.setItem(
+        "active_training_session",
+        JSON.stringify({ ...state, letra }),
+      );
+    }
+  }, [state, loading, letra]);
+
+  useEffect(() => {
+    let metronomeInterval = null;
+    if (metronomeActive) {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      }
+
+      const playClick = () => {
+        if (!audioContextRef.current) return;
+        const osc = audioContextRef.current.createOscillator();
+        const envelope = audioContextRef.current.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 1000;
+        envelope.gain.value = 0.1;
+        envelope.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioContextRef.current.currentTime + 0.1,
+        );
+        osc.connect(envelope);
+        envelope.connect(audioContextRef.current.destination);
+        osc.start(audioContextRef.current.currentTime);
+        osc.stop(audioContextRef.current.currentTime + 0.1);
+      };
+
+      const intervalMs = (60 / bpm) * 1000;
+      playClick();
+      metronomeInterval = setInterval(playClick, intervalMs);
+    } else {
+      clearInterval(metronomeInterval);
+    }
+    return () => clearInterval(metronomeInterval);
+  }, [metronomeActive, bpm]);
+
+  useEffect(() => {
+    const hasActiveTimers =
+      state.isTimerActive || Object.keys(state.activeRestTimers).length > 0;
+    if (!hasActiveTimers) return;
+
+    const interval = setInterval(() => {
+      dispatch({ type: "TICK" });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state.isTimerActive, state.activeRestTimers]);
+
+  useEffect(() => {
+    if (loading || state.blocos.length === 0) return;
+
+    const timer = setTimeout(() => {
+      const container = scrollContainerRef.current;
+      const activeCard = document.getElementById("active-exercise");
+
+      if (container && activeCard) {
+        const containerHeight = container.clientHeight;
+        const cardTop = activeCard.offsetTop;
+        const cardHeight = activeCard.offsetHeight;
+
+        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
+        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
+
+        container.scrollTo({
+          top: scrollTo,
+          behavior: "smooth",
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [
+    loading,
+    state.currentBlockIndex,
+    state.currentExerciseInBlock,
+    state.currentSerie,
+    Object.keys(state.activeRestTimers).length,
+  ]);
+
+  // Click-outside and Scroll-to-close logic
+  useEffect(() => {
+    const handleScroll = () => {
+      if (showPageMenu) setShowPageMenu(false);
+      if (openMenuExId) setOpenMenuExId(null);
+      if (openSeriesMenuExId) setOpenSeriesMenuExId(null);
+    };
+
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (container) container.removeEventListener("scroll", handleScroll);
+    };
+  }, [showPageMenu, openMenuExId, openSeriesMenuExId]);
+
+
 
   const handleSaveAs = async () => {
     if (!saveAsData.letra) {
@@ -1269,13 +1477,29 @@ const Training = () => {
             <ChevronLeft />
           </button>
         </div>
-        <div className="text-center">
-          <span
-            className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
-            style={{ color: "var(--color-primary-safe)" }}
-          >
-            {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
-          </span>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-1">
+             <span
+              className="text-[10px] uppercase font-black tracking-[0.2em]"
+              style={{ color: "var(--color-primary-safe)" }}
+            >
+              {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
+            </span>
+            <div className="h-1 w-1 rounded-full bg-white/20" />
+            <button
+              onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: state.trainingMode === "guided" ? "manual" : "guided" })}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
+                state.trainingMode === "manual"
+                ? "bg-amber-500/10 border-amber-500/40 text-amber-500"
+                : "bg-white/5 border-white/10 text-white/40"
+              }`}
+            >
+              {state.trainingMode === "manual" ? <ListTodo size={10} /> : <CirclePlay size={10} />}
+              <span className="text-[8px] font-black uppercase tracking-tighter">
+                {state.trainingMode === "manual" ? "Manual" : "Guiado"}
+              </span>
+            </button>
+          </div>
           <span className="font-bold text-lg text-white uppercase tracking-tighter">
             {isFreeTraining ? "Treino Livre" : `Treino ${letra}`}
           </span>
@@ -1378,13 +1602,30 @@ const Training = () => {
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
+                    const shouldExpand = state.trainingMode === "guided" && (isCurrent || isStarted);
 
                     return (
-                      <div
+                      <SwipeableExerciseCard
                         key={`${bIdx}_${eIdx}`}
+                        isCurrent={isCurrent}
+                        isDone={isDone}
+                        isFirst={bIdx === 0 && eIdx === 0}
+                        onSwipeRight={() => dispatch({ type: "COMPLETE_EXERCISE_MANUAL", payload: { sessionId } })}
+                        onSwipeLeft={() => dispatch({ type: "SKIP_EXERCISE", payload: { sessionId } })}
+                        isEnabled={state.trainingMode === "manual"}
+                      >
+                      <div
                         id={isCurrent ? "active-exercise" : undefined}
                         onClick={() => {
-                          if (!isCurrent) {
+                          if (state.trainingMode === "manual") {
+                            dispatch({ type: "SET_TRAINING_MODE", payload: "guided" });
+                            dispatch({
+                              type: "MANUAL_OVERRIDE",
+                              bIdx,
+                              eIdx,
+                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
+                            });
+                          } else if (!isCurrent) {
                             dispatch({
                               type: "MANUAL_OVERRIDE",
                               bIdx,
@@ -1393,10 +1634,10 @@ const Training = () => {
                             });
                           }
                         }}
-                        className={`relative rounded-2xl border transition-all duration-300 ${isCurrent ? "p-4 scale-[1.02]" : !isStarted ? "p-2.5 py-2 cursor-pointer" : "p-4 cursor-pointer"}`}
+                        className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
-                          backgroundColor: isCurrent
-                            ? activeColor
+                          backgroundColor: shouldExpand
+                            ? (isCurrent ? activeColor : `${activeColor}20`)
                             : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
                               : (isSkipped && !isCurrent)
@@ -1404,12 +1645,12 @@ const Training = () => {
                                 : isDone
                                   ? "rgba(16, 185, 129, 0.1)"
                                   : "rgba(255, 255, 255, 0.05)",
-                          color: isCurrent
+                          color: shouldExpand && isCurrent
                             ? textOnActive
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "#fca5a5"
                               : "white",
-                          borderColor: isCurrent
+                          borderColor: shouldExpand
                             ? "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
@@ -1418,35 +1659,42 @@ const Training = () => {
                                 : "rgba(255, 255, 255, 0.1)",
                         }}
                       >
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center relative">
+                    {/* Discoverability Chevrons */}
+                    {!shouldExpand && !isDone && (
+                      <>
+                        <div className="absolute -left-1 opacity-20 text-[10px] font-black animate-pulse">»»</div>
+                        <div className="absolute -right-1 opacity-20 text-[10px] font-black animate-pulse">««</div>
+                      </>
+                    )}
                     <div className="flex items-center gap-3">
                       <div
-                        className={`rounded-lg flex items-center justify-center transition-all ${isCurrent ? "w-8 h-8 bg-black/10" : isAbandoned ? "bg-red-500/20 text-red-400 w-8 h-8" : !isStarted ? "w-6 h-6 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-8 h-8 bg-white/5 text-white/40"}`}
+                        className={`rounded-lg flex items-center justify-center transition-all ${shouldExpand && isCurrent ? "w-8 h-8 bg-black/10" : isAbandoned ? "bg-red-500/20 text-red-400 w-8 h-8" : isDone ? "w-8 h-8 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-6 h-6 bg-white/5 text-white/40"}`}
                       >
                         {(isSkipped && !isCurrent) ? (
-                          <CircleX size={!isStarted && !isCurrent ? 12 : 16} />
+                          <CircleX size={!isStarted && !isCurrent && !isSkipped ? 12 : 16} />
                         ) : isAbandoned ? (
                           <AlertTriangle size={16} />
                         ) : isDone ? (
-                          <CheckCircle2 size={!isStarted && !isCurrent ? 12 : 16} className={isCurrent ? "" : "text-emerald-500"} />
+                          <CheckCircle2 size={16} className={shouldExpand && isCurrent ? "" : "text-emerald-500"} />
                         ) : (
-                          <Dumbbell size={!isStarted && !isCurrent ? 12 : 16} />
+                          <Dumbbell size={12} />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between gap-2">
-                            <p className={`font-bold leading-tight ${isCurrent ? "text-inherit text-sm" : !isStarted ? "text-xs" : (isSkipped && !isCurrent) ? "text-red-300 text-sm" : "text-white text-sm"}`}>
+                            <p className={`font-bold leading-tight ${shouldExpand && isCurrent ? "text-inherit text-sm" : (isSkipped && !isCurrent) ? "text-red-300 text-sm" : "text-white text-xs"}`}>
                             {ex.exercicios.nome}
                           </p>
                         </div>
-                        {!isCurrent && (
+                        {!shouldExpand && (
                           <div className="flex gap-3 items-center">
-                            <p className={`font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"} ${!isStarted ? "text-[9px]" : "text-[10px]"}`}>
+                            <p className={`font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"} text-[9px]`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
                             </p>
                             {(state.cargas[sessionId] > 0 || !isStarted) && (
-                              <span className={`font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80"} ${!isStarted ? "text-[9px]" : "text-[10px]"}`}>
-                                <Dumbbell size={!isStarted ? 9 : 10} />{" "}
+                              <span className={`font-black flex items-center gap-1 ${(isSkipped && !isCurrent) ? "text-red-400" : "opacity-80"} text-[9px]`}>
+                                <Dumbbell size={9} />{" "}
                                 {state.cargas[sessionId]}kg
                               </span>
                             )}
@@ -1545,8 +1793,8 @@ const Training = () => {
                     </div>
                   </div>
 
-                  {isCurrent || isStarted ? (
-                    <div className={`mt-4 space-y-3 transition-all duration-500 ${isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
+                  {shouldExpand ? (
+                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
                       {isCurrent && (
                         <>
                       {/* Integrated Timer */}
@@ -2040,6 +2288,7 @@ const Training = () => {
                     </div>
                   ) : null}
                 </div>
+                </SwipeableExerciseCard>
                     );
                   })}
                 </div>
