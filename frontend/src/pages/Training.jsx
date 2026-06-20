@@ -28,6 +28,8 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
+  ListTodo,
+  CirclePlay,
 } from "lucide-react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -68,6 +70,7 @@ const initialState = {
   exerciseReps: {}, // { sessionId: [s1, s2...] }
   skippedExercises: [],
   isCatchupPhase: false,
+  trainingMode: "guided", // "guided" or "manual"
   showCheckoutModal: false,
   blocos: [],
   originalBlocos: [],
@@ -514,11 +517,17 @@ function trainingReducer(state, action) {
       };
     }
 
-    case "TOGGLE_MODE":
+    case "TOGGLE_EXECUTION_MODE":
       return {
         ...state,
         executionMode:
           state.executionMode === "alternated" ? "isolated" : "alternated",
+      };
+
+    case "SET_TRAINING_MODE":
+      return {
+        ...state,
+        trainingMode: action.payload,
       };
 
     case "SHOW_CHECKOUT":
@@ -810,7 +819,7 @@ function trainingReducer(state, action) {
 }
 
 
-const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent, isFirst, isDone }) => {
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent, isFirst, isDone, isEnabled }) => {
   const x = useMotionValue(0);
   const background = useTransform(
     x,
@@ -840,27 +849,29 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent,
   return (
     <div className="relative overflow-hidden rounded-2xl">
       {/* Background Actions */}
-      <motion.div
-        style={{ background }}
-        className="absolute inset-0 flex items-center justify-between px-6"
-      >
-        <motion.div style={{ opacity: opacityRight }} className="flex items-center gap-2 text-white font-bold">
-          <CheckCircle2 size={24} />
-          <span>CONCLUIR</span>
+      {isEnabled && (
+        <motion.div
+          style={{ background }}
+          className="absolute inset-0 flex items-center justify-between px-6"
+        >
+          <motion.div style={{ opacity: opacityRight }} className="flex items-center gap-2 text-white font-bold">
+            <CheckCircle2 size={24} />
+            <span>CONCLUIR</span>
+          </motion.div>
+          <motion.div style={{ opacity: opacityLeft }} className="flex items-center gap-2 text-white font-bold">
+            <span>PULAR</span>
+            <X size={24} />
+          </motion.div>
         </motion.div>
-        <motion.div style={{ opacity: opacityLeft }} className="flex items-center gap-2 text-white font-bold">
-          <span>PULAR</span>
-          <X size={24} />
-        </motion.div>
-      </motion.div>
+      )}
 
       <motion.div
-        drag="x"
+        drag={isEnabled ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         style={{ x }}
-        animate={isFirst && !isDone ? bounceControls : {}}
+        animate={isFirst && !isDone && isEnabled ? bounceControls : {}}
         className="relative z-10 touch-pan-y"
       >
         {children}
@@ -1466,13 +1477,29 @@ const Training = () => {
             <ChevronLeft />
           </button>
         </div>
-        <div className="text-center">
-          <span
-            className="text-[10px] uppercase font-black tracking-[0.2em] block mb-1"
-            style={{ color: "var(--color-primary-safe)" }}
-          >
-            {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
-          </span>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-1">
+             <span
+              className="text-[10px] uppercase font-black tracking-[0.2em]"
+              style={{ color: "var(--color-primary-safe)" }}
+            >
+              {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
+            </span>
+            <div className="h-1 w-1 rounded-full bg-white/20" />
+            <button
+              onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: state.trainingMode === "guided" ? "manual" : "guided" })}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
+                state.trainingMode === "manual"
+                ? "bg-amber-500/10 border-amber-500/40 text-amber-500"
+                : "bg-white/5 border-white/10 text-white/40"
+              }`}
+            >
+              {state.trainingMode === "manual" ? <ListTodo size={10} /> : <CirclePlay size={10} />}
+              <span className="text-[8px] font-black uppercase tracking-tighter">
+                {state.trainingMode === "manual" ? "Manual" : "Guiado"}
+              </span>
+            </button>
+          </div>
           <span className="font-bold text-lg text-white uppercase tracking-tighter">
             {isFreeTraining ? "Treino Livre" : `Treino ${letra}`}
           </span>
@@ -1575,6 +1602,7 @@ const Training = () => {
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
+                    const shouldExpand = state.trainingMode === "guided" && (isCurrent || isStarted);
 
                     return (
                       <SwipeableExerciseCard
@@ -1584,11 +1612,20 @@ const Training = () => {
                         isFirst={bIdx === 0 && eIdx === 0}
                         onSwipeRight={() => dispatch({ type: "COMPLETE_EXERCISE_MANUAL", payload: { sessionId } })}
                         onSwipeLeft={() => dispatch({ type: "SKIP_EXERCISE", payload: { sessionId } })}
+                        isEnabled={state.trainingMode === "manual"}
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
                         onClick={() => {
-                          if (!isCurrent) {
+                          if (state.trainingMode === "manual") {
+                            dispatch({ type: "SET_TRAINING_MODE", payload: "guided" });
+                            dispatch({
+                              type: "MANUAL_OVERRIDE",
+                              bIdx,
+                              eIdx,
+                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
+                            });
+                          } else if (!isCurrent) {
                             dispatch({
                               type: "MANUAL_OVERRIDE",
                               bIdx,
@@ -1597,10 +1634,10 @@ const Training = () => {
                             });
                           }
                         }}
-                        className={`relative rounded-2xl border transition-all duration-300 ${isCurrent ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
+                        className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
-                          backgroundColor: isCurrent
-                            ? activeColor
+                          backgroundColor: shouldExpand
+                            ? (isCurrent ? activeColor : `${activeColor}20`)
                             : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
                               : (isSkipped && !isCurrent)
@@ -1608,12 +1645,12 @@ const Training = () => {
                                 : isDone
                                   ? "rgba(16, 185, 129, 0.1)"
                                   : "rgba(255, 255, 255, 0.05)",
-                          color: isCurrent
+                          color: shouldExpand && isCurrent
                             ? textOnActive
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "#fca5a5"
                               : "white",
-                          borderColor: isCurrent
+                          borderColor: shouldExpand
                             ? "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
@@ -1624,7 +1661,7 @@ const Training = () => {
                       >
                   <div className="flex justify-between items-center relative">
                     {/* Discoverability Chevrons */}
-                    {!isCurrent && !isDone && (
+                    {!shouldExpand && !isDone && (
                       <>
                         <div className="absolute -left-1 opacity-20 text-[10px] font-black animate-pulse">»»</div>
                         <div className="absolute -right-1 opacity-20 text-[10px] font-black animate-pulse">««</div>
@@ -1632,25 +1669,25 @@ const Training = () => {
                     )}
                     <div className="flex items-center gap-3">
                       <div
-                        className={`rounded-lg flex items-center justify-center transition-all ${isCurrent ? "w-8 h-8 bg-black/10" : isAbandoned ? "bg-red-500/20 text-red-400 w-8 h-8" : isDone ? "w-8 h-8 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-6 h-6 bg-white/5 text-white/40"}`}
+                        className={`rounded-lg flex items-center justify-center transition-all ${shouldExpand && isCurrent ? "w-8 h-8 bg-black/10" : isAbandoned ? "bg-red-500/20 text-red-400 w-8 h-8" : isDone ? "w-8 h-8 bg-white/5 text-white/40" : (isSkipped && !isCurrent) ? "w-8 h-8 bg-red-500/20 text-red-400" : "w-6 h-6 bg-white/5 text-white/40"}`}
                       >
                         {(isSkipped && !isCurrent) ? (
                           <CircleX size={!isStarted && !isCurrent && !isSkipped ? 12 : 16} />
                         ) : isAbandoned ? (
                           <AlertTriangle size={16} />
                         ) : isDone ? (
-                          <CheckCircle2 size={16} className={isCurrent ? "" : "text-emerald-500"} />
+                          <CheckCircle2 size={16} className={shouldExpand && isCurrent ? "" : "text-emerald-500"} />
                         ) : (
                           <Dumbbell size={12} />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between gap-2">
-                            <p className={`font-bold leading-tight ${isCurrent ? "text-inherit text-sm" : (isSkipped && !isCurrent) ? "text-red-300 text-sm" : "text-white text-xs"}`}>
+                            <p className={`font-bold leading-tight ${shouldExpand && isCurrent ? "text-inherit text-sm" : (isSkipped && !isCurrent) ? "text-red-300 text-sm" : "text-white text-xs"}`}>
                             {ex.exercicios.nome}
                           </p>
                         </div>
-                        {!isCurrent && (
+                        {!shouldExpand && (
                           <div className="flex gap-3 items-center">
                             <p className={`font-medium ${(isSkipped && !isCurrent) ? "text-red-400/80" : "opacity-60"} text-[9px]`}>
                               Séries: {currentExSerie}/{ex.series_alvo}
@@ -1756,8 +1793,8 @@ const Training = () => {
                     </div>
                   </div>
 
-                  {isCurrent || isStarted ? (
-                    <div className={`mt-4 space-y-3 transition-all duration-500 ${isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
+                  {shouldExpand ? (
+                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
                       {isCurrent && (
                         <>
                       {/* Integrated Timer */}
