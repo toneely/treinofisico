@@ -1486,19 +1486,34 @@ const Training = () => {
               {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
             </span>
             <div className="h-1 w-1 rounded-full bg-white/20" />
-            <button
-              onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: state.trainingMode === "guided" ? "manual" : "guided" })}
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
-                state.trainingMode === "manual"
-                ? "bg-amber-500/10 border-amber-500/40 text-amber-500"
-                : "bg-white/5 border-white/10 text-white/40"
-              }`}
-            >
-              {state.trainingMode === "manual" ? <ListTodo size={10} /> : <CirclePlay size={10} />}
-              <span className="text-[8px] font-black uppercase tracking-tighter">
-                {state.trainingMode === "manual" ? "Manual" : "Guiado"}
-              </span>
-            </button>
+            <div className="flex bg-white/5 rounded-full p-0.5 border border-white/10 relative">
+              <button
+                onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: "guided" })}
+                className={`relative z-10 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter transition-all duration-300 ${state.trainingMode === "guided" ? "text-white" : "text-white/30"}`}
+              >
+                Guiado
+                {state.trainingMode === "guided" && (
+                  <motion.div
+                    layoutId="activeMode"
+                    className="absolute inset-0 bg-white/10 rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+              </button>
+              <button
+                onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: "manual" })}
+                className={`relative z-10 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter transition-all duration-300 ${state.trainingMode === "manual" ? "text-amber-500" : "text-white/30"}`}
+              >
+                Manual
+                {state.trainingMode === "manual" && (
+                  <motion.div
+                    layoutId="activeMode"
+                    className="absolute inset-0 bg-amber-500/10 rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+              </button>
+            </div>
           </div>
           <span className="font-bold text-lg text-white uppercase tracking-tighter">
             {isFreeTraining ? "Treino Livre" : `Treino ${letra}`}
@@ -1602,7 +1617,9 @@ const Training = () => {
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
-                    const shouldExpand = state.trainingMode === "guided" && (isCurrent || isStarted);
+                    const isManual = state.trainingMode === "manual";
+                    const isGuided = state.trainingMode === "guided";
+                    const shouldExpand = isManual ? true : (isGuided && (isCurrent || isStarted));
 
                     return (
                       <SwipeableExerciseCard
@@ -1637,7 +1654,7 @@ const Training = () => {
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
-                            ? (isCurrent ? activeColor : `${activeColor}20`)
+                            ? (isCurrent && isGuided ? activeColor : isManual ? "rgba(255, 255, 255, 0.05)" : `${activeColor}20`)
                             : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
                               : (isSkipped && !isCurrent)
@@ -1645,13 +1662,13 @@ const Training = () => {
                                 : isDone
                                   ? "rgba(16, 185, 129, 0.1)"
                                   : "rgba(255, 255, 255, 0.05)",
-                          color: shouldExpand && isCurrent
+                          color: shouldExpand && isCurrent && isGuided
                             ? textOnActive
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "#fca5a5"
                               : "white",
                           borderColor: shouldExpand
-                            ? "transparent"
+                            ? isManual ? "rgba(255, 255, 255, 0.1)" : "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
@@ -1794,8 +1811,8 @@ const Training = () => {
                   </div>
 
                   {shouldExpand ? (
-                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
-                      {isCurrent && (
+                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent && isGuided ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
+                      {isCurrent && isGuided && (
                         <>
                       {/* Integrated Timer */}
                       <div
@@ -1914,7 +1931,7 @@ const Training = () => {
                       </div>
 
                       {/* Integrated Action Button */}
-                      {!state.isTimerActive && state.timer > 0 && (
+                      {!state.isTimerActive && state.timer > 0 && isGuided && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1946,8 +1963,8 @@ const Training = () => {
                         <div className="h-px bg-white/5 my-2" />
                       )}
 
-                      <div className={`${isCurrent ? "mt-6 pt-6" : ""} border-transparent`}>
-                        {isCurrent && (
+                      <div className={`${isCurrent && isGuided ? "mt-6 pt-6" : ""} border-transparent`}>
+                        {isCurrent && isGuided && (
                         <div className="flex justify-between items-center w-full mb-2">
                           <p className="text-xs uppercase tracking-wider font-semibold opacity-70 text-inherit">SÉRIES</p>
                           <div className="relative">
@@ -2018,6 +2035,7 @@ const Training = () => {
                               (state.exerciseTimes[sessionId]?.length || 0) + 1;
                             const isNextPending = sNum === nextPendingSNum;
                             const isExecuted = sNum < nextPendingSNum;
+                            const isMeta = !load && isManual && !isDone;
 
                             return (
                               <div
@@ -2069,11 +2087,11 @@ const Training = () => {
                                   className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
                                 >
                                   <div className="flex items-center gap-0.5">
-                                    {isCurrent ? (
+                                    {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={load || ""}
-                                      placeholder="-"
+                                      value={load || (isManual && isMeta ? (state.cargas[sessionId] || "") : "")}
+                                      placeholder={isManual && isMeta ? (state.cargas[sessionId] || "-") : "-"}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2084,23 +2102,23 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 text-inherit`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 text-inherit ${isMeta ? "opacity-30" : ""}`}
                                     />
                                     ) : (
                                       <span className={`font-mono font-black text-[11px] ${load ? "" : "opacity-20"}`}>
                                         {load || "-"}
                                       </span>
                                     )}
-                                    <span className={`text-[8px] font-bold opacity-40 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[8px] font-bold opacity-40 ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       kg
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-0.5">
-                                    {isCurrent ? (
+                                    {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={reps || ""}
-                                      placeholder="-"
+                                      value={reps || (isManual && isMeta ? (ex.reps_alvo.includes("-") ? ex.reps_alvo.split("-")[1] : ex.reps_alvo) : "")}
+                                      placeholder={isManual && isMeta ? ex.reps_alvo : "-"}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2111,14 +2129,14 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 text-inherit`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 text-inherit ${isMeta ? "opacity-30" : "opacity-60"}`}
                                     />
                                     ) : (
                                       <span className={`font-bold text-[10px] opacity-60 ${reps ? "" : "opacity-20"}`}>
                                         {reps || "-"}
                                       </span>
                                     )}
-                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       reps
                                     </span>
                                   </div>
