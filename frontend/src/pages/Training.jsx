@@ -358,8 +358,9 @@ function trainingReducer(state, action) {
 
       for (let i = currentDone; i < seriesAlvo; i++) {
         times[i] = 0; // Manual completion sets time to 0 or some default? Let's use 0.
-        loads[i] = cargaMeta;
-        repsArr[i] = state.repsFeitas[sessionId] || repsMeta;
+        // Use the specifically edited values from the grid if they exist, otherwise fallback to block meta
+        loads[i] = loads[i] ?? cargaMeta;
+        repsArr[i] = repsArr[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
       }
 
       nextExerciseTimes[sessionId] = times;
@@ -1063,9 +1064,9 @@ const Training = () => {
 
         initialTimes[sessionId] = [];
         initialRests[sessionId] = [];
-        // Pre-fill the series grid with historical data
-        initialExLoads[sessionId] = histLoads;
-        initialExReps[sessionId] = histReps;
+        // Start with empty performance data; meta/history will be shown via fallbacks
+        initialExLoads[sessionId] = [];
+        initialExReps[sessionId] = [];
       });
 
       dispatch({
@@ -1634,15 +1635,7 @@ const Training = () => {
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
                         onClick={() => {
-                          if (state.trainingMode === "manual") {
-                            dispatch({ type: "SET_TRAINING_MODE", payload: "guided" });
-                            dispatch({
-                              type: "MANUAL_OVERRIDE",
-                              bIdx,
-                              eIdx,
-                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
-                            });
-                          } else if (!isCurrent) {
+                          if (!isCurrent) {
                             dispatch({
                               type: "MANUAL_OVERRIDE",
                               bIdx,
@@ -1654,7 +1647,7 @@ const Training = () => {
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
-                            ? (isCurrent && isGuided ? activeColor : isManual ? "rgba(255, 255, 255, 0.05)" : `${activeColor}20`)
+                            ? (isCurrent && isGuided ? activeColor : isManual ? (isCurrent ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)") : `${activeColor}20`)
                             : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
                               : (isSkipped && !isCurrent)
@@ -1668,7 +1661,7 @@ const Training = () => {
                               ? "#fca5a5"
                               : "white",
                           borderColor: shouldExpand
-                            ? isManual ? "rgba(255, 255, 255, 0.1)" : "transparent"
+                            ? isManual ? (isCurrent ? activeColor : "rgba(255, 255, 255, 0.1)") : "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
@@ -2035,7 +2028,6 @@ const Training = () => {
                               (state.exerciseTimes[sessionId]?.length || 0) + 1;
                             const isNextPending = sNum === nextPendingSNum;
                             const isExecuted = sNum < nextPendingSNum;
-                            const isMeta = !load && isManual && !isDone;
 
                             return (
                               <div
@@ -2084,14 +2076,13 @@ const Training = () => {
                                   {sNum}
                                 </button>
                                 <div
-                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity`}
                                 >
                                   <div className="flex items-center gap-0.5">
                                     {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={load || (isManual && isMeta ? (state.cargas[sessionId] || "") : "")}
-                                      placeholder={isManual && isMeta ? (state.cargas[sessionId] || "-") : "-"}
+                                      value={(load !== undefined && load !== null && load !== "") ? load : (state.cargas[sessionId] ?? "")}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2102,7 +2093,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 text-inherit ${isMeta ? "opacity-30" : ""}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "text-white/40"}`}
                                     />
                                     ) : (
                                       <span className={`font-mono font-black text-[11px] ${load ? "" : "opacity-20"}`}>
@@ -2117,8 +2108,7 @@ const Training = () => {
                                     {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={reps || (isManual && isMeta ? (ex.reps_alvo.includes("-") ? ex.reps_alvo.split("-")[1] : ex.reps_alvo) : "")}
-                                      placeholder={isManual && isMeta ? ex.reps_alvo : "-"}
+                                      value={(reps !== undefined && reps !== null && reps !== "") ? reps : (state.repsFeitas[sessionId] ?? "")}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2129,7 +2119,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 text-inherit ${isMeta ? "opacity-30" : "opacity-60"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "text-white/40"}`}
                                     />
                                     ) : (
                                       <span className={`font-bold text-[10px] opacity-60 ${reps ? "" : "opacity-20"}`}>
@@ -2142,7 +2132,7 @@ const Training = () => {
                                   </div>
                                 </div>
                                 <div
-                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1 transition-opacity`}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
