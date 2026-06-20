@@ -66,8 +66,10 @@ const initialState = {
   activeRestTimers: {}, // { sessionId: { seconds: number, title: string, nome: string } }
   cargas: {}, // { sessionId: last_used_load }
   exerciseLoads: {}, // { sessionId: [s1, s2...] }
+  historyLoads: {}, // { sessionId: [s1, s2...] }
   repsFeitas: {}, // { sessionId: current_input_reps }
   exerciseReps: {}, // { sessionId: [s1, s2...] }
+  historyReps: {}, // { sessionId: [s1, s2...] }
   skippedExercises: [],
   isCatchupPhase: false,
   trainingMode: "guided", // "guided" or "manual"
@@ -358,9 +360,9 @@ function trainingReducer(state, action) {
 
       for (let i = currentDone; i < seriesAlvo; i++) {
         times[i] = 0; // Manual completion sets time to 0 or some default? Let's use 0.
-        // Use the specifically edited values from the grid if they exist, otherwise fallback to block meta
-        loads[i] = loads[i] ?? cargaMeta;
-        repsArr[i] = repsArr[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
+        // Hierarchy: edited grid value > historical index value > session meta value
+        loads[i] = loads[i] ?? state.historyLoads[sessionId]?.[i] ?? cargaMeta;
+        repsArr[i] = repsArr[i] ?? state.historyReps[sessionId]?.[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
       }
 
       nextExerciseTimes[sessionId] = times;
@@ -591,8 +593,10 @@ function trainingReducer(state, action) {
         originalBlocos: newBlocos,
         exerciseTimes: { ...state.exerciseTimes, [sessionId]: [] },
         restTimes: { ...state.restTimes, [sessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [sessionId]: inheritedLoads || [] },
-        exerciseReps: { ...state.exerciseReps, [sessionId]: inheritedReps || [] },
+        exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
+        historyLoads: { ...state.historyLoads, [sessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
+        historyReps: { ...state.historyReps, [sessionId]: inheritedReps || [] },
         cargas: { ...state.cargas, [sessionId]: lastLoad },
         repsFeitas: { ...state.repsFeitas, [sessionId]: lastReps }
       };
@@ -732,8 +736,10 @@ function trainingReducer(state, action) {
         originalBlocos: newBlocks,
         exerciseTimes: { ...state.exerciseTimes, [newSessionId]: [] },
         restTimes: { ...state.restTimes, [newSessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: inheritedLoads || [] },
-        exerciseReps: { ...state.exerciseReps, [newSessionId]: inheritedReps || [] },
+        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: [] },
+        historyLoads: { ...state.historyLoads, [newSessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [newSessionId]: [] },
+        historyReps: { ...state.historyReps, [newSessionId]: inheritedReps || [] },
         cargas: { ...state.cargas, [newSessionId]: lastLoad },
         repsFeitas: { ...state.repsFeitas, [newSessionId]: lastReps }
       };
@@ -1046,6 +1052,8 @@ const Training = () => {
       const initialRests = {};
       const initialExLoads = {};
       const initialExReps = {};
+      const initialHistoryLoads = {};
+      const initialHistoryReps = {};
 
       data.forEach((ex) => {
         const sessionId = ex.sessionId || String(ex.id) || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
@@ -1064,6 +1072,9 @@ const Training = () => {
 
         initialTimes[sessionId] = [];
         initialRests[sessionId] = [];
+        // Store full history arrays separately
+        initialHistoryLoads[sessionId] = histLoads;
+        initialHistoryReps[sessionId] = histReps;
         // Start with empty performance data; meta/history will be shown via fallbacks
         initialExLoads[sessionId] = [];
         initialExReps[sessionId] = [];
@@ -1079,7 +1090,9 @@ const Training = () => {
           exerciseTimes: initialTimes,
           restTimes: initialRests,
           exerciseLoads: initialExLoads,
+          historyLoads: initialHistoryLoads,
           exerciseReps: initialExReps,
+          historyReps: initialHistoryReps,
         },
       });
     }
@@ -2082,7 +2095,7 @@ const Training = () => {
                                     {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={(load !== undefined && load !== null && load !== "") ? load : (state.cargas[sessionId] ?? "")}
+                                      value={load ?? state.historyLoads[sessionId]?.[sessionIdx] ?? state.cargas[sessionId] ?? ""}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2093,11 +2106,11 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "text-white/40"}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${load === undefined || load === null ? "text-white/40" : "text-white"}`}
                                     />
                                     ) : (
-                                      <span className={`font-mono font-black text-[11px] ${load ? "" : "opacity-20"}`}>
-                                        {load || "-"}
+                                      <span className={`font-mono font-black text-[11px] ${load || state.historyLoads[sessionId]?.[sessionIdx] ? "" : "opacity-20"}`}>
+                                        {load ?? state.historyLoads[sessionId]?.[sessionIdx] ?? "-"}
                                       </span>
                                     )}
                                     <span className={`text-[8px] font-bold opacity-40 ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
@@ -2108,7 +2121,7 @@ const Training = () => {
                                     {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={(reps !== undefined && reps !== null && reps !== "") ? reps : (state.repsFeitas[sessionId] ?? "")}
+                                      value={reps ?? state.historyReps[sessionId]?.[sessionIdx] ?? (ex.reps_alvo.includes("-") ? ex.reps_alvo.split("-")[1] : ex.reps_alvo)}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2119,11 +2132,11 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "text-white/40"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${reps === undefined || reps === null ? "text-white/40" : "text-white"}`}
                                     />
                                     ) : (
-                                      <span className={`font-bold text-[10px] opacity-60 ${reps ? "" : "opacity-20"}`}>
-                                        {reps || "-"}
+                                      <span className={`font-bold text-[10px] ${reps || state.historyReps[sessionId]?.[sessionIdx] ? "opacity-100" : "opacity-20"}`}>
+                                        {reps ?? state.historyReps[sessionId]?.[sessionIdx] ?? "-"}
                                       </span>
                                     )}
                                     <span className={`text-[7px] font-bold opacity-30 uppercase ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
