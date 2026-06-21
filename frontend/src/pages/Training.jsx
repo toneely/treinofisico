@@ -1653,7 +1653,7 @@ const Training = () => {
                               type: "MANUAL_OVERRIDE",
                               bIdx,
                               eIdx,
-                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
+                              sNum: 1, // Default to Series 1 on selection
                             });
                           }
                         }}
@@ -2046,8 +2046,8 @@ const Training = () => {
                               <div
                                 key={sessionIdx}
                                 className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
-                                  isCurrentS
-                                    ? "bg-current/20 border-current/40 ring-4 ring-current/10 scale-[1.05] z-10"
+                                  isCurrentS && isCurrent
+                                    ? "scale-[1.08] z-20 shadow-xl"
                                     : isSkipped
                                       ? isExecuted
                                         ? "bg-red-950/60 border-red-500/10"
@@ -2059,22 +2059,26 @@ const Training = () => {
                                         : "bg-white/5 border-white/10"
                                 }`}
                                 style={{
-                                  borderColor: isCurrentS || isNextPending ? undefined : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)")
+                                  backgroundColor: isCurrentS && isCurrent ? "rgba(0,0,0,0.3)" : undefined,
+                                  borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
+                                  borderColor: isCurrentS && isCurrent
+                                    ? `var(--color-${eIdx % 2 === 0 ? "primary" : "secondary"})`
+                                    : isNextPending && isCurrent ? undefined
+                                    : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
+                                  boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
                                 }}
                               >
                                 <button
                                   onClick={() => {
-                                    if (isNextPending && !isCurrentS) {
-                                      dispatch({
-                                        type: "MANUAL_OVERRIDE",
-                                        bIdx,
-                                        eIdx,
-                                        sNum,
-                                      });
-                                      showToast(
-                                        `Foco alterado para Série ${sNum}`,
-                                        "info",
-                                      );
+                                    const nextSNum = isCurrentS && isCurrent ? 1 : sNum;
+                                    dispatch({
+                                      type: "MANUAL_OVERRIDE",
+                                      bIdx,
+                                      eIdx,
+                                      sNum: nextSNum,
+                                    });
+                                    if (nextSNum !== 1 || sNum === 1) {
+                                      showToast(`Foco alterado para Série ${nextSNum}`, "info");
                                     }
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
