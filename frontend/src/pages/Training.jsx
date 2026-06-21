@@ -34,6 +34,8 @@ import {
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import { useAppearance } from "../context/AppearanceContext";
+import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
 import ConfirmationModal from "../components/ConfirmationModal";
@@ -890,6 +892,7 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent,
 const Training = () => {
   const { showToast } = useToast();
   const { user: authUser } = useAuth();
+  const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1674,7 +1677,7 @@ const Training = () => {
                               ? "#fca5a5"
                               : "white",
                           borderColor: shouldExpand
-                            ? isManual ? (isCurrent ? activeColor : "rgba(255, 255, 255, 0.1)") : "transparent"
+                            ? isManual ? (isCurrent ? getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino) : "rgba(255, 255, 255, 0.1)") : "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
@@ -2062,7 +2065,7 @@ const Training = () => {
                                   backgroundColor: isCurrentS && isCurrent ? "rgba(0,0,0,0.3)" : undefined,
                                   borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
                                   borderColor: isCurrentS && isCurrent
-                                    ? `var(--color-${eIdx % 2 === 0 ? "primary" : "secondary"})`
+                                    ? getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino)
                                     : isNextPending && isCurrent ? undefined
                                     : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
                                   boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
@@ -2084,16 +2087,12 @@ const Training = () => {
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
                                     backgroundColor: (isNextPending && isGuided)
-                                      ? "var(--color-secondary)"
-                                      : `var(--color-${eIdx % 2 === 0 ? "primary" : "secondary"}-dark)`,
-                                    color: isCurrentS && isCurrent
-                                      ? "white"
-                                      : (isNextPending && isCurrent)
-                                        ? "white"
-                                        : isNextPending && isGuided
-                                          ? "white"
-                                          : `var(--color-${eIdx % 2 === 0 ? "primary" : "secondary"})`,
-                                    opacity: isCurrentS || isNextPending ? 1 : 0.8,
+                                      ? settings.color_ex_b
+                                      : `${eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b}30`,
+                                    color: (isCurrentS && isCurrent) || (isNextPending && isCurrent) || (isNextPending && isGuided)
+                                      ? getContrastColor((isNextPending && isGuided) ? settings.color_ex_b : `${eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b}30`)
+                                      : getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino),
+                                    opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
                                   {sNum}
