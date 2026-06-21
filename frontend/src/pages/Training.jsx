@@ -2099,7 +2099,7 @@ const Training = () => {
                                   {sNum}
                                 </button>
                                 <div
-                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity`}
+                                  className={`flex flex-col items-center gap-1 mb-2`}
                                 >
                                   <div className="flex items-center gap-0.5">
                                     {(isGuided && isCurrent) || isManual ? (
@@ -2116,7 +2116,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "text-white/40"}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
                                       <span className={`font-mono font-black text-[11px] ${load || state.historyLoads[sessionId]?.[sessionIdx] ? "" : "opacity-20"}`}>
@@ -2142,7 +2142,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "text-white/40"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
                                       <span className={`font-bold text-[10px] ${reps || state.historyReps[sessionId]?.[sessionIdx] ? "opacity-100" : "opacity-20"}`}>
@@ -2155,7 +2155,7 @@ const Training = () => {
                                   </div>
                                 </div>
                                 <div
-                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1 transition-opacity`}
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1`}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
