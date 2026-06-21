@@ -2055,9 +2055,12 @@ const Training = () => {
                                           ? "bg-red-500/10 border-red-500/40"
                                           : "bg-red-950/20 border-transparent"
                                       : isExecuted
-                                        ? "bg-current/10 border-current/5"
-                                        : "bg-current/5 border-transparent"
+                                        ? "bg-white/5 border-white/10"
+                                        : "bg-white/5 border-white/10"
                                 }`}
+                                style={{
+                                  borderColor: isCurrentS || isNextPending ? undefined : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)")
+                                }}
                               >
                                 <button
                                   onClick={() => {
@@ -2113,7 +2116,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${load === undefined || load === null ? "text-white/40" : "text-white"}`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "text-white/40"}`}
                                     />
                                     ) : (
                                       <span className={`font-mono font-black text-[11px] ${load || state.historyLoads[sessionId]?.[sessionIdx] ? "" : "opacity-20"}`}>
@@ -2139,7 +2142,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${reps === undefined || reps === null ? "text-white/40" : "text-white"}`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "text-white/40"}`}
                                     />
                                     ) : (
                                       <span className={`font-bold text-[10px] ${reps || state.historyReps[sessionId]?.[sessionIdx] ? "opacity-100" : "opacity-20"}`}>
