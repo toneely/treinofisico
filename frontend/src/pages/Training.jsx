@@ -465,6 +465,47 @@ function trainingReducer(state, action) {
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
     }
+    case "UNDO_SERIES": {
+      const { sessionId } = action;
+      const doneCount = state.exerciseTimes[sessionId]?.length || 0;
+      if (doneCount === 0 && state.currentSerie === 1) return state;
+
+      const nextExerciseTimes = { ...state.exerciseTimes };
+      const nextExerciseLoads = { ...state.exerciseLoads };
+      const nextExerciseReps = { ...state.exerciseReps };
+
+      // Revert the last entry if we are "undoing" a completed series,
+      // or just move focus back if we are undoing a focused but not yet timed series.
+      const targetIdx = Math.max(0, state.currentSerie - 2);
+
+      if (nextExerciseTimes[sessionId]) {
+        const times = [...nextExerciseTimes[sessionId]];
+        times.splice(targetIdx, 1);
+        nextExerciseTimes[sessionId] = times;
+      }
+      if (nextExerciseLoads[sessionId]) {
+        const loads = [...nextExerciseLoads[sessionId]];
+        loads.splice(targetIdx, 1);
+        nextExerciseLoads[sessionId] = loads;
+      }
+      if (nextExerciseReps[sessionId]) {
+        const reps = [...nextExerciseReps[sessionId]];
+        reps.splice(targetIdx, 1);
+        nextExerciseReps[sessionId] = reps;
+      }
+
+      return {
+        ...state,
+        exerciseTimes: nextExerciseTimes,
+        exerciseLoads: nextExerciseLoads,
+        exerciseReps: nextExerciseReps,
+        currentSerie: Math.max(1, state.currentSerie - 1),
+        status: "IDLE",
+        isTimerActive: false,
+        timer: 0
+      };
+    }
+
     case "SET_VALUE": {
       const { fieldType, sessionId, sessionIdx, val, part } = action;
       const targetMap = {
@@ -2068,6 +2109,8 @@ const Training = () => {
                                   borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
                                   borderColor: isCurrentS && isCurrent
                                       ? safeThemeColor
+                                    : sessionIdx < state.currentSerie - 1 && isCurrent
+                                      ? "rgba(255, 255, 255, 0.2)"
                                     : isNextPending && isCurrent ? undefined
                                     : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
                                   boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
@@ -2075,15 +2118,17 @@ const Training = () => {
                               >
                                 <button
                                   onClick={() => {
-                                    const nextSNum = isCurrentS && isCurrent ? 1 : sNum;
-                                    dispatch({
-                                      type: "MANUAL_OVERRIDE",
-                                      bIdx,
-                                      eIdx,
-                                      sNum: nextSNum,
-                                    });
-                                    if (nextSNum !== 1 || sNum === 1) {
-                                      showToast(`Foco alterado para Série ${nextSNum}`, "info");
+                                    if (isCurrentS && isCurrent) {
+                                      dispatch({ type: "UNDO_SERIES", sessionId });
+                                      showToast(`Série ${sNum} revertida`, "info");
+                                    } else {
+                                      dispatch({
+                                        type: "MANUAL_OVERRIDE",
+                                        bIdx,
+                                        eIdx,
+                                        sNum,
+                                      });
+                                      showToast(`Foco alterado para Série ${sNum}`, "info");
                                     }
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
@@ -2103,6 +2148,7 @@ const Training = () => {
                                 </button>
                                 <div
                                   className={`flex flex-col items-center gap-1 mb-2`}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center gap-0.5">
                                     {(isGuided && isCurrent) || isManual ? (
@@ -2159,6 +2205,7 @@ const Training = () => {
                                 </div>
                                 <div
                                   className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1`}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
