@@ -1630,6 +1630,8 @@ const Training = () => {
                             )?.partialSerie || 0
                           : doneCount;
 
+                    const baseThemeColor = eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b;
+                    const safeThemeColor = getSafeColor(baseThemeColor, settings.bg_treino);
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
@@ -1677,7 +1679,7 @@ const Training = () => {
                               ? "#fca5a5"
                               : "white",
                           borderColor: shouldExpand
-                            ? isManual ? (isCurrent ? getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino) : "rgba(255, 255, 255, 0.1)") : "transparent"
+                            ? isManual ? (isCurrent ? safeThemeColor : "rgba(255, 255, 255, 0.1)") : "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
@@ -2065,7 +2067,7 @@ const Training = () => {
                                   backgroundColor: isCurrentS && isCurrent ? "rgba(0,0,0,0.3)" : undefined,
                                   borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
                                   borderColor: isCurrentS && isCurrent
-                                    ? getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino)
+                                      ? safeThemeColor
                                     : isNextPending && isCurrent ? undefined
                                     : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
                                   boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
@@ -2086,12 +2088,14 @@ const Training = () => {
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: (isNextPending && isGuided)
-                                      ? settings.color_ex_b
-                                      : `${eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b}30`,
-                                    color: (isCurrentS && isCurrent) || (isNextPending && isCurrent) || (isNextPending && isGuided)
-                                      ? getContrastColor((isNextPending && isGuided) ? settings.color_ex_b : `${eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b}30`)
-                                      : getSafeColor(eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b, settings.bg_treino),
+                                    backgroundColor: (isNextPending && isGuided) || (isCurrentS && isCurrent)
+                                      ? safeThemeColor
+                                      : `${safeThemeColor}30`,
+                                    color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
+                                      ? getContrastColor(safeThemeColor)
+                                      : (isNextPending && isCurrent)
+                                        ? "white"
+                                        : safeThemeColor,
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
