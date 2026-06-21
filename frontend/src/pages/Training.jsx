@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import {
   Play,
@@ -11,10 +11,8 @@ import {
   CheckCircle2,
   Dumbbell,
   Save,
-  SkipForward,
   Flame,
   X,
-  Scale,
   MoreVertical,
   Square,
   Clock,
@@ -28,10 +26,8 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
-  ListTodo,
-  CirclePlay,
 } from "lucide-react";
-import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useAppearance } from "../context/AppearanceContext";
@@ -46,12 +42,6 @@ const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${String(secs).padStart(2, "0")}`;
-};
-
-const parseTime = (timeStr) => {
-  if (!timeStr || !timeStr.includes(":")) return 0;
-  const [mins, secs] = timeStr.split(":").map(Number);
-  return mins * 60 + (secs || 0);
 };
 
 const initialState = {
@@ -177,21 +167,21 @@ function trainingReducer(state, action) {
     }
 
     case "ADVANCE_STEP": {
-      const { currentBlock } = action.payload;
-      if (!currentBlock || currentBlock.length === 0) return state;
+      const { currentBlock: cBlock } = action.payload;
+      if (!cBlock || cBlock.length === 0) return state;
 
-      let blockFinished = false;
+      let blockFinished;
 
-      if (state.executionMode === "isolated" || currentBlock.length === 1) {
-        const currentEx = currentBlock[state.currentExerciseInBlock];
+      if (state.executionMode === "isolated" || cBlock.length === 1) {
+        const currentEx = cBlock[state.currentExerciseInBlock];
         if (!currentEx) return state;
 
         blockFinished =
-          state.currentExerciseInBlock === currentBlock.length - 1 &&
+          state.currentExerciseInBlock === cBlock.length - 1 &&
           (state.exerciseTimes[currentEx.sessionId]?.length || 0) >=
             currentEx.series_alvo;
       } else {
-        blockFinished = currentBlock.every(
+        blockFinished = cBlock.every(
           (ex) =>
             (state.exerciseTimes[ex.sessionId]?.length || 0) >=
             ex.series_alvo,
@@ -218,12 +208,12 @@ function trainingReducer(state, action) {
       }
 
       // Conjugated/Circuit Flow (A->B->C->A)
-      if (state.executionMode === "alternated" && currentBlock.length > 1) {
-        let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+      if (state.executionMode === "alternated" && cBlock.length > 1) {
+        let nextExIdx = (state.currentExerciseInBlock + 1) % cBlock.length;
 
         // Find next exercise in the circuit that still has pending series
-        for (let i = 0; i < currentBlock.length; i++) {
-          const candidate = currentBlock[nextExIdx];
+        for (let i = 0; i < cBlock.length; i++) {
+          const candidate = cBlock[nextExIdx];
           if (!candidate) break;
 
           const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
@@ -237,7 +227,7 @@ function trainingReducer(state, action) {
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
           }
-          nextExIdx = (nextExIdx + 1) % currentBlock.length;
+          nextExIdx = (nextExIdx + 1) % cBlock.length;
         }
       }
 
@@ -281,6 +271,9 @@ function trainingReducer(state, action) {
           const doneCount = state.exerciseTimes[targetSessionId]?.length || 0;
           nextSkipped.push({ ...targetEx, partialSerie: isCurrent ? state.currentSerie : doneCount + 1 });
         }
+      } else {
+        // Just for linting satisfaction or logic clarity
+        nextSkipped = nextSkipped.filter(s => s.sessionId !== targetSessionId);
       }
 
       if (!isCurrent) {
@@ -869,7 +862,7 @@ function trainingReducer(state, action) {
 }
 
 
-const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent, isFirst, isDone, isEnabled }) => {
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled }) => {
   const x = useMotionValue(0);
   const background = useTransform(
     x,
@@ -936,12 +929,8 @@ const Training = () => {
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isResuming =
-    new URLSearchParams(location.search).get("resume") === "true";
   const isFreeTraining = letra === "LIVRE";
 
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingSession, setSavingSession] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
@@ -971,21 +960,8 @@ const Training = () => {
 
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: userData } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", authUser.id)
-      .maybeSingle();
-
-    setUser(
-      userData || {
-        id: authUser.id,
-        nome: authUser.user_metadata?.full_name || authUser.email,
-      },
-    );
-
     // Automatic restoration logic for refresh/resume
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
@@ -1141,9 +1117,9 @@ const Training = () => {
       });
     }
     setLoading(false);
-  };
+  }, [authUser.id, letra, isFreeTraining]);
 
-  const fetchWorkoutDetails = async () => {
+  const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
       const { data } = await supabase
         .from("treinos")
@@ -1161,9 +1137,9 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  };
+  }, [authUser.id, isFreeTraining, letra]);
 
-  const finishWorkout = async () => {
+  const finishWorkout = useCallback(async () => {
     setSavingSession(true);
     const historyData = [];
     const workoutTimestamp = new Date().toISOString();
@@ -1220,18 +1196,20 @@ const Training = () => {
       navigate("/inicio");
     }
     setSavingSession(false);
-  };
+  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.repsFeitas, navigate]);
 
   useEffect(() => {
-    fetchData();
-  }, [letra]);
+    const t = setTimeout(() => fetchData(), 0);
+    return () => clearTimeout(t);
+  }, [fetchData]);
 
 
   useEffect(() => {
     if (showSaveAsModal) {
-      fetchWorkoutDetails();
+      const t = setTimeout(() => fetchWorkoutDetails(), 0);
+      return () => clearTimeout(t);
     }
-  }, [showSaveAsModal]);
+  }, [showSaveAsModal, fetchWorkoutDetails]);
 
   useEffect(() => {
     if (!loading && state.blocos.length > 0) {
@@ -1292,31 +1270,18 @@ const Training = () => {
     if (loading || state.blocos.length === 0) return;
 
     const timer = setTimeout(() => {
-      const container = scrollContainerRef.current;
       const activeCard = document.getElementById("active-exercise");
-
-      if (container && activeCard) {
-        const containerHeight = container.clientHeight;
-        const cardTop = activeCard.offsetTop;
-        const cardHeight = activeCard.offsetHeight;
-
-        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
-        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
-
-        container.scrollTo({
-          top: scrollTo,
-          behavior: "smooth",
-        });
+      if (activeCard) {
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 150);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [
     loading,
     state.currentBlockIndex,
     state.currentExerciseInBlock,
-    state.currentSerie,
-    Object.keys(state.activeRestTimers).length,
+    state.blocos.length,
   ]);
 
   // Click-outside and Scroll-to-close logic
@@ -1493,13 +1458,13 @@ const Training = () => {
         if (pendingExercises.length > 0) {
           dispatch({ type: "SHOW_CHECKOUT", payload: pendingExercises });
         } else {
-          finishWorkout();
+          setTimeout(() => finishWorkout(), 0);
         }
       } else {
-        finishWorkout();
+        setTimeout(() => finishWorkout(), 0);
       }
     }
-  }, [state.status]);
+  }, [state.status, state.isCatchupPhase, state.originalBlocos, state.exerciseTimes, finishWorkout]);
 
   if (loading)
     return (
@@ -2120,7 +2085,6 @@ const Training = () => {
                                   onClick={() => {
                                     if (isCurrentS && isCurrent) {
                                       dispatch({ type: "UNDO_SERIES", sessionId });
-                                      showToast(`Série ${sNum} revertida`, "info");
                                     } else {
                                       dispatch({
                                         type: "MANUAL_OVERRIDE",
@@ -2128,7 +2092,6 @@ const Training = () => {
                                         eIdx,
                                         sNum,
                                       });
-                                      showToast(`Foco alterado para Série ${sNum}`, "info");
                                     }
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
