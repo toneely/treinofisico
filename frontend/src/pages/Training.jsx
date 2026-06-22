@@ -2082,6 +2082,7 @@ const Training = () => {
                             const restTime = state.restTimes[sessionId]?.[sessionIdx];
                             const load = state.exerciseLoads[sessionId]?.[sessionIdx];
                             const reps = state.exerciseReps[sessionId]?.[sessionIdx];
+                            const persistedActiveSNum = state.activeSeriesMap[sessionId] || 1;
                             const isCurrentS =
                               isCurrent && sNum === state.currentSerie;
                             const liveExec =
@@ -2117,9 +2118,9 @@ const Training = () => {
                                   borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
                                   borderColor: isCurrentS && isCurrent
                                       ? safeThemeColor // Cenário B: Série Ativa
-                                    : (isExecuted || (sNum < state.currentSerie && isCurrent))
-                                      ? "rgba(255, 255, 255, 0.7)" // Cenário A: Séries Anteriores ou Concluídas
-                                    : (sNum > state.currentSerie && isCurrent)
+                                    : (isExecuted || sNum < persistedActiveSNum)
+                                      ? "rgba(255, 255, 255, 0.7)" // Cenário A: Séries Anteriores ou Concluídas (Persistido)
+                                    : (isCurrent && sNum > state.currentSerie)
                                       ? "rgba(255, 255, 255, 0.1)" // Cenário C: Séries Futuras
                                     : "rgba(255, 255, 255, 0.1)", // Pendentes fora de foco
                                   boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
