@@ -44,6 +44,41 @@ const formatTime = (seconds) => {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 };
 
+const ensureExecutionData = (state, sessionId, targetSNum) => {
+  const nextExerciseTimes = { ...state.exerciseTimes };
+  const nextExerciseLoads = { ...state.exerciseLoads };
+  const nextExerciseReps = { ...state.exerciseReps };
+
+  const times = [...(nextExerciseTimes[sessionId] || [])];
+  const loads = [...(nextExerciseLoads[sessionId] || [])];
+  const repsArr = [...(nextExerciseReps[sessionId] || [])];
+
+  const targetEx = state.blocos.flat().find(ex => ex.sessionId === sessionId);
+  if (!targetEx) return state;
+
+  const cargaMeta = state.cargas[sessionId] || 0;
+  const repsMetaStr = targetEx.reps_alvo;
+  const repsMeta = repsMetaStr.includes("-") ? parseInt(repsMetaStr.split("-")[1]) : (parseInt(repsMetaStr) || 10);
+
+  // Populate up to targetSNum (1-indexed, so up to targetSNum - 1 index)
+  for (let i = 0; i < targetSNum; i++) {
+    if (times[i] === undefined || times[i] === null) times[i] = 0;
+    if (loads[i] === undefined || loads[i] === null) {
+      loads[i] = state.historyLoads[sessionId]?.[i] ?? cargaMeta;
+    }
+    if (repsArr[i] === undefined || repsArr[i] === null) {
+      repsArr[i] = state.historyReps[sessionId]?.[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
+    }
+  }
+
+  return {
+    ...state,
+    exerciseTimes: { ...state.exerciseTimes, [sessionId]: times },
+    exerciseLoads: { ...state.exerciseLoads, [sessionId]: loads },
+    exerciseReps: { ...state.exerciseReps, [sessionId]: repsArr }
+  };
+};
+
 const initialState = {
   currentBlockIndex: 0,
   currentExerciseInBlock: 0,
@@ -84,7 +119,14 @@ function trainingReducer(state, action) {
           }
         });
       }
-      return { ...state, ...action.payload, activeSeriesMap, status: "IDLE" };
+      let nextState = { ...state, ...action.payload, activeSeriesMap, status: "IDLE" };
+      // Rule: Focus = Execution. Ensure the initially focused exercise has its current series data.
+      if (nextState.blocos.length > 0) {
+        const firstEx = nextState.blocos[nextState.currentBlockIndex][nextState.currentExerciseInBlock];
+        const sNum = nextState.activeSeriesMap[firstEx.sessionId] || 1;
+        nextState = ensureExecutionData(nextState, firstEx.sessionId, sNum);
+      }
+      return nextState;
     }
 
     case "TICK": {
@@ -167,7 +209,7 @@ function trainingReducer(state, action) {
         };
       }
 
-      return {
+      let nextState = {
         ...state,
         isTimerActive: false,
         timerStartedAt: null,
@@ -178,6 +220,8 @@ function trainingReducer(state, action) {
         activeRestTimers: nextActiveRestTimers,
         activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextDoneCount + 1 },
       };
+      // Auto-populate for the next focused series
+      return ensureExecutionData(nextState, sessionId, nextDoneCount + 1);
     }
 
     case "ADVANCE_STEP": {
@@ -211,7 +255,7 @@ function trainingReducer(state, action) {
 
         const firstEx = nextBlock[0];
         const nextSNum = (state.exerciseTimes[firstEx.sessionId]?.length || 0) + 1;
-        return {
+        let nextState = {
           ...state,
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
@@ -221,6 +265,7 @@ function trainingReducer(state, action) {
           status: "IDLE",
           skippedExercises: state.skippedExercises.filter(s => s.sessionId !== firstEx.sessionId)
         };
+        return ensureExecutionData(nextState, firstEx.sessionId, nextSNum);
       }
 
       // Conjugated/Circuit Flow (A->B->C->A)
@@ -234,7 +279,7 @@ function trainingReducer(state, action) {
 
           const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
           if (doneCount < candidate.series_alvo) {
-            return {
+            let nextState = {
               ...state,
               currentExerciseInBlock: nextExIdx,
               currentSerie: doneCount + 1,
@@ -243,6 +288,7 @@ function trainingReducer(state, action) {
               status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
+            return ensureExecutionData(nextState, candidate.sessionId, doneCount + 1);
           }
           nextExIdx = (nextExIdx + 1) % cBlock.length;
         }
@@ -250,7 +296,7 @@ function trainingReducer(state, action) {
 
       // Single Exercise Flow
       const currentExId = state.blocos[state.currentBlockIndex][state.currentExerciseInBlock].sessionId;
-      return {
+      let nextState = {
         ...state,
         currentSerie: state.currentSerie + 1,
         activeSeriesMap: { ...state.activeSeriesMap, [currentExId]: state.currentSerie + 1 },
@@ -258,6 +304,7 @@ function trainingReducer(state, action) {
         status: "IDLE",
         skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
       };
+      return ensureExecutionData(nextState, currentExId, state.currentSerie + 1);
     }
 
     case "SKIP_EXERCISE": {
@@ -326,13 +373,19 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
-            if (nextEx) nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
-          if (nextEx) nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+          if (nextEx) {
+            nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+          }
         }
       }
       return nextState;
@@ -390,7 +443,7 @@ function trainingReducer(state, action) {
       const isCurrent = targetBIdx === state.currentBlockIndex && targetEIdx === state.currentExerciseInBlock;
 
       if (!isCurrent) {
-        return {
+        let nextState = {
           ...state,
           exerciseTimes: nextExerciseTimes,
           exerciseLoads: nextExerciseLoads,
@@ -398,10 +451,11 @@ function trainingReducer(state, action) {
           activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: seriesAlvo + 1 },
           skippedExercises: nextSkipped
         };
+        return ensureExecutionData(nextState, sessionId, seriesAlvo);
       }
 
       // If it IS current, advance to next exercise/block
-      const nextState = {
+      let nextState = {
         ...state,
         exerciseTimes: nextExerciseTimes,
         exerciseLoads: nextExerciseLoads,
@@ -412,6 +466,7 @@ function trainingReducer(state, action) {
         timer: 0,
         status: "IDLE"
       };
+      nextState = ensureExecutionData(nextState, sessionId, seriesAlvo);
 
       // Reuse ADVANCE_STEP logic essentially
       const currentBlock = state.blocos[state.currentBlockIndex];
@@ -443,10 +498,15 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
-            if (nextEx) nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
         } else {
-          nextState.activeSeriesMap[currentBlock[nextState.currentExerciseInBlock].sessionId] = nextState.currentSerie;
+          const nextEx = currentBlock[nextState.currentExerciseInBlock];
+          nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+          nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
         }
       } else {
         if (isLastInBlock) {
@@ -458,13 +518,19 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
-            if (nextEx) nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
-          if (nextEx) nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+          if (nextEx) {
+            nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+          }
         }
       }
 
@@ -480,7 +546,7 @@ function trainingReducer(state, action) {
       // otherwise restore from map (from exercise card click).
       const restoredSNum = sNum ?? state.activeSeriesMap[targetEx.sessionId] ?? 1;
 
-      return {
+      let nextState = {
         ...state,
         currentBlockIndex: bIdx,
         currentExerciseInBlock: eIdx,
@@ -491,6 +557,7 @@ function trainingReducer(state, action) {
         status: "IDLE",
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
+      return ensureExecutionData(nextState, targetEx.sessionId, restoredSNum);
     }
     case "UNDO_SERIES": {
       const { sessionId } = action;
@@ -523,7 +590,7 @@ function trainingReducer(state, action) {
       }
 
       const nextSNum = Math.max(1, currentActiveS - 1);
-      return {
+      let nextState = {
         ...state,
         exerciseTimes: nextExerciseTimes,
         exerciseLoads: nextExerciseLoads,
@@ -534,6 +601,9 @@ function trainingReducer(state, action) {
         isTimerActive: false,
         timer: 0
       };
+      // We step focus back, and because "Focus = Execution", we ensure the NEW active series (nextSNum)
+      // has its data. (ensureExecutionData is idempotent for already existing data).
+      return ensureExecutionData(nextState, sessionId, nextSNum);
     }
 
     case "SET_VALUE": {
@@ -1207,12 +1277,9 @@ const Training = () => {
           historyData.push({
             user_id: authUser.id,
             exercicio_id: ex.exercicio_id,
-            carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
-            repeticoes:
-              exReps.length > 0
-                ? exReps
-                : [parseInt(state.repsFeitas[sessionId]) || 0],
-            series_executadas: execTimes.length || ex.series_alvo,
+            carga: exLoads,
+            repeticoes: exReps,
+            series_executadas: Math.max(execTimes.length, exLoads.length, exReps.length),
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
@@ -1239,7 +1306,7 @@ const Training = () => {
       navigate("/inicio");
     }
     setSavingSession(false);
-  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.repsFeitas, navigate]);
+  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
@@ -2507,16 +2574,14 @@ const Training = () => {
             <span>Progresso Geral</span>
             <span>
               {(() => {
-                const totalEx = state.blocos.reduce(
-                  (acc, b) => acc + b.length,
-                  0,
-                );
-                const doneEx =
-                  state.blocos
-                    .slice(0, state.currentBlockIndex)
-                    .reduce((acc, b) => acc + b.length, 0) +
-                  state.currentExerciseInBlock;
-                return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+                const allEx = state.blocos.flat();
+                const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
+                const doneSeries = allEx.reduce((acc, ex) => {
+                  // Count all series up to the active one as done
+                  const activeS = state.activeSeriesMap[ex.sessionId] || 0;
+                  return acc + Math.min(activeS, ex.series_alvo);
+                }, 0);
+                return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
               })()}
               %
             </span>
@@ -2526,16 +2591,13 @@ const Training = () => {
               className="h-full transition-all duration-1000"
               style={{
                 width: `${(() => {
-                  const totalEx = state.blocos.reduce(
-                    (acc, b) => acc + b.length,
-                    0,
-                  );
-                  const doneEx =
-                    state.blocos
-                      .slice(0, state.currentBlockIndex)
-                      .reduce((acc, b) => acc + b.length, 0) +
-                    state.currentExerciseInBlock;
-                  return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+                  const allEx = state.blocos.flat();
+                  const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
+                  const doneSeries = allEx.reduce((acc, ex) => {
+                    const activeS = state.activeSeriesMap[ex.sessionId] || 0;
+                    return acc + Math.min(activeS, ex.series_alvo);
+                  }, 0);
+                  return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
                 })()}%`,
                 backgroundColor: letra === "A"
                   ? "var(--color-primary)"
