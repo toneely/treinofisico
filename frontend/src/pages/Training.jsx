@@ -2073,11 +2073,12 @@ const Training = () => {
                                   backgroundColor: isCurrentS && isCurrent ? "rgba(0,0,0,0.3)" : undefined,
                                   borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
                                   borderColor: isCurrentS && isCurrent
-                                      ? safeThemeColor
-                                    : sessionIdx < state.currentSerie - 1 && isCurrent
-                                      ? "rgba(255, 255, 255, 0.2)"
-                                    : isNextPending && isCurrent ? undefined
-                                    : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"),
+                                      ? safeThemeColor // Cenário B: Série Ativa
+                                    : sNum < state.currentSerie && isCurrent
+                                      ? "rgba(255, 255, 255, 0.7)" // Cenário A: Séries Anteriores
+                                    : sNum > state.currentSerie && isCurrent
+                                      ? "rgba(255, 255, 255, 0.1)" // Cenário C: Séries Futuras
+                                    : (isExecuted ? "#10b98140" : "rgba(255, 255, 255, 0.1)"), // Fora de foco
                                   boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
                                 }}
                               >
