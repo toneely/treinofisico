@@ -565,42 +565,43 @@ function trainingReducer(state, action) {
       if (!state.blocos[bIdx] || !state.blocos[bIdx][eIdx]) return state;
 
       const targetEx = state.blocos[bIdx][eIdx];
+
+      // Rule 1, 2 & 3: Visual-only transition on exercise card click (sNum is null)
+      if (sNum === null) {
+        const executedCount = (state.exerciseTimes[targetEx.sessionId]?.length || 0);
+        const smartDefault = Math.max(1, executedCount);
+
+        return {
+          ...state,
+          currentBlockIndex: bIdx,
+          currentExerciseInBlock: eIdx,
+          currentSerie: smartDefault,
+          activeSeriesMap: { ...state.activeSeriesMap, [targetEx.sessionId]: smartDefault },
+        };
+      }
+
+      // Explicit series badge click logic (data-mutating)
       const currentPersistedSNum = state.activeSeriesMap[targetEx.sessionId] || 1;
-
-      // Rule 3: Smart Default Selection (when sNum is null)
-      // Logic: Pick the last executed series index (length of exerciseTimes), or 1 if unstarted.
-      const executedCount = (state.exerciseTimes[targetEx.sessionId]?.length || 0);
-      const smartDefault = Math.max(1, executedCount);
-
-      const restoredSNum = sNum ?? smartDefault;
 
       let nextState = {
         ...state,
         currentBlockIndex: bIdx,
         currentExerciseInBlock: eIdx,
-        currentSerie: restoredSNum,
-        activeSeriesMap: { ...state.activeSeriesMap, [targetEx.sessionId]: restoredSNum },
+        currentSerie: sNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [targetEx.sessionId]: sNum },
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
 
-      // Rule 1: Retrocession (Reset Posterior series)
-      // When explicitly tapping an earlier series, remove data for all series after it.
-      if (sNum !== null && sNum < currentPersistedSNum) {
+      // Retrocession logic: When explicitly tapping an earlier series, remove data for all series after it.
+      if (sNum < currentPersistedSNum) {
         nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum);
       }
 
-      // Rule 2: Preservation (No mutation on focus switch)
-      // If action.sNum is null (exercise card tap), update focus but don't populate data.
-      // This makes the transition strictly visual/navegacional.
-      if (sNum === null) {
-        return nextState;
-      }
-
       // If action.sNum was provided (direct series tap), ensure data for it (Focus = Execution).
-      return ensureExecutionData(nextState, targetEx.sessionId, restoredSNum);
+      return ensureExecutionData(nextState, targetEx.sessionId, sNum);
     }
     case "UNDO_SERIES": {
       const { sessionId } = action;
@@ -1811,16 +1812,6 @@ const Training = () => {
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
-                        onClick={() => {
-                          if (!isCurrent) {
-                            dispatch({
-                              type: "MANUAL_OVERRIDE",
-                              bIdx,
-                              eIdx,
-                              sNum: null, // Allow reducer to restore from map
-                            });
-                          }
-                        }}
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
@@ -1846,6 +1837,20 @@ const Training = () => {
                                 : "rgba(255, 255, 255, 0.1)",
                         }}
                       >
+                  {!isCurrent && (
+                    <div
+                      className="absolute inset-0 z-50 bg-transparent cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        dispatch({
+                          type: "MANUAL_OVERRIDE",
+                          bIdx,
+                          eIdx,
+                          sNum: null,
+                        });
+                      }}
+                    />
+                  )}
                   <div className="flex justify-between items-center relative">
                     {/* Discoverability Chevrons */}
                     {!shouldExpand && !isDone && (
