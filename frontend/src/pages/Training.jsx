@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import {
   Play,
@@ -11,10 +11,8 @@ import {
   CheckCircle2,
   Dumbbell,
   Save,
-  SkipForward,
   Flame,
   X,
-  Scale,
   MoreVertical,
   Square,
   Clock,
@@ -28,12 +26,12 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
-  ListTodo,
-  CirclePlay,
 } from "lucide-react";
-import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import { useAppearance } from "../context/AppearanceContext";
+import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
 import ConfirmationModal from "../components/ConfirmationModal";
@@ -46,10 +44,62 @@ const formatTime = (seconds) => {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 };
 
-const parseTime = (timeStr) => {
-  if (!timeStr || !timeStr.includes(":")) return 0;
-  const [mins, secs] = timeStr.split(":").map(Number);
-  return mins * 60 + (secs || 0);
+const ensureExecutionData = (state, sessionId, targetSNum) => {
+  const nextExerciseTimes = { ...state.exerciseTimes };
+  const nextExerciseLoads = { ...state.exerciseLoads };
+  const nextExerciseReps = { ...state.exerciseReps };
+
+  const times = [...(nextExerciseTimes[sessionId] || [])];
+  const loads = [...(nextExerciseLoads[sessionId] || [])];
+  const repsArr = [...(nextExerciseReps[sessionId] || [])];
+
+  const targetEx = state.blocos.flat().find(ex => ex.sessionId === sessionId);
+  if (!targetEx) return state;
+
+  const cargaMeta = state.cargas[sessionId] || 0;
+  const repsMetaStr = targetEx.reps_alvo;
+  const repsMeta = repsMetaStr.includes("-") ? parseInt(repsMetaStr.split("-")[1]) : (parseInt(repsMetaStr) || 10);
+
+  // Populate up to targetSNum (1-indexed, so up to targetSNum - 1 index)
+  for (let i = 0; i < targetSNum; i++) {
+    if (times[i] === undefined || times[i] === null) times[i] = 0;
+    if (loads[i] === undefined || loads[i] === null) {
+      loads[i] = state.historyLoads[sessionId]?.[i] ?? cargaMeta;
+    }
+    if (repsArr[i] === undefined || repsArr[i] === null) {
+      repsArr[i] = state.historyReps[sessionId]?.[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
+    }
+  }
+
+  return {
+    ...state,
+    exerciseTimes: { ...state.exerciseTimes, [sessionId]: times },
+    exerciseLoads: { ...state.exerciseLoads, [sessionId]: loads },
+    exerciseReps: { ...state.exerciseReps, [sessionId]: repsArr }
+  };
+};
+
+const truncateExecutionData = (state, sessionId, targetSNum) => {
+  const nextExerciseTimes = { ...state.exerciseTimes };
+  const nextExerciseLoads = { ...state.exerciseLoads };
+  const nextExerciseReps = { ...state.exerciseReps };
+
+  if (nextExerciseTimes[sessionId]) {
+    nextExerciseTimes[sessionId] = nextExerciseTimes[sessionId].slice(0, targetSNum);
+  }
+  if (nextExerciseLoads[sessionId]) {
+    nextExerciseLoads[sessionId] = nextExerciseLoads[sessionId].slice(0, targetSNum);
+  }
+  if (nextExerciseReps[sessionId]) {
+    nextExerciseReps[sessionId] = nextExerciseReps[sessionId].slice(0, targetSNum);
+  }
+
+  return {
+    ...state,
+    exerciseTimes: nextExerciseTimes,
+    exerciseLoads: nextExerciseLoads,
+    exerciseReps: nextExerciseReps
+  };
 };
 
 const initialState = {
@@ -66,8 +116,11 @@ const initialState = {
   activeRestTimers: {}, // { sessionId: { seconds: number, title: string, nome: string } }
   cargas: {}, // { sessionId: last_used_load }
   exerciseLoads: {}, // { sessionId: [s1, s2...] }
+  historyLoads: {}, // { sessionId: [s1, s2...] }
   repsFeitas: {}, // { sessionId: current_input_reps }
   exerciseReps: {}, // { sessionId: [s1, s2...] }
+  historyReps: {}, // { sessionId: [s1, s2...] }
+  activeSeriesMap: {}, // { sessionId: activeSerieNumber }
   skippedExercises: [],
   isCatchupPhase: false,
   trainingMode: "guided", // "guided" or "manual"
@@ -78,8 +131,26 @@ const initialState = {
 
 function trainingReducer(state, action) {
   switch (action.type) {
-    case "INIT_SESSION":
-      return { ...state, ...action.payload, status: "IDLE" };
+    case "INIT_SESSION": {
+      const activeSeriesMap = { ...action.payload.activeSeriesMap };
+      // If not provided (initial fetch), initialize based on existing progress (Smart Default)
+      if (action.payload.blocos) {
+        action.payload.blocos.flat().forEach(ex => {
+          if (!activeSeriesMap[ex.sessionId]) {
+            // Rule: Smart Default Selection (Last executed or Series 1)
+            const doneCount = action.payload.exerciseTimes?.[ex.sessionId]?.length || 0;
+            activeSeriesMap[ex.sessionId] = Math.max(1, doneCount);
+          }
+        });
+      }
+      let nextState = { ...state, ...action.payload, activeSeriesMap, status: "IDLE" };
+      // Rule 2 & 3: Smart default focus on init, but NO data mutation (read-only transition)
+      if (nextState.blocos.length > 0) {
+        const firstEx = nextState.blocos[nextState.currentBlockIndex][nextState.currentExerciseInBlock];
+        nextState.currentSerie = nextState.activeSeriesMap[firstEx.sessionId] || 1;
+      }
+      return nextState;
+    }
 
     case "TICK": {
       const now = Date.now();
@@ -145,6 +216,7 @@ function trainingReducer(state, action) {
       reps[currentDone] = currentInputReps;
       nextExerciseReps[sessionId] = reps;
 
+      const nextDoneCount = (state.exerciseTimes[sessionId]?.length || 0) + 1;
       const nextExerciseTimes = {
         ...state.exerciseTimes,
         [sessionId]: [...(state.exerciseTimes[sessionId] || []), state.timer],
@@ -160,7 +232,7 @@ function trainingReducer(state, action) {
         };
       }
 
-      return {
+      let nextState = {
         ...state,
         isTimerActive: false,
         timerStartedAt: null,
@@ -169,25 +241,28 @@ function trainingReducer(state, action) {
         exerciseReps: nextExerciseReps,
         exerciseTimes: nextExerciseTimes,
         activeRestTimers: nextActiveRestTimers,
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextDoneCount + 1 },
       };
+      // Auto-populate for the next focused series
+      return ensureExecutionData(nextState, sessionId, nextDoneCount + 1);
     }
 
     case "ADVANCE_STEP": {
-      const { currentBlock } = action.payload;
-      if (!currentBlock || currentBlock.length === 0) return state;
+      const { currentBlock: cBlock } = action.payload;
+      if (!cBlock || cBlock.length === 0) return state;
 
-      let blockFinished = false;
+      let blockFinished;
 
-      if (state.executionMode === "isolated" || currentBlock.length === 1) {
-        const currentEx = currentBlock[state.currentExerciseInBlock];
+      if (state.executionMode === "isolated" || cBlock.length === 1) {
+        const currentEx = cBlock[state.currentExerciseInBlock];
         if (!currentEx) return state;
 
         blockFinished =
-          state.currentExerciseInBlock === currentBlock.length - 1 &&
+          state.currentExerciseInBlock === cBlock.length - 1 &&
           (state.exerciseTimes[currentEx.sessionId]?.length || 0) >=
             currentEx.series_alvo;
       } else {
-        blockFinished = currentBlock.every(
+        blockFinished = cBlock.every(
           (ex) =>
             (state.exerciseTimes[ex.sessionId]?.length || 0) >=
             ex.series_alvo,
@@ -202,49 +277,57 @@ function trainingReducer(state, action) {
         if (!nextBlock || nextBlock.length === 0) return { ...state, status: "COMPLETED" };
 
         const firstEx = nextBlock[0];
-        return {
+        const nextSNum = (state.exerciseTimes[firstEx.sessionId]?.length || 0) + 1;
+        let nextState = {
           ...state,
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
-          currentSerie: (state.exerciseTimes[firstEx.sessionId]?.length || 0) + 1,
+          currentSerie: nextSNum,
+          activeSeriesMap: { ...state.activeSeriesMap, [firstEx.sessionId]: nextSNum },
           timer: 0,
           status: "IDLE",
           skippedExercises: state.skippedExercises.filter(s => s.sessionId !== firstEx.sessionId)
         };
+        return ensureExecutionData(nextState, firstEx.sessionId, nextSNum);
       }
 
       // Conjugated/Circuit Flow (A->B->C->A)
-      if (state.executionMode === "alternated" && currentBlock.length > 1) {
-        let nextExIdx = (state.currentExerciseInBlock + 1) % currentBlock.length;
+      if (state.executionMode === "alternated" && cBlock.length > 1) {
+        let nextExIdx = (state.currentExerciseInBlock + 1) % cBlock.length;
 
         // Find next exercise in the circuit that still has pending series
-        for (let i = 0; i < currentBlock.length; i++) {
-          const candidate = currentBlock[nextExIdx];
+        for (let i = 0; i < cBlock.length; i++) {
+          const candidate = cBlock[nextExIdx];
           if (!candidate) break;
 
           const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
           if (doneCount < candidate.series_alvo) {
-            return {
+            let nextState = {
               ...state,
               currentExerciseInBlock: nextExIdx,
               currentSerie: doneCount + 1,
+              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: doneCount + 1 },
               timer: 0,
               status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
+            return ensureExecutionData(nextState, candidate.sessionId, doneCount + 1);
           }
-          nextExIdx = (nextExIdx + 1) % currentBlock.length;
+          nextExIdx = (nextExIdx + 1) % cBlock.length;
         }
       }
 
       // Single Exercise Flow
-      return {
+      const currentExId = state.blocos[state.currentBlockIndex][state.currentExerciseInBlock].sessionId;
+      let nextState = {
         ...state,
         currentSerie: state.currentSerie + 1,
+        activeSeriesMap: { ...state.activeSeriesMap, [currentExId]: state.currentSerie + 1 },
         timer: 0,
         status: "IDLE",
         skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
       };
+      return ensureExecutionData(nextState, currentExId, state.currentSerie + 1);
     }
 
     case "SKIP_EXERCISE": {
@@ -277,6 +360,9 @@ function trainingReducer(state, action) {
           const doneCount = state.exerciseTimes[targetSessionId]?.length || 0;
           nextSkipped.push({ ...targetEx, partialSerie: isCurrent ? state.currentSerie : doneCount + 1 });
         }
+      } else {
+        // Just for linting satisfaction or logic clarity
+        nextSkipped = nextSkipped.filter(s => s.sessionId !== targetSessionId);
       }
 
       if (!isCurrent) {
@@ -299,6 +385,7 @@ function trainingReducer(state, action) {
         nextState.currentExerciseInBlock += 1;
         const nextEx = currentBlock[nextState.currentExerciseInBlock];
         nextState.currentSerie = (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1;
+        nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
       } else {
         if (isLastInBlock) {
           if (state.currentBlockIndex === state.blocos.length - 1) {
@@ -309,11 +396,19 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie = nextEx ? (state.exerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+          if (nextEx) {
+            nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+          }
         }
       }
       return nextState;
@@ -358,8 +453,9 @@ function trainingReducer(state, action) {
 
       for (let i = currentDone; i < seriesAlvo; i++) {
         times[i] = 0; // Manual completion sets time to 0 or some default? Let's use 0.
-        loads[i] = cargaMeta;
-        repsArr[i] = state.repsFeitas[sessionId] || repsMeta;
+        // Hierarchy: edited grid value > historical index value > session meta value
+        loads[i] = loads[i] ?? state.historyLoads[sessionId]?.[i] ?? cargaMeta;
+        repsArr[i] = repsArr[i] ?? state.historyReps[sessionId]?.[i] ?? state.repsFeitas[sessionId] ?? repsMeta;
       }
 
       nextExerciseTimes[sessionId] = times;
@@ -370,26 +466,30 @@ function trainingReducer(state, action) {
       const isCurrent = targetBIdx === state.currentBlockIndex && targetEIdx === state.currentExerciseInBlock;
 
       if (!isCurrent) {
-        return {
+        let nextState = {
           ...state,
           exerciseTimes: nextExerciseTimes,
           exerciseLoads: nextExerciseLoads,
           exerciseReps: nextExerciseReps,
+          activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: seriesAlvo + 1 },
           skippedExercises: nextSkipped
         };
+        return ensureExecutionData(nextState, sessionId, seriesAlvo);
       }
 
       // If it IS current, advance to next exercise/block
-      const nextState = {
+      let nextState = {
         ...state,
         exerciseTimes: nextExerciseTimes,
         exerciseLoads: nextExerciseLoads,
         exerciseReps: nextExerciseReps,
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: seriesAlvo + 1 },
         skippedExercises: nextSkipped,
         isTimerActive: false,
         timer: 0,
         status: "IDLE"
       };
+      nextState = ensureExecutionData(nextState, sessionId, seriesAlvo);
 
       // Reuse ADVANCE_STEP logic essentially
       const currentBlock = state.blocos[state.currentBlockIndex];
@@ -421,7 +521,15 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
+        } else {
+          const nextEx = currentBlock[nextState.currentExerciseInBlock];
+          nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+          nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
         }
       } else {
         if (isLastInBlock) {
@@ -433,11 +541,19 @@ function trainingReducer(state, action) {
             const nextBlock = state.blocos[nextState.currentBlockIndex];
             const nextEx = nextBlock ? nextBlock[0] : null;
             nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+            if (nextEx) {
+              nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+              nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+            }
           }
         } else {
           nextState.currentExerciseInBlock += 1;
           const nextEx = currentBlock[nextState.currentExerciseInBlock];
           nextState.currentSerie = nextEx ? (nextExerciseTimes[nextEx.sessionId]?.length || 0) + 1 : 1;
+          if (nextEx) {
+            nextState.activeSeriesMap[nextEx.sessionId] = nextState.currentSerie;
+            nextState = ensureExecutionData(nextState, nextEx.sessionId, nextState.currentSerie);
+          }
         }
       }
 
@@ -449,17 +565,90 @@ function trainingReducer(state, action) {
       if (!state.blocos[bIdx] || !state.blocos[bIdx][eIdx]) return state;
 
       const targetEx = state.blocos[bIdx][eIdx];
-      return {
+      const currentPersistedSNum = state.activeSeriesMap[targetEx.sessionId] || 1;
+
+      // Rule 3: Smart Default Selection (when sNum is null)
+      // Logic: Pick the last executed series index (length of exerciseTimes), or 1 if unstarted.
+      const executedCount = (state.exerciseTimes[targetEx.sessionId]?.length || 0);
+      const smartDefault = Math.max(1, executedCount);
+
+      const restoredSNum = sNum ?? smartDefault;
+
+      let nextState = {
         ...state,
         currentBlockIndex: bIdx,
         currentExerciseInBlock: eIdx,
-        currentSerie: sNum,
+        currentSerie: restoredSNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [targetEx.sessionId]: restoredSNum },
         isTimerActive: false,
         timer: 0,
         status: "IDLE",
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
+
+      // Rule 1: Retrocession (Reset Posterior series)
+      // When explicitly tapping an earlier series, remove data for all series after it.
+      if (sNum !== null && sNum < currentPersistedSNum) {
+        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum);
+      }
+
+      // Rule 2: Preservation (No mutation on focus switch)
+      // If action.sNum is null (exercise card tap), update focus but don't populate data.
+      // This makes the transition strictly visual/navegacional.
+      if (sNum === null) {
+        return nextState;
+      }
+
+      // If action.sNum was provided (direct series tap), ensure data for it (Focus = Execution).
+      return ensureExecutionData(nextState, targetEx.sessionId, restoredSNum);
     }
+    case "UNDO_SERIES": {
+      const { sessionId } = action;
+      const doneCount = state.exerciseTimes[sessionId]?.length || 0;
+      const currentActiveS = state.activeSeriesMap[sessionId] || 1;
+      if (doneCount === 0 && currentActiveS === 1) return state;
+
+      const nextExerciseTimes = { ...state.exerciseTimes };
+      const nextExerciseLoads = { ...state.exerciseLoads };
+      const nextExerciseReps = { ...state.exerciseReps };
+
+      // Revert the last entry if we are "undoing" a completed series,
+      // or just move focus back if we are undoing a focused but not yet timed series.
+      const targetIdx = Math.max(0, state.currentSerie - 2);
+
+      if (nextExerciseTimes[sessionId]) {
+        const times = [...nextExerciseTimes[sessionId]];
+        times.splice(targetIdx, 1);
+        nextExerciseTimes[sessionId] = times;
+      }
+      if (nextExerciseLoads[sessionId]) {
+        const loads = [...nextExerciseLoads[sessionId]];
+        loads.splice(targetIdx, 1);
+        nextExerciseLoads[sessionId] = loads;
+      }
+      if (nextExerciseReps[sessionId]) {
+        const reps = [...nextExerciseReps[sessionId]];
+        reps.splice(targetIdx, 1);
+        nextExerciseReps[sessionId] = reps;
+      }
+
+      const nextSNum = Math.max(1, currentActiveS - 1);
+      let nextState = {
+        ...state,
+        exerciseTimes: nextExerciseTimes,
+        exerciseLoads: nextExerciseLoads,
+        exerciseReps: nextExerciseReps,
+        currentSerie: nextSNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextSNum },
+        status: "IDLE",
+        isTimerActive: false,
+        timer: 0
+      };
+      // We step focus back, and because "Focus = Execution", we ensure the NEW active series (nextSNum)
+      // has its data. (ensureExecutionData is idempotent for already existing data).
+      return ensureExecutionData(nextState, sessionId, nextSNum);
+    }
+
     case "SET_VALUE": {
       const { fieldType, sessionId, sessionIdx, val, part } = action;
       const targetMap = {
@@ -590,10 +779,13 @@ function trainingReducer(state, action) {
         originalBlocos: newBlocos,
         exerciseTimes: { ...state.exerciseTimes, [sessionId]: [] },
         restTimes: { ...state.restTimes, [sessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [sessionId]: inheritedLoads || [] },
-        exerciseReps: { ...state.exerciseReps, [sessionId]: inheritedReps || [] },
+        exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
+        historyLoads: { ...state.historyLoads, [sessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
+        historyReps: { ...state.historyReps, [sessionId]: inheritedReps || [] },
         cargas: { ...state.cargas, [sessionId]: lastLoad },
-        repsFeitas: { ...state.repsFeitas, [sessionId]: lastReps }
+        repsFeitas: { ...state.repsFeitas, [sessionId]: lastReps },
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: 1 }
       };
     }
 
@@ -731,10 +923,13 @@ function trainingReducer(state, action) {
         originalBlocos: newBlocks,
         exerciseTimes: { ...state.exerciseTimes, [newSessionId]: [] },
         restTimes: { ...state.restTimes, [newSessionId]: [] },
-        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: inheritedLoads || [] },
-        exerciseReps: { ...state.exerciseReps, [newSessionId]: inheritedReps || [] },
+        exerciseLoads: { ...state.exerciseLoads, [newSessionId]: [] },
+        historyLoads: { ...state.historyLoads, [newSessionId]: inheritedLoads || [] },
+        exerciseReps: { ...state.exerciseReps, [newSessionId]: [] },
+        historyReps: { ...state.historyReps, [newSessionId]: inheritedReps || [] },
         cargas: { ...state.cargas, [newSessionId]: lastLoad },
-        repsFeitas: { ...state.repsFeitas, [newSessionId]: lastReps }
+        repsFeitas: { ...state.repsFeitas, [newSessionId]: lastReps },
+        activeSeriesMap: { ...state.activeSeriesMap, [newSessionId]: 1 }
       };
     }
 
@@ -766,12 +961,15 @@ function trainingReducer(state, action) {
         }
       }
 
+      const nextActiveS = newBlocks[nextBlockIdx][nextExIdx] ? (state.activeSeriesMap[newBlocks[nextBlockIdx][nextExIdx].sessionId] || 1) : 1;
+
       return {
         ...state,
         blocos: newBlocks,
         originalBlocos: newBlocks,
         currentBlockIndex: nextBlockIdx,
         currentExerciseInBlock: nextExIdx,
+        currentSerie: nextActiveS,
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== removedEx.sessionId)
       };
     }
@@ -800,7 +998,8 @@ function trainingReducer(state, action) {
         exerciseLoads: { ...state.exerciseLoads, [sessionId]: [] },
         exerciseReps: { ...state.exerciseReps, [sessionId]: [] },
         cargas: { ...state.cargas, [sessionId]: 0 },
-        repsFeitas: { ...state.repsFeitas, [sessionId]: 10 }
+        repsFeitas: { ...state.repsFeitas, [sessionId]: 10 },
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: 1 }
       };
     }
 
@@ -819,7 +1018,7 @@ function trainingReducer(state, action) {
 }
 
 
-const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent, isFirst, isDone, isEnabled }) => {
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled }) => {
   const x = useMotionValue(0);
   const background = useTransform(
     x,
@@ -883,14 +1082,11 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isCurrent,
 const Training = () => {
   const { showToast } = useToast();
   const { user: authUser } = useAuth();
+  const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isResuming =
-    new URLSearchParams(location.search).get("resume") === "true";
   const isFreeTraining = letra === "LIVRE";
 
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingSession, setSavingSession] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
@@ -920,21 +1116,8 @@ const Training = () => {
 
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: userData } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", authUser.id)
-      .maybeSingle();
-
-    setUser(
-      userData || {
-        id: authUser.id,
-        nome: authUser.user_metadata?.full_name || authUser.email,
-      },
-    );
-
     // Automatic restoration logic for refresh/resume
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
@@ -1045,6 +1228,8 @@ const Training = () => {
       const initialRests = {};
       const initialExLoads = {};
       const initialExReps = {};
+      const initialHistoryLoads = {};
+      const initialHistoryReps = {};
 
       data.forEach((ex) => {
         const sessionId = ex.sessionId || String(ex.id) || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
@@ -1063,9 +1248,12 @@ const Training = () => {
 
         initialTimes[sessionId] = [];
         initialRests[sessionId] = [];
-        // Pre-fill the series grid with historical data
-        initialExLoads[sessionId] = histLoads;
-        initialExReps[sessionId] = histReps;
+        // Store full history arrays separately
+        initialHistoryLoads[sessionId] = histLoads;
+        initialHistoryReps[sessionId] = histReps;
+        // Start with empty performance data; meta/history will be shown via fallbacks
+        initialExLoads[sessionId] = [];
+        initialExReps[sessionId] = [];
       });
 
       dispatch({
@@ -1078,14 +1266,16 @@ const Training = () => {
           exerciseTimes: initialTimes,
           restTimes: initialRests,
           exerciseLoads: initialExLoads,
+          historyLoads: initialHistoryLoads,
           exerciseReps: initialExReps,
+          historyReps: initialHistoryReps,
         },
       });
     }
     setLoading(false);
-  };
+  }, [authUser.id, letra, isFreeTraining]);
 
-  const fetchWorkoutDetails = async () => {
+  const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
       const { data } = await supabase
         .from("treinos")
@@ -1103,9 +1293,9 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  };
+  }, [authUser.id, isFreeTraining, letra]);
 
-  const finishWorkout = async () => {
+  const finishWorkout = useCallback(async () => {
     setSavingSession(true);
     const historyData = [];
     const workoutTimestamp = new Date().toISOString();
@@ -1130,12 +1320,9 @@ const Training = () => {
           historyData.push({
             user_id: authUser.id,
             exercicio_id: ex.exercicio_id,
-            carga: exLoads.length > 0 ? exLoads : [parseFloat(val) || 0],
-            repeticoes:
-              exReps.length > 0
-                ? exReps
-                : [parseInt(state.repsFeitas[sessionId]) || 0],
-            series_executadas: execTimes.length || ex.series_alvo,
+            carga: exLoads,
+            repeticoes: exReps,
+            series_executadas: Math.max(execTimes.length, exLoads.length, exReps.length),
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
@@ -1162,18 +1349,20 @@ const Training = () => {
       navigate("/inicio");
     }
     setSavingSession(false);
-  };
+  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
 
   useEffect(() => {
-    fetchData();
-  }, [letra]);
+    const t = setTimeout(() => fetchData(), 0);
+    return () => clearTimeout(t);
+  }, [fetchData]);
 
 
   useEffect(() => {
     if (showSaveAsModal) {
-      fetchWorkoutDetails();
+      const t = setTimeout(() => fetchWorkoutDetails(), 0);
+      return () => clearTimeout(t);
     }
-  }, [showSaveAsModal]);
+  }, [showSaveAsModal, fetchWorkoutDetails]);
 
   useEffect(() => {
     if (!loading && state.blocos.length > 0) {
@@ -1234,31 +1423,18 @@ const Training = () => {
     if (loading || state.blocos.length === 0) return;
 
     const timer = setTimeout(() => {
-      const container = scrollContainerRef.current;
       const activeCard = document.getElementById("active-exercise");
-
-      if (container && activeCard) {
-        const containerHeight = container.clientHeight;
-        const cardTop = activeCard.offsetTop;
-        const cardHeight = activeCard.offsetHeight;
-
-        // Calcula a rolagem exata para centralizar o card verticalmente no contêiner
-        const scrollTo = cardTop - containerHeight / 2 + cardHeight / 2;
-
-        container.scrollTo({
-          top: scrollTo,
-          behavior: "smooth",
-        });
+      if (activeCard) {
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 150);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [
     loading,
     state.currentBlockIndex,
     state.currentExerciseInBlock,
-    state.currentSerie,
-    Object.keys(state.activeRestTimers).length,
+    state.blocos.length,
   ]);
 
   // Click-outside and Scroll-to-close logic
@@ -1435,13 +1611,13 @@ const Training = () => {
         if (pendingExercises.length > 0) {
           dispatch({ type: "SHOW_CHECKOUT", payload: pendingExercises });
         } else {
-          finishWorkout();
+          setTimeout(() => finishWorkout(), 0);
         }
       } else {
-        finishWorkout();
+        setTimeout(() => finishWorkout(), 0);
       }
     }
-  }, [state.status]);
+  }, [state.status, state.isCatchupPhase, state.originalBlocos, state.exerciseTimes, finishWorkout]);
 
   if (loading)
     return (
@@ -1486,19 +1662,34 @@ const Training = () => {
               {state.isCatchupPhase ? "REPESCAGEM" : `Sessão de Treino`}{" "}
             </span>
             <div className="h-1 w-1 rounded-full bg-white/20" />
-            <button
-              onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: state.trainingMode === "guided" ? "manual" : "guided" })}
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
-                state.trainingMode === "manual"
-                ? "bg-amber-500/10 border-amber-500/40 text-amber-500"
-                : "bg-white/5 border-white/10 text-white/40"
-              }`}
-            >
-              {state.trainingMode === "manual" ? <ListTodo size={10} /> : <CirclePlay size={10} />}
-              <span className="text-[8px] font-black uppercase tracking-tighter">
-                {state.trainingMode === "manual" ? "Manual" : "Guiado"}
-              </span>
-            </button>
+            <div className="flex bg-white/5 rounded-full p-0.5 border border-white/10 relative">
+              <button
+                onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: "guided" })}
+                className={`relative z-10 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter transition-all duration-300 ${state.trainingMode === "guided" ? "text-white" : "text-white/30"}`}
+              >
+                Guiado
+                {state.trainingMode === "guided" && (
+                  <motion.div
+                    layoutId="activeMode"
+                    className="absolute inset-0 bg-white/10 rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+              </button>
+              <button
+                onClick={() => dispatch({ type: "SET_TRAINING_MODE", payload: "manual" })}
+                className={`relative z-10 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter transition-all duration-300 ${state.trainingMode === "manual" ? "text-amber-500" : "text-white/30"}`}
+              >
+                Manual
+                {state.trainingMode === "manual" && (
+                  <motion.div
+                    layoutId="activeMode"
+                    className="absolute inset-0 bg-amber-500/10 rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+              </button>
+            </div>
           </div>
           <span className="font-bold text-lg text-white uppercase tracking-tighter">
             {isFreeTraining ? "Treino Livre" : `Treino ${letra}`}
@@ -1598,11 +1789,15 @@ const Training = () => {
                             )?.partialSerie || 0
                           : doneCount;
 
+                    const baseThemeColor = eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b;
+                    const safeThemeColor = getSafeColor(baseThemeColor, settings.bg_treino);
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
                     const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
-                    const shouldExpand = state.trainingMode === "guided" && (isCurrent || isStarted);
+                    const isManual = state.trainingMode === "manual";
+                    const isGuided = state.trainingMode === "guided";
+                    const shouldExpand = isManual ? true : (isGuided && (isCurrent || isStarted));
 
                     return (
                       <SwipeableExerciseCard
@@ -1617,27 +1812,19 @@ const Training = () => {
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
                         onClick={() => {
-                          if (state.trainingMode === "manual") {
-                            dispatch({ type: "SET_TRAINING_MODE", payload: "guided" });
+                          if (!isCurrent) {
                             dispatch({
                               type: "MANUAL_OVERRIDE",
                               bIdx,
                               eIdx,
-                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
-                            });
-                          } else if (!isCurrent) {
-                            dispatch({
-                              type: "MANUAL_OVERRIDE",
-                              bIdx,
-                              eIdx,
-                              sNum: (state.exerciseTimes[sessionId]?.length || 0) + 1,
+                              sNum: null, // Allow reducer to restore from map
                             });
                           }
                         }}
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
-                            ? (isCurrent ? activeColor : `${activeColor}20`)
+                            ? (isCurrent && isGuided ? activeColor : isManual ? (isCurrent ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)") : `${activeColor}20`)
                             : isAbandoned
                               ? "rgba(239, 68, 68, 0.15)"
                               : (isSkipped && !isCurrent)
@@ -1645,13 +1832,13 @@ const Training = () => {
                                 : isDone
                                   ? "rgba(16, 185, 129, 0.1)"
                                   : "rgba(255, 255, 255, 0.05)",
-                          color: shouldExpand && isCurrent
+                          color: shouldExpand && isCurrent && isGuided
                             ? textOnActive
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "#fca5a5"
                               : "white",
                           borderColor: shouldExpand
-                            ? "transparent"
+                            ? isManual ? (isCurrent ? safeThemeColor : "rgba(255, 255, 255, 0.1)") : "transparent"
                             : (isSkipped && !isCurrent) || isAbandoned
                               ? "rgba(239, 68, 68, 0.6)"
                               : isDone
@@ -1794,8 +1981,8 @@ const Training = () => {
                   </div>
 
                   {shouldExpand ? (
-                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
-                      {isCurrent && (
+                    <div className={`mt-4 space-y-3 transition-all duration-500 ${shouldExpand && isCurrent && isGuided ? "animate-in fade-in slide-in-from-top-4" : ""}`}>
+                      {isCurrent && isGuided && (
                         <>
                       {/* Integrated Timer */}
                       <div
@@ -1914,7 +2101,7 @@ const Training = () => {
                       </div>
 
                       {/* Integrated Action Button */}
-                      {!state.isTimerActive && state.timer > 0 && (
+                      {!state.isTimerActive && state.timer > 0 && isGuided && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1946,8 +2133,8 @@ const Training = () => {
                         <div className="h-px bg-white/5 my-2" />
                       )}
 
-                      <div className={`${isCurrent ? "mt-6 pt-6" : ""} border-transparent`}>
-                        {isCurrent && (
+                      <div className={`${isCurrent && isGuided ? "mt-6 pt-6" : ""} border-transparent`}>
+                        {isCurrent && isGuided && (
                         <div className="flex justify-between items-center w-full mb-2">
                           <p className="text-xs uppercase tracking-wider font-semibold opacity-70 text-inherit">SÉRIES</p>
                           <div className="relative">
@@ -2005,6 +2192,7 @@ const Training = () => {
                             const restTime = state.restTimes[sessionId]?.[sessionIdx];
                             const load = state.exerciseLoads[sessionId]?.[sessionIdx];
                             const reps = state.exerciseReps[sessionId]?.[sessionIdx];
+                            const persistedActiveSNum = state.activeSeriesMap[sessionId] || 1;
                             const isCurrentS =
                               isCurrent && sNum === state.currentSerie;
                             const liveExec =
@@ -2023,8 +2211,8 @@ const Training = () => {
                               <div
                                 key={sessionIdx}
                                 className={`p-2.5 py-3 rounded-2xl flex flex-col items-center border transition-all shrink-0 min-w-[70px] ${
-                                  isCurrentS
-                                    ? "bg-current/20 border-current/40 ring-4 ring-current/10 scale-[1.05] z-10"
+                                  isCurrentS && isCurrent
+                                    ? "scale-[1.08] z-20 shadow-xl"
                                     : isSkipped
                                       ? isExecuted
                                         ? "bg-red-950/60 border-red-500/10"
@@ -2032,48 +2220,59 @@ const Training = () => {
                                           ? "bg-red-500/10 border-red-500/40"
                                           : "bg-red-950/20 border-transparent"
                                       : isExecuted
-                                        ? "bg-current/10 border-current/5"
-                                        : "bg-current/5 border-transparent"
+                                        ? "bg-white/5 border-white/10"
+                                        : "bg-white/5 border-white/10"
                                 }`}
+                                style={{
+                                  backgroundColor: isCurrentS && isCurrent ? "rgba(0,0,0,0.3)" : undefined,
+                                  borderWidth: isCurrentS && isCurrent ? "2px" : "1px",
+                                  borderColor: isCurrentS && isCurrent
+                                      ? safeThemeColor // Cenário B: Série Ativa
+                                    : (isExecuted || sNum < persistedActiveSNum)
+                                      ? "rgba(255, 255, 255, 0.7)" // Cenário A: Séries Anteriores ou Concluídas (Persistido)
+                                    : (isCurrent && sNum > state.currentSerie)
+                                      ? "rgba(255, 255, 255, 0.1)" // Cenário C: Séries Futuras
+                                    : "rgba(255, 255, 255, 0.1)", // Pendentes fora de foco
+                                  boxShadow: isCurrentS && isCurrent ? `inset 0 0 0 1px white` : undefined
+                                }}
                               >
                                 <button
                                   onClick={() => {
-                                    if (isNextPending && !isCurrentS) {
+                                    if (isCurrentS && isCurrent) {
+                                      dispatch({ type: "UNDO_SERIES", sessionId });
+                                    } else {
                                       dispatch({
                                         type: "MANUAL_OVERRIDE",
                                         bIdx,
                                         eIdx,
                                         sNum,
                                       });
-                                      showToast(
-                                        `Foco alterado para Série ${sNum}`,
-                                        "info",
-                                      );
                                     }
                                   }}
-                                  className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all ${isCurrent ? "text-inherit" : "text-white"}`}
+                                  className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: isCurrentS
-                                      ? "rgba(0,0,0,0.1)"
+                                    backgroundColor: (isNextPending && isGuided) || (isCurrentS && isCurrent)
+                                      ? safeThemeColor
+                                      : `${safeThemeColor}30`,
+                                    color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
+                                      ? getContrastColor(safeThemeColor)
                                       : (isNextPending && isCurrent)
-                                        ? "rgba(0,0,0,0.1)"
-                                        : isNextPending
-                                          ? "var(--color-secondary)"
-                                          : "transparent",
-                                    opacity: isCurrentS || isNextPending ? 1 : 0.4,
+                                        ? "white"
+                                        : safeThemeColor,
+                                    opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
                                   {sNum}
                                 </button>
                                 <div
-                                  className={`flex flex-col items-center gap-1 mb-2 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center gap-1 mb-2`}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center gap-0.5">
-                                    {isCurrent ? (
+                                    {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={load || ""}
-                                      placeholder="-"
+                                      value={load ?? state.historyLoads[sessionId]?.[sessionIdx] ?? state.cargas[sessionId] ?? ""}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2084,23 +2283,22 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 text-inherit`}
+                                      className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
-                                      <span className={`font-mono font-black text-[11px] ${load ? "" : "opacity-20"}`}>
-                                        {load || "-"}
+                                      <span className={`font-mono font-black text-[11px] ${load || state.historyLoads[sessionId]?.[sessionIdx] ? "" : "opacity-20"}`}>
+                                        {load ?? state.historyLoads[sessionId]?.[sessionIdx] ?? "-"}
                                       </span>
                                     )}
-                                    <span className={`text-[8px] font-bold opacity-40 ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[8px] font-bold opacity-40 ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       kg
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-0.5">
-                                    {isCurrent ? (
+                                    {(isGuided && isCurrent) || isManual ? (
                                     <input
                                       type="number"
-                                      value={reps || ""}
-                                      placeholder="-"
+                                      value={reps ?? state.historyReps[sessionId]?.[sessionIdx] ?? (ex.reps_alvo.includes("-") ? ex.reps_alvo.split("-")[1] : ex.reps_alvo)}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
                                         dispatch({
@@ -2111,20 +2309,21 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
-                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none opacity-60 placeholder:opacity-20 text-inherit`}
+                                      className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
-                                      <span className={`font-bold text-[10px] opacity-60 ${reps ? "" : "opacity-20"}`}>
-                                        {reps || "-"}
+                                      <span className={`font-bold text-[10px] ${reps || state.historyReps[sessionId]?.[sessionIdx] ? "opacity-100" : "opacity-20"}`}>
+                                        {reps ?? state.historyReps[sessionId]?.[sessionIdx] ?? "-"}
                                       </span>
                                     )}
-                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${isCurrent ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
+                                    <span className={`text-[7px] font-bold opacity-30 uppercase ${(isGuided && isCurrent) || isManual ? "text-inherit" : isSkipped ? "text-red-300" : "text-white"}`}>
                                       reps
                                     </span>
                                   </div>
                                 </div>
                                 <div
-                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1 transition-opacity ${!isExecuted && !isCurrentS ? "opacity-30" : "opacity-100"}`}
+                                  className={`flex flex-col items-center w-full pt-2 border-t border-current gap-1`}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center gap-1">
                                     <Clock
@@ -2418,16 +2617,14 @@ const Training = () => {
             <span>Progresso Geral</span>
             <span>
               {(() => {
-                const totalEx = state.blocos.reduce(
-                  (acc, b) => acc + b.length,
-                  0,
-                );
-                const doneEx =
-                  state.blocos
-                    .slice(0, state.currentBlockIndex)
-                    .reduce((acc, b) => acc + b.length, 0) +
-                  state.currentExerciseInBlock;
-                return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+                const allEx = state.blocos.flat();
+                const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
+                const doneSeries = allEx.reduce((acc, ex) => {
+                  // Percentage calculation: strictly Count actual execution data entries
+                  const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
+                  return acc + executedCount;
+                }, 0);
+                return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
               })()}
               %
             </span>
@@ -2437,16 +2634,13 @@ const Training = () => {
               className="h-full transition-all duration-1000"
               style={{
                 width: `${(() => {
-                  const totalEx = state.blocos.reduce(
-                    (acc, b) => acc + b.length,
-                    0,
-                  );
-                  const doneEx =
-                    state.blocos
-                      .slice(0, state.currentBlockIndex)
-                      .reduce((acc, b) => acc + b.length, 0) +
-                    state.currentExerciseInBlock;
-                  return totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+                  const allEx = state.blocos.flat();
+                  const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
+                  const doneSeries = allEx.reduce((acc, ex) => {
+                    const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
+                    return acc + executedCount;
+                  }, 0);
+                  return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
                 })()}%`,
                 backgroundColor: letra === "A"
                   ? "var(--color-primary)"

@@ -58,6 +58,10 @@ export const AppearanceProvider = ({ children }) => {
       "--color-secondary-safe",
       getSafeColor(settings.color_ex_b, settings.bg_treino),
     );
+
+    // Semi-transparent darkened variants for badges/indicators
+    root.style.setProperty("--color-primary-dark", `${settings.color_ex_a}20`);
+    root.style.setProperty("--color-secondary-dark", `${settings.color_ex_b}20`);
   }, [settings]);
 
   const fetchAppearance = async () => {

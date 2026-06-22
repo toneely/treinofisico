@@ -12,10 +12,39 @@
 # Error details
 
 ```
-Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/treino/A
+TimeoutError: page.waitForSelector: Timeout 20000ms exceeded.
 Call log:
-  - navigating to "http://localhost:5173/treino/A", waiting until "load"
+  - waiting for locator('text=Manual') to be visible
 
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e5]:
+  - generic [ref=e6]:
+    - img "Logo" [ref=e8]
+    - heading "Treino Físico" [level=1] [ref=e9]
+    - paragraph [ref=e10]: Sua jornada para a excelência
+  - button "Entrar com Google" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+    - text: Entrar com Google
+  - generic [ref=e21]: ou e-mail
+  - generic [ref=e22]:
+    - generic [ref=e23]:
+      - text: Seu E-mail
+      - generic [ref=e24]:
+        - img [ref=e25]
+        - textbox "nome@email.com" [ref=e28]
+    - generic [ref=e29]:
+      - text: Senha
+      - generic [ref=e30]:
+        - img [ref=e31]
+        - textbox "••••••••" [ref=e34]
+    - button "Entrar na Conta" [ref=e35] [cursor=pointer]
+  - paragraph [ref=e36]:
+    - text: Não tem uma conta?
+    - generic [ref=e37] [cursor=pointer]: Cadastre-se
 ```
 
 # Test source
@@ -24,59 +53,50 @@ Call log:
   1  | import { test, expect } from '@playwright/test';
   2  |
   3  | test('Verify Training V2 UX Enhancements', async ({ page }) => {
-  4  |   // Go to a training session
-> 5  |   await page.goto('http://localhost:5173/treino/A');
-     |              ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/treino/A
-  6  |
-  7  |   // Debug: Take screenshot if it fails
-  8  |   await page.screenshot({ path: 'debug_training.png' });
-  9  |
-  10 |   await page.waitForSelector('text=Bloco 1 de', { timeout: 10000 }).catch(e => {
-  11 |      console.log('Selector "Bloco 1 de" not found');
+  4  |   await page.addInitScript(() => {
+  5  |     window.localStorage.setItem('sb-fbdzbafzdmzcrteqhbto-auth-token', JSON.stringify({
+  6  |       access_token: 'mock-token',
+  7  |       token_type: 'bearer',
+  8  |       expires_in: 3600,
+  9  |       refresh_token: 'mock-refresh-token',
+  10 |       user: { id: 'mock-user-id', email: 'test@example.com' }
+  11 |     }));
   12 |   });
   13 |
-  14 |   // 1. Verify Input behavior (Carga/Reps) - Now inside the active card
-  15 |   const cargaInput = page.locator('label:has-text("Carga (kg)") + input');
-  16 |   await expect(cargaInput).toBeVisible();
-  17 |   await cargaInput.focus();
-  18 |   // It should be selected, but let's test clearing it
-  19 |   await cargaInput.fill('');
-  20 |   await expect(cargaInput).toHaveValue('');
-  21 |   await cargaInput.fill('50');
-  22 |   await expect(cargaInput).toHaveValue('50');
-  23 |
-  24 |   // 2. Verify Session List Details Grid - grid-cols-4 in new version
-  25 |   const sessionList = page.locator('text=Exercícios da Sessão');
-  26 |   await expect(sessionList).toBeVisible();
-  27 |
-  28 |   // Check if first exercise in list has a grid (using horizontal scroll container in V2)
-  29 |   const gridItem = page.locator('.overflow-x-auto').first();
-  30 |   await expect(gridItem).toBeVisible();
-  31 |
-  32 |   // 3. Verify Real-time Sync in Grid (Exec Timer)
-  33 |   const startBtn = page.locator('button:has(svg.lucide-play)');
-  34 |   await startBtn.click();
-  35 |
-  36 |   // Look for the active series in the grid (it should have a timer running)
-  37 |   const firstSeriesCell = gridItem.locator('span.font-mono.font-bold').first();
-  38 |
-  39 |   // Wait a couple of seconds for timer to tick
-  40 |   await page.waitForTimeout(2100);
-  41 |   const timeText = await firstSeriesCell.innerText();
-  42 |   console.log('Timer text in grid:', timeText);
-  43 |   expect(timeText).not.toBe('0:00');
-  44 |
-  45 |   // 4. Verify Real-time Sync in Grid (Rest Timer)
-  46 |   const stopBtn = page.locator('button:has(svg.lucide-square)');
-  47 |   await stopBtn.click();
+  14 |   await page.goto('http://localhost:5173/treino/LIVRE');
+  15 |
+  16 |   // Wait for loading to finish
+  17 |   await page.waitForSelector('text=Carregando...', { state: 'detached', timeout: 20000 });
+  18 |
+  19 |   // Look for any identifying text in Training.jsx header
+> 20 |   await page.waitForSelector('text=Manual', { timeout: 20000 });
+     |              ^ TimeoutError: page.waitForSelector: Timeout 20000ms exceeded.
+  21 |
+  22 |   // 1. Switch to Manual Mode
+  23 |   await page.get_by_role("button", { name: "Manual" }).click();
+  24 |
+  25 |   // 2. Add an exercise
+  26 |   await page.locator('button:has-text("Adicionar Exercício")').first().click();
+  27 |   await page.waitForSelector('text=Musculação', { timeout: 10000 });
+  28 |   await page.locator('div[role="button"]').first().click();
+  29 |
+  30 |   // 3. Verify Series Grid is visible
+  31 |   const series1 = page.get_by_text("1", { exact: true }).first();
+  32 |   await expect(series1).toBeVisible();
+  33 |
+  34 |   // 4. Set Focus to Series 2
+  35 |   const series2 = page.get_by_text("2", { exact: true }).first();
+  36 |   await series2.click();
+  37 |   const series2Container = series2.locator('..');
+  38 |   await expect(series2Container).toHaveClass(/scale-\[1.08\]/);
+  39 |
+  40 |   // 5. Switch to a new exercise
+  41 |   await page.locator('button:has-text("Adicionar Exercício")').first().click();
+  42 |   await page.locator('div[role="button"]').nth(1).click();
+  43 |
+  44 |   // Switch back to first exercise and verify focus persistence
+  45 |   await page.locator('p.font-bold').first().click();
+  46 |   await expect(series2Container).toHaveClass(/scale-\[1.08\]/);
+  47 | });
   48 |
-  49 |   // Now the rest timer in that cell should start animating
-  50 |   const restTimerInCell = gridItem.locator('.animate-pulse').first();
-  51 |   await expect(restTimerInCell).toBeVisible();
-  52 |   await page.waitForTimeout(2100);
-  53 |   const restText = await restTimerInCell.innerText();
-  54 |   console.log('Rest text in grid:', restText);
-  55 |   expect(restText).not.toBe('--:--');
-  56 | });
-  57 |
 ```
