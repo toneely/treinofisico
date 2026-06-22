@@ -79,6 +79,29 @@ const ensureExecutionData = (state, sessionId, targetSNum) => {
   };
 };
 
+const truncateExecutionData = (state, sessionId, targetSNum) => {
+  const nextExerciseTimes = { ...state.exerciseTimes };
+  const nextExerciseLoads = { ...state.exerciseLoads };
+  const nextExerciseReps = { ...state.exerciseReps };
+
+  if (nextExerciseTimes[sessionId]) {
+    nextExerciseTimes[sessionId] = nextExerciseTimes[sessionId].slice(0, targetSNum);
+  }
+  if (nextExerciseLoads[sessionId]) {
+    nextExerciseLoads[sessionId] = nextExerciseLoads[sessionId].slice(0, targetSNum);
+  }
+  if (nextExerciseReps[sessionId]) {
+    nextExerciseReps[sessionId] = nextExerciseReps[sessionId].slice(0, targetSNum);
+  }
+
+  return {
+    ...state,
+    exerciseTimes: nextExerciseTimes,
+    exerciseLoads: nextExerciseLoads,
+    exerciseReps: nextExerciseReps
+  };
+};
+
 const initialState = {
   currentBlockIndex: 0,
   currentExerciseInBlock: 0,
@@ -542,9 +565,14 @@ function trainingReducer(state, action) {
       if (!state.blocos[bIdx] || !state.blocos[bIdx][eIdx]) return state;
 
       const targetEx = state.blocos[bIdx][eIdx];
-      // Use explicit sNum if provided (from direct series click),
-      // otherwise restore from map (from exercise card click).
-      const restoredSNum = sNum ?? state.activeSeriesMap[targetEx.sessionId] ?? 1;
+      const currentPersistedSNum = state.activeSeriesMap[targetEx.sessionId] || 1;
+
+      // Rule 3: Smart Default Selection (when sNum is null)
+      // "selecionar a última série que está marcada como executada. Se limpo, focar Série 1."
+      const executedCount = (state.exerciseTimes[targetEx.sessionId]?.length || 0);
+      const smartDefault = Math.max(1, executedCount);
+
+      const restoredSNum = sNum ?? smartDefault;
 
       let nextState = {
         ...state,
@@ -557,6 +585,20 @@ function trainingReducer(state, action) {
         status: "IDLE",
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
+
+      // Rule 1: Retrocession (Reset Posterior series)
+      // When explicitly tapping an earlier series, remove data for all series after it.
+      if (sNum !== null && sNum < currentPersistedSNum) {
+        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum);
+      }
+
+      // Rule 2: Preservation (No mutation on focus switch)
+      // If action.sNum is null (exercise card tap), update focus but don't populate data.
+      if (sNum === null) {
+        return nextState;
+      }
+
+      // If action.sNum was provided (direct series tap), ensure data for it (Focus = Execution).
       return ensureExecutionData(nextState, targetEx.sessionId, restoredSNum);
     }
     case "UNDO_SERIES": {
@@ -2575,11 +2617,15 @@ const Training = () => {
             <span>
               {(() => {
                 const allEx = state.blocos.flat();
+                const currentFocusedEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
                 const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
                 const doneSeries = allEx.reduce((acc, ex) => {
-                  // Count all series up to the active one as done
-                  const activeS = state.activeSeriesMap[ex.sessionId] || 0;
-                  return acc + Math.min(activeS, ex.series_alvo);
+                  const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
+                  // For the focused exercise, the active series is also considered concluded.
+                  if (currentFocusedEx && ex.sessionId === currentFocusedEx.sessionId) {
+                    return acc + Math.max(executedCount, state.currentSerie);
+                  }
+                  return acc + executedCount;
                 }, 0);
                 return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
               })()}
@@ -2592,10 +2638,14 @@ const Training = () => {
               style={{
                 width: `${(() => {
                   const allEx = state.blocos.flat();
+                  const currentFocusedEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
                   const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
                   const doneSeries = allEx.reduce((acc, ex) => {
-                    const activeS = state.activeSeriesMap[ex.sessionId] || 0;
-                    return acc + Math.min(activeS, ex.series_alvo);
+                    const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
+                    if (currentFocusedEx && ex.sessionId === currentFocusedEx.sessionId) {
+                      return acc + Math.max(executedCount, state.currentSerie);
+                    }
+                    return acc + executedCount;
                   }, 0);
                   return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
                 })()}%`,
