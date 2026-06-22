@@ -133,21 +133,21 @@ function trainingReducer(state, action) {
   switch (action.type) {
     case "INIT_SESSION": {
       const activeSeriesMap = { ...action.payload.activeSeriesMap };
-      // If not provided (initial fetch), initialize based on existing progress
+      // If not provided (initial fetch), initialize based on existing progress (Smart Default)
       if (action.payload.blocos) {
         action.payload.blocos.flat().forEach(ex => {
           if (!activeSeriesMap[ex.sessionId]) {
+            // Rule: Smart Default Selection (Last executed or Series 1)
             const doneCount = action.payload.exerciseTimes?.[ex.sessionId]?.length || 0;
-            activeSeriesMap[ex.sessionId] = doneCount + 1;
+            activeSeriesMap[ex.sessionId] = Math.max(1, doneCount);
           }
         });
       }
       let nextState = { ...state, ...action.payload, activeSeriesMap, status: "IDLE" };
-      // Rule: Focus = Execution. Ensure the initially focused exercise has its current series data.
+      // Rule 2 & 3: Smart default focus on init, but NO data mutation (read-only transition)
       if (nextState.blocos.length > 0) {
         const firstEx = nextState.blocos[nextState.currentBlockIndex][nextState.currentExerciseInBlock];
-        const sNum = nextState.activeSeriesMap[firstEx.sessionId] || 1;
-        nextState = ensureExecutionData(nextState, firstEx.sessionId, sNum);
+        nextState.currentSerie = nextState.activeSeriesMap[firstEx.sessionId] || 1;
       }
       return nextState;
     }
@@ -568,7 +568,7 @@ function trainingReducer(state, action) {
       const currentPersistedSNum = state.activeSeriesMap[targetEx.sessionId] || 1;
 
       // Rule 3: Smart Default Selection (when sNum is null)
-      // "selecionar a última série que está marcada como executada. Se limpo, focar Série 1."
+      // Logic: Pick the last executed series index (length of exerciseTimes), or 1 if unstarted.
       const executedCount = (state.exerciseTimes[targetEx.sessionId]?.length || 0);
       const smartDefault = Math.max(1, executedCount);
 
@@ -594,6 +594,7 @@ function trainingReducer(state, action) {
 
       // Rule 2: Preservation (No mutation on focus switch)
       // If action.sNum is null (exercise card tap), update focus but don't populate data.
+      // This makes the transition strictly visual/navegacional.
       if (sNum === null) {
         return nextState;
       }
@@ -2617,14 +2618,10 @@ const Training = () => {
             <span>
               {(() => {
                 const allEx = state.blocos.flat();
-                const currentFocusedEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
                 const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
                 const doneSeries = allEx.reduce((acc, ex) => {
+                  // Percentage calculation: strictly Count actual execution data entries
                   const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
-                  // For the focused exercise, the active series is also considered concluded.
-                  if (currentFocusedEx && ex.sessionId === currentFocusedEx.sessionId) {
-                    return acc + Math.max(executedCount, state.currentSerie);
-                  }
                   return acc + executedCount;
                 }, 0);
                 return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
@@ -2638,13 +2635,9 @@ const Training = () => {
               style={{
                 width: `${(() => {
                   const allEx = state.blocos.flat();
-                  const currentFocusedEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
                   const totalSeries = allEx.reduce((acc, ex) => acc + (ex.series_alvo || 0), 0);
                   const doneSeries = allEx.reduce((acc, ex) => {
                     const executedCount = state.exerciseTimes[ex.sessionId]?.length || 0;
-                    if (currentFocusedEx && ex.sessionId === currentFocusedEx.sessionId) {
-                      return acc + Math.max(executedCount, state.currentSerie);
-                    }
                     return acc + executedCount;
                   }, 0);
                   return totalSeries > 0 ? Math.round((doneSeries / totalSeries) * 100) : 0;
