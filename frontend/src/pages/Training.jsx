@@ -663,22 +663,54 @@ function trainingReducer(state, action) {
       const mapKey = targetMap[fieldType];
       if (!mapKey) return state;
 
+      let nextState = { ...state };
+
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
-        return { ...state, [mapKey]: { ...state[mapKey], [sessionId]: val } };
+        nextState = { ...nextState, [mapKey]: { ...nextState[mapKey], [sessionId]: val } };
+      } else {
+        const nextMapValue = { ...state[mapKey] };
+        const newArr = [...(nextMapValue[sessionId] || [])];
+
+        if (fieldType === "exec" || fieldType === "rest") {
+          const currentSeconds = newArr[sessionIdx] || 0;
+          const mins = Math.floor(currentSeconds / 60);
+          const secs = currentSeconds % 60;
+          if (part === "mins") newArr[sessionIdx] = (parseInt(val) || 0) * 60 + secs;
+          else if (part === "secs")
+            newArr[sessionIdx] = mins * 60 + (parseInt(val) || 0);
+        } else {
+          newArr[sessionIdx] = val;
+        }
+
+        nextMapValue[sessionId] = newArr;
+        nextState = { ...nextState, [mapKey]: nextMapValue };
       }
 
-      const newArr = [...(state[mapKey][sessionId] || [])];
-      if (fieldType === "exec" || fieldType === "rest") {
-        const currentSeconds = newArr[sessionIdx] || 0;
-        const mins = Math.floor(currentSeconds / 60);
-        const secs = currentSeconds % 60;
-        if (part === "mins") newArr[sessionIdx] = (parseInt(val) || 0) * 60 + secs;
-        else if (part === "secs")
-          newArr[sessionIdx] = mins * 60 + (parseInt(val) || 0);
-      } else {
-        newArr[sessionIdx] = val;
+      return nextState;
+    }
+
+    case "CONFIRM_SERIES_EDIT": {
+      const { sessionId, sessionIdx } = action;
+      const currentActiveS = state.activeSeriesMap[sessionId] || 1;
+      const editedSNum = sessionIdx + 1;
+
+      if (editedSNum > currentActiveS) {
+        const currentEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
+        const isTargetExFocused = currentEx?.sessionId === sessionId;
+
+        let nextState = {
+          ...state,
+          activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: editedSNum },
+          currentSerie: isTargetExFocused ? editedSNum : state.currentSerie,
+          status: "IDLE",
+          isTimerActive: false,
+          timer: 0,
+          skippedExercises: state.skippedExercises.filter(s => s.sessionId !== sessionId)
+        };
+
+        return ensureExecutionData(nextState, sessionId, editedSNum);
       }
-      return { ...state, [mapKey]: { ...state[mapKey], [sessionId]: newArr } };
+      return state;
     }
 
     case "DISMISS_REST": {
@@ -1811,16 +1843,6 @@ const Training = () => {
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
-                        onClick={() => {
-                          if (!isCurrent) {
-                            dispatch({
-                              type: "MANUAL_OVERRIDE",
-                              bIdx,
-                              eIdx,
-                              sNum: null, // Allow reducer to restore from map
-                            });
-                          }
-                        }}
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
@@ -1846,6 +1868,20 @@ const Training = () => {
                                 : "rgba(255, 255, 255, 0.1)",
                         }}
                       >
+                        {!isCurrent && (
+                          <div
+                            className="absolute inset-0 z-50 bg-transparent cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dispatch({
+                                type: "MANUAL_OVERRIDE",
+                                bIdx,
+                                eIdx,
+                                sNum: null,
+                              });
+                            }}
+                          />
+                        )}
                   <div className="flex justify-between items-center relative">
                     {/* Discoverability Chevrons */}
                     {!shouldExpand && !isDone && (
@@ -2283,6 +2319,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
+                                      onBlur={() => dispatch({ type: "CONFIRM_SERIES_EDIT", sessionId, sessionIdx })}
                                       className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
@@ -2309,6 +2346,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
+                                      onBlur={() => dispatch({ type: "CONFIRM_SERIES_EDIT", sessionId, sessionIdx })}
                                       className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
