@@ -686,31 +686,31 @@ function trainingReducer(state, action) {
         nextState = { ...nextState, [mapKey]: nextMapValue };
       }
 
-      // Rule: Future Series Edition Trigger
-      // If editing a future series, jump focus to it and mark previous ones as executed.
-      if (fieldType === "load" || fieldType === "reps") {
-        const currentActiveS = state.activeSeriesMap[sessionId] || 1;
-        const editedSNum = sessionIdx + 1;
-
-        if (editedSNum > currentActiveS) {
-          const currentEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
-          const isTargetExFocused = currentEx?.sessionId === sessionId;
-
-          nextState = {
-            ...nextState,
-            activeSeriesMap: { ...nextState.activeSeriesMap, [sessionId]: editedSNum },
-            currentSerie: isTargetExFocused ? editedSNum : nextState.currentSerie,
-            status: "IDLE",
-            isTimerActive: false,
-            timer: 0,
-            skippedExercises: state.skippedExercises.filter(s => s.sessionId !== sessionId)
-          };
-
-          return ensureExecutionData(nextState, sessionId, editedSNum);
-        }
-      }
-
       return nextState;
+    }
+
+    case "CONFIRM_SERIES_EDIT": {
+      const { sessionId, sessionIdx } = action;
+      const currentActiveS = state.activeSeriesMap[sessionId] || 1;
+      const editedSNum = sessionIdx + 1;
+
+      if (editedSNum > currentActiveS) {
+        const currentEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
+        const isTargetExFocused = currentEx?.sessionId === sessionId;
+
+        let nextState = {
+          ...state,
+          activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: editedSNum },
+          currentSerie: isTargetExFocused ? editedSNum : state.currentSerie,
+          status: "IDLE",
+          isTimerActive: false,
+          timer: 0,
+          skippedExercises: state.skippedExercises.filter(s => s.sessionId !== sessionId)
+        };
+
+        return ensureExecutionData(nextState, sessionId, editedSNum);
+      }
+      return state;
     }
 
     case "DISMISS_REST": {
@@ -2319,6 +2319,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
+                                      onBlur={() => dispatch({ type: "CONFIRM_SERIES_EDIT", sessionId, sessionIdx })}
                                       className={`bg-transparent w-8 text-center font-mono font-black text-[11px] outline-none placeholder:opacity-20 transition-colors ${(load !== undefined && load !== null && load !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
@@ -2345,6 +2346,7 @@ const Training = () => {
                                           val: e.target.value,
                                         })
                                       }
+                                      onBlur={() => dispatch({ type: "CONFIRM_SERIES_EDIT", sessionId, sessionIdx })}
                                       className={`bg-transparent w-6 text-center font-bold text-[10px] outline-none placeholder:opacity-20 transition-colors ${(reps !== undefined && reps !== null && reps !== "") ? "text-white" : "opacity-40"}`}
                                     />
                                     ) : (
