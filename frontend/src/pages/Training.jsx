@@ -1811,16 +1811,6 @@ const Training = () => {
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
-                        onClick={() => {
-                          if (!isCurrent) {
-                            dispatch({
-                              type: "MANUAL_OVERRIDE",
-                              bIdx,
-                              eIdx,
-                              sNum: null, // Allow reducer to restore from map
-                            });
-                          }
-                        }}
                         className={`relative rounded-2xl border transition-all duration-300 ${shouldExpand ? "p-4 scale-[1.02]" : "p-2.5 py-2 cursor-pointer"}`}
                         style={{
                           backgroundColor: shouldExpand
@@ -1846,6 +1836,20 @@ const Training = () => {
                                 : "rgba(255, 255, 255, 0.1)",
                         }}
                       >
+                        {!isCurrent && (
+                          <div
+                            className="absolute inset-0 z-50 bg-transparent cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dispatch({
+                                type: "MANUAL_OVERRIDE",
+                                bIdx,
+                                eIdx,
+                                sNum: null,
+                              });
+                            }}
+                          />
+                        )}
                   <div className="flex justify-between items-center relative">
                     {/* Discoverability Chevrons */}
                     {!shouldExpand && !isDone && (
