@@ -5,7 +5,7 @@ test('verify login page renders and toggles modes', async ({ page }) => {
   await page.goto('http://localhost:4173/login');
 
   await expect(page.locator('h1')).toContainText('Treino Físico');
-  await expect(page.locator('button', { hasText: 'Entrar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar na Conta' })).toBeVisible();
 
   // Toggle to Sign Up
   await page.click('text=Não tem uma conta? Cadastre-se');
