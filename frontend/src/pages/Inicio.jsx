@@ -17,6 +17,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
+import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -73,7 +74,7 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
 const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isPremium } = useAuth();
   const [user, setUser] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +221,10 @@ const Inicio = () => {
   const atividadeAlt = user?.atividade_alternativa || "Capoeira";
 
   return (
-    <div className="p-6 max-w-md mx-auto pb-20">
+    <div
+      className="p-6 max-w-md mx-auto"
+      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
+    >
       <header className="flex justify-between items-center mb-8 gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden shrink-0">
@@ -396,6 +400,8 @@ const Inicio = () => {
           </div>
         </div>
       )}
+
+      {!isPremium && <AdBannerPlaceholder />}
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
         <Link

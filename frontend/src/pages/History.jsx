@@ -21,10 +21,11 @@ import { Link } from "react-router-dom";
 import { exportHistoryToPDF } from "../utils/pdfExport";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
 
 const History = () => {
   const { showToast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isPremium } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
@@ -520,7 +521,10 @@ const History = () => {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto pb-24">
+    <div
+      className="p-6 max-w-md mx-auto"
+      style={{ paddingBottom: isPremium ? "96px" : "164px" }}
+    >
       <header className="mb-6 flex justify-between items-center">
         <Link
           to="/inicio"
@@ -1268,6 +1272,8 @@ const History = () => {
           </div>
         </div>
       )}
+
+      {!isPremium && <AdBannerPlaceholder />}
 
       {/* Footer Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">

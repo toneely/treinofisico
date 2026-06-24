@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
 import {
   ChevronLeft,
   User,
@@ -21,7 +22,7 @@ import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
 
 const Profile = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isPremium } = useAuth();
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -184,7 +185,10 @@ const Profile = () => {
     );
 
   return (
-    <div className="p-6 max-w-2xl mx-auto pb-24">
+    <div
+      className="p-6 max-w-2xl mx-auto"
+      style={{ paddingBottom: isPremium ? "96px" : "164px" }}
+    >
       <header className="mb-8 flex justify-between items-center">
         <Link
           to="/inicio"
@@ -421,6 +425,8 @@ const Profile = () => {
           </form>
         </section>
       </div>
+
+      {!isPremium && <AdBannerPlaceholder />}
 
       {/* Avatar Upload Modal */}
       {showAvatarModal && (
