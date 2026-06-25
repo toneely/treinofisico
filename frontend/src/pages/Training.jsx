@@ -2287,12 +2287,14 @@ const Training = () => {
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: (isNextPending && isGuided) || (isCurrentS && isCurrent)
+                                    backgroundColor: (isCurrentS && isCurrent)
                                       ? safeThemeColor
-                                      : `${safeThemeColor}30`,
-                                    color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
+                                      : isCurrent
+                                        ? "rgba(255, 255, 255, 0.1)"
+                                        : `${safeThemeColor}30`,
+                                    color: (isCurrentS && isCurrent)
                                       ? getContrastColor(safeThemeColor)
-                                      : (isNextPending && isCurrent)
+                                      : isCurrent
                                         ? "white"
                                         : safeThemeColor,
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
