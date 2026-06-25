@@ -1824,7 +1824,7 @@ const Training = () => {
                     const baseThemeColor = eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b;
                     const safeThemeColor = getSafeColor(baseThemeColor, settings.bg_treino);
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
-                    const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
+                    const textOnActive = getContrastColor(safeThemeColor);
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
                     const isManual = state.trainingMode === "manual";
@@ -2287,13 +2287,15 @@ const Training = () => {
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: (isNextPending && isGuided) || (isCurrentS && isCurrent)
+                                    backgroundColor: (isCurrentS && isCurrent) || (isNextPending && isGuided)
                                       ? safeThemeColor
-                                      : `${safeThemeColor}30`,
+                                      : isCurrent
+                                        ? (textOnActive === "#FFFFFF" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)")
+                                        : `${safeThemeColor}30`,
                                     color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
                                       ? getContrastColor(safeThemeColor)
-                                      : (isNextPending && isCurrent)
-                                        ? "white"
+                                      : (isCurrent)
+                                        ? textOnActive
                                         : safeThemeColor,
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
