@@ -17,13 +17,14 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { exportHistoryToPDF } from "../utils/pdfExport";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 
 const History = () => {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, isPremium } = useAuth();
 
@@ -513,6 +514,9 @@ const History = () => {
       exportHistoryToPDF(userData, data);
       setShowExportModal(false);
       showToast("PDF gerado com sucesso!", "success");
+      if (!isPremium) {
+        navigate("/inicio");
+      }
     } catch (err) {
       showToast("Erro ao exportar PDF: " + err.message, "error");
     } finally {

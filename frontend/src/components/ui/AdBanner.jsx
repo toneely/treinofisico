@@ -11,6 +11,13 @@ const AdBanner = ({ isPremium, variant = 'fixed' }) => {
         script.async = true;
         script.crossOrigin = "anonymous";
         document.head.appendChild(script);
+
+        window.adsbygoogle = window.adsbygoogle || [];
+        window.adsbygoogle.push({
+          google_ad_client: "ca-pub-1997524989701565",
+          enable_page_level_ads: true,
+          overlays: { bottom: true }
+        });
       }
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch (error) {
