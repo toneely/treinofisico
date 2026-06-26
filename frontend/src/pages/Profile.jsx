@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
+import AdBanner from "../components/ui/AdBanner";
 import {
   ChevronLeft,
   User,
@@ -426,7 +426,7 @@ const Profile = () => {
         </section>
       </div>
 
-      {!isPremium && <AdBannerPlaceholder />}
+      <AdBanner isPremium={isPremium} />
 
       {/* Avatar Upload Modal */}
       {showAvatarModal && (

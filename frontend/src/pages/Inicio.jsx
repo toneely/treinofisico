@@ -17,7 +17,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
-import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
+import AdBanner from "../components/ui/AdBanner";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -401,7 +401,7 @@ const Inicio = () => {
         </div>
       )}
 
-      {!isPremium && <AdBannerPlaceholder />}
+      <AdBanner isPremium={isPremium} />
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
         <Link
