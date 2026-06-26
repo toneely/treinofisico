@@ -45,11 +45,9 @@ const formatTime = (seconds) => {
 };
 
 const ensureExecutionData = (state, sessionId, targetSNum) => {
-  const nextExerciseTimes = { ...state.exerciseTimes };
   const nextExerciseLoads = { ...state.exerciseLoads };
   const nextExerciseReps = { ...state.exerciseReps };
 
-  const times = [...(nextExerciseTimes[sessionId] || [])];
   const loads = [...(nextExerciseLoads[sessionId] || [])];
   const repsArr = [...(nextExerciseReps[sessionId] || [])];
 
@@ -62,7 +60,6 @@ const ensureExecutionData = (state, sessionId, targetSNum) => {
 
   // Populate up to targetSNum (1-indexed, so up to targetSNum - 1 index)
   for (let i = 0; i < targetSNum; i++) {
-    if (times[i] === undefined || times[i] === null) times[i] = 0;
     if (loads[i] === undefined || loads[i] === null) {
       loads[i] = state.historyLoads[sessionId]?.[i] ?? cargaMeta;
     }
@@ -73,7 +70,6 @@ const ensureExecutionData = (state, sessionId, targetSNum) => {
 
   return {
     ...state,
-    exerciseTimes: { ...state.exerciseTimes, [sessionId]: times },
     exerciseLoads: { ...state.exerciseLoads, [sessionId]: loads },
     exerciseReps: { ...state.exerciseReps, [sessionId]: repsArr }
   };
