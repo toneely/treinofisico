@@ -662,7 +662,19 @@ function trainingReducer(state, action) {
       let nextState = { ...state };
 
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
+        // 1. Update the summary state (top input)
         nextState = { ...nextState, [mapKey]: { ...nextState[mapKey], [sessionId]: val } };
+
+        // 2. Mirror to the active series in performance arrays (grid)
+        const activeSIdx = (state.activeSeriesMap[sessionId] || 1) - 1;
+        const mirrorGridMap = { currentCarga: "exerciseLoads", currentReps: "exerciseReps" };
+        const gridKey = mirrorGridMap[fieldType];
+
+        if (gridKey) {
+          const perfArr = [...(state[gridKey][sessionId] || [])];
+          perfArr[activeSIdx] = val;
+          nextState = { ...nextState, [gridKey]: { ...nextState[gridKey], [sessionId]: perfArr } };
+        }
       } else {
         const nextMapValue = { ...state[mapKey] };
         const newArr = [...(nextMapValue[sessionId] || [])];
@@ -676,6 +688,16 @@ function trainingReducer(state, action) {
             newArr[sessionIdx] = mins * 60 + (parseInt(val) || 0);
         } else {
           newArr[sessionIdx] = val;
+
+          // 1. Mirror back to summary inputs if editing the active series in the grid
+          const activeSIdx = (state.activeSeriesMap[sessionId] || 1) - 1;
+          if (sessionIdx === activeSIdx) {
+            const mirrorSummaryMap = { load: "cargas", reps: "repsFeitas" };
+            const summaryKey = mirrorSummaryMap[fieldType];
+            if (summaryKey) {
+              nextState = { ...nextState, [summaryKey]: { ...nextState[summaryKey], [sessionId]: val } };
+            }
+          }
         }
 
         nextMapValue[sessionId] = newArr;
@@ -2296,11 +2318,9 @@ const Training = () => {
                                     color:
                                       (isCurrentS && isCurrent) || (isNextPending && isGuided)
                                         ? getContrastColor(safeThemeColor)
-                                        : isManual
-                                          ? "#E5E7EB"
-                                          : isCurrent
-                                            ? textOnActive
-                                            : safeThemeColor,
+                                        : isCurrent
+                                          ? textOnActive
+                                          : safeThemeColor,
                                     opacity: isManual || isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
