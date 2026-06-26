@@ -2296,12 +2296,12 @@ const Training = () => {
                                     color:
                                       (isCurrentS && isCurrent) || (isNextPending && isGuided)
                                         ? getContrastColor(safeThemeColor)
-                                        : isCurrent
-                                          ? textOnActive
-                                          : isManual
-                                            ? "#9CA3AF"
+                                        : isManual
+                                          ? "#E5E7EB"
+                                          : isCurrent
+                                            ? textOnActive
                                             : safeThemeColor,
-                                    opacity: isCurrentS || isNextPending ? 1 : 0.9,
+                                    opacity: isManual || isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
                                   {sNum}
