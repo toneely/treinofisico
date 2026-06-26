@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-const AdBanner = ({ isPremium }) => {
+const AdBanner = ({ isPremium, variant = 'fixed' }) => {
   if (isPremium) return null;
 
   useEffect(() => {
@@ -18,10 +18,14 @@ const AdBanner = ({ isPremium }) => {
     }
   }, []);
 
+  const containerClasses = variant === 'fixed'
+    ? "fixed bottom-[72px] left-0 right-0 z-40 px-6 max-w-md mx-auto pointer-events-none"
+    : "w-full flex justify-center items-center py-4";
+
   return (
-    <div className="fixed bottom-[72px] left-0 right-0 z-40 px-6 max-w-md mx-auto pointer-events-none">
+    <div className={containerClasses}>
       <div
-        className="w-full flex justify-center items-center bg-transparent my-2 pointer-events-auto"
+        className={`w-full flex justify-center items-center bg-transparent ${variant === 'fixed' ? 'pointer-events-auto' : ''}`}
         style={{ minHeight: '60px' }}
       >
         <ins className="adsbygoogle"

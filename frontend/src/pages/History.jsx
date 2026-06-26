@@ -523,7 +523,7 @@ const History = () => {
   return (
     <div
       className="p-6 max-w-md mx-auto"
-      style={{ paddingBottom: isPremium ? "96px" : "164px" }}
+      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       <header className="mb-6 flex justify-between items-center">
         <Link
