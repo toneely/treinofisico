@@ -2283,16 +2283,13 @@ const Training = () => {
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: (isCurrentS && isCurrent) || (isNextPending && isGuided)
-                                      ? safeThemeColor
-                                      : isCurrent
-                                        ? (textOnActive === "#FFFFFF" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)")
-                                        : "rgba(255, 255, 255, 0.08)",
-                                    color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
-                                      ? getContrastColor(safeThemeColor)
-                                      : (isCurrent)
-                                        ? textOnActive
-                                        : "rgba(255, 255, 255, 0.7)",
+                                    backgroundColor: isGuided
+                                      ? (isCurrentS || isNextPending ? safeThemeColor : (isCurrent ? (textOnActive === "#FFFFFF" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)") : `${safeThemeColor}30`))
+                                      : safeThemeColor,
+                                    color: isGuided
+                                      ? (isCurrentS || isNextPending ? getContrastColor(safeThemeColor) : (isCurrent ? textOnActive : safeThemeColor))
+                                      : (isCurrentS ? getContrastColor(safeThemeColor) : "#9CA3AF"),
+                                    filter: (!isGuided && !isCurrentS) ? "brightness(0.4)" : "none",
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
