@@ -2289,7 +2289,7 @@ const Training = () => {
                                     color: isGuided
                                       ? (isCurrentS || isNextPending ? getContrastColor(safeThemeColor) : (isCurrent ? textOnActive : safeThemeColor))
                                       : (isCurrentS ? getContrastColor(safeThemeColor) : "#9CA3AF"),
-                                    filter: (!isGuided && !isCurrentS) ? "brightness(0.4)" : "none",
+                                    filter: (!isGuided && !isCurrentS) ? "brightness(0.1)" : "none",
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
