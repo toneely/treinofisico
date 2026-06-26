@@ -45,11 +45,9 @@ const formatTime = (seconds) => {
 };
 
 const ensureExecutionData = (state, sessionId, targetSNum) => {
-  const nextExerciseTimes = { ...state.exerciseTimes };
   const nextExerciseLoads = { ...state.exerciseLoads };
   const nextExerciseReps = { ...state.exerciseReps };
 
-  const times = [...(nextExerciseTimes[sessionId] || [])];
   const loads = [...(nextExerciseLoads[sessionId] || [])];
   const repsArr = [...(nextExerciseReps[sessionId] || [])];
 
@@ -62,7 +60,6 @@ const ensureExecutionData = (state, sessionId, targetSNum) => {
 
   // Populate up to targetSNum (1-indexed, so up to targetSNum - 1 index)
   for (let i = 0; i < targetSNum; i++) {
-    if (times[i] === undefined || times[i] === null) times[i] = 0;
     if (loads[i] === undefined || loads[i] === null) {
       loads[i] = state.historyLoads[sessionId]?.[i] ?? cargaMeta;
     }
@@ -73,7 +70,6 @@ const ensureExecutionData = (state, sessionId, targetSNum) => {
 
   return {
     ...state,
-    exerciseTimes: { ...state.exerciseTimes, [sessionId]: times },
     exerciseLoads: { ...state.exerciseLoads, [sessionId]: loads },
     exerciseReps: { ...state.exerciseReps, [sessionId]: repsArr }
   };
@@ -666,7 +662,19 @@ function trainingReducer(state, action) {
       let nextState = { ...state };
 
       if (fieldType === "currentCarga" || fieldType === "currentReps") {
+        // 1. Update the summary state (top input)
         nextState = { ...nextState, [mapKey]: { ...nextState[mapKey], [sessionId]: val } };
+
+        // 2. Mirror to the active series in performance arrays (grid)
+        const activeSIdx = (state.activeSeriesMap[sessionId] || 1) - 1;
+        const mirrorGridMap = { currentCarga: "exerciseLoads", currentReps: "exerciseReps" };
+        const gridKey = mirrorGridMap[fieldType];
+
+        if (gridKey) {
+          const perfArr = [...(state[gridKey][sessionId] || [])];
+          perfArr[activeSIdx] = val;
+          nextState = { ...nextState, [gridKey]: { ...nextState[gridKey], [sessionId]: perfArr } };
+        }
       } else {
         const nextMapValue = { ...state[mapKey] };
         const newArr = [...(nextMapValue[sessionId] || [])];
@@ -680,6 +688,16 @@ function trainingReducer(state, action) {
             newArr[sessionIdx] = mins * 60 + (parseInt(val) || 0);
         } else {
           newArr[sessionIdx] = val;
+
+          // 1. Mirror back to summary inputs if editing the active series in the grid
+          const activeSIdx = (state.activeSeriesMap[sessionId] || 1) - 1;
+          if (sessionIdx === activeSIdx) {
+            const mirrorSummaryMap = { load: "cargas", reps: "repsFeitas" };
+            const summaryKey = mirrorSummaryMap[fieldType];
+            if (summaryKey) {
+              nextState = { ...nextState, [summaryKey]: { ...nextState[summaryKey], [sessionId]: val } };
+            }
+          }
         }
 
         nextMapValue[sessionId] = newArr;
@@ -1824,7 +1842,7 @@ const Training = () => {
                     const baseThemeColor = eIdx % 2 === 0 ? settings.color_ex_a : settings.color_ex_b;
                     const safeThemeColor = getSafeColor(baseThemeColor, settings.bg_treino);
                     const activeColor = eIdx % 2 === 0 ? "var(--color-primary)" : "var(--color-secondary)";
-                    const textOnActive = eIdx % 2 === 0 ? "var(--text-on-primary)" : "var(--text-on-secondary)";
+                    const textOnActive = getContrastColor(safeThemeColor);
                     const isStarted = doneCount > 0;
                     const isAbandoned = bIdx < state.currentBlockIndex && !isDone;
                     const isManual = state.trainingMode === "manual";
@@ -2287,15 +2305,23 @@ const Training = () => {
                                   }}
                                   className={`font-black text-[9px] uppercase mb-2 px-2 py-1 rounded-md transition-all`}
                                   style={{
-                                    backgroundColor: (isNextPending && isGuided) || (isCurrentS && isCurrent)
-                                      ? safeThemeColor
-                                      : `${safeThemeColor}30`,
-                                    color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
-                                      ? getContrastColor(safeThemeColor)
-                                      : (isNextPending && isCurrent)
-                                        ? "white"
-                                        : safeThemeColor,
-                                    opacity: isCurrentS || isNextPending ? 1 : 0.9,
+                                    backgroundColor:
+                                      (isCurrentS && isCurrent) || (isNextPending && isGuided)
+                                        ? safeThemeColor
+                                        : isCurrent
+                                          ? textOnActive === "#FFFFFF"
+                                            ? "rgba(255, 255, 255, 0.1)"
+                                            : "rgba(0, 0, 0, 0.1)"
+                                          : isManual
+                                            ? `color-mix(in srgb, ${safeThemeColor} 15%, black)`
+                                            : `${safeThemeColor}30`,
+                                    color:
+                                      (isCurrentS && isCurrent) || (isNextPending && isGuided)
+                                        ? getContrastColor(safeThemeColor)
+                                        : isCurrent
+                                          ? textOnActive
+                                          : safeThemeColor,
+                                    opacity: isManual || isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
                                   {sNum}
