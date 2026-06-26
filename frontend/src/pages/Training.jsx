@@ -2287,12 +2287,12 @@ const Training = () => {
                                       ? safeThemeColor
                                       : isCurrent
                                         ? (textOnActive === "#FFFFFF" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)")
-                                        : `${safeThemeColor}30`,
+                                        : "rgba(255, 255, 255, 0.08)",
                                     color: (isCurrentS && isCurrent) || (isNextPending && isGuided)
                                       ? getContrastColor(safeThemeColor)
                                       : (isCurrent)
                                         ? textOnActive
-                                        : safeThemeColor,
+                                        : "rgba(255, 255, 255, 0.7)",
                                     opacity: isCurrentS || isNextPending ? 1 : 0.9,
                                   }}
                                 >
