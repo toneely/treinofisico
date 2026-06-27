@@ -197,8 +197,9 @@ function trainingReducer(state, action) {
     }
 
     case "STOP_SERIES": {
-      const { sessionId, currentInputLoad, currentInputReps } =
+      const { sessionId, currentInputLoad, currentInputReps, nomeEx, seriesAlvo } =
         action.payload;
+      const isLastSerie = state.currentSerie >= seriesAlvo;
       const currentDone = state.exerciseTimes[sessionId]?.length || 0;
 
       const nextExerciseLoads = { ...state.exerciseLoads };
@@ -211,48 +212,40 @@ function trainingReducer(state, action) {
       reps[currentDone] = currentInputReps;
       nextExerciseReps[sessionId] = reps;
 
+      const nextDoneCount = (state.exerciseTimes[sessionId]?.length || 0) + 1;
       const nextExerciseTimes = {
         ...state.exerciseTimes,
         [sessionId]: [...(state.exerciseTimes[sessionId] || []), state.timer],
       };
 
+      const nextActiveRestTimers = { ...state.activeRestTimers };
+      if (!isLastSerie) {
+        nextActiveRestTimers[String(sessionId)] = {
+          startedAt: Date.now(),
+          seconds: 0,
+          title: `Descanso ${state.currentSerie}-${seriesAlvo}`,
+          nome: nomeEx,
+        };
+      }
+
       let nextState = {
         ...state,
         isTimerActive: false,
         timerStartedAt: null,
-        status: "IDLE",
+        status: "RESTING",
         exerciseLoads: nextExerciseLoads,
         exerciseReps: nextExerciseReps,
         exerciseTimes: nextExerciseTimes,
+        activeRestTimers: nextActiveRestTimers,
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextDoneCount + 1 },
       };
-      return nextState;
+      // Auto-populate for the next focused series
+      return ensureExecutionData(nextState, sessionId, nextDoneCount + 1);
     }
 
     case "ADVANCE_STEP": {
       const { currentBlock: cBlock } = action.payload;
       if (!cBlock || cBlock.length === 0) return state;
-
-      const completedEx = cBlock[state.currentExerciseInBlock];
-      const completedSessionId = completedEx.sessionId;
-      const currentDone = state.exerciseTimes[completedSessionId]?.length || 0;
-      const isLastSerieOfEx = currentDone >= completedEx.series_alvo;
-
-      // Atomic Update: 1. Increment active series map for the completed exercise
-      const nextActiveSeriesMap = {
-        ...state.activeSeriesMap,
-        [completedSessionId]: currentDone + 1
-      };
-
-      // Atomic Update: 2. Start rest timer if needed
-      const nextActiveRestTimers = { ...state.activeRestTimers };
-      if (!isLastSerieOfEx) {
-        nextActiveRestTimers[String(completedSessionId)] = {
-          startedAt: Date.now(),
-          seconds: 0,
-          title: `Descanso ${currentDone}-${completedEx.series_alvo}`,
-          nome: completedEx.exercicios.nome,
-        };
-      }
 
       let blockFinished;
 
@@ -274,20 +267,10 @@ function trainingReducer(state, action) {
 
       if (blockFinished) {
         const isLastBlock = state.currentBlockIndex === state.blocos.length - 1;
-        if (isLastBlock) return {
-          ...state,
-          status: "COMPLETED",
-          activeSeriesMap: nextActiveSeriesMap,
-          activeRestTimers: nextActiveRestTimers
-        };
+        if (isLastBlock) return { ...state, status: "COMPLETED" };
 
         const nextBlock = state.blocos[state.currentBlockIndex + 1];
-        if (!nextBlock || nextBlock.length === 0) return {
-          ...state,
-          status: "COMPLETED",
-          activeSeriesMap: nextActiveSeriesMap,
-          activeRestTimers: nextActiveRestTimers
-        };
+        if (!nextBlock || nextBlock.length === 0) return { ...state, status: "COMPLETED" };
 
         const firstEx = nextBlock[0];
         const nextSNum = (state.exerciseTimes[firstEx.sessionId]?.length || 0) + 1;
@@ -296,10 +279,9 @@ function trainingReducer(state, action) {
           currentBlockIndex: state.currentBlockIndex + 1,
           currentExerciseInBlock: 0,
           currentSerie: nextSNum,
-          activeSeriesMap: { ...nextActiveSeriesMap, [firstEx.sessionId]: nextSNum },
-          activeRestTimers: nextActiveRestTimers,
+          activeSeriesMap: { ...state.activeSeriesMap, [firstEx.sessionId]: nextSNum },
           timer: 0,
-          status: "RESTING",
+          status: "IDLE",
           skippedExercises: state.skippedExercises.filter(s => s.sessionId !== firstEx.sessionId)
         };
         return ensureExecutionData(nextState, firstEx.sessionId, nextSNum);
@@ -320,10 +302,9 @@ function trainingReducer(state, action) {
               ...state,
               currentExerciseInBlock: nextExIdx,
               currentSerie: doneCount + 1,
-              activeSeriesMap: { ...nextActiveSeriesMap, [candidate.sessionId]: doneCount + 1 },
-              activeRestTimers: nextActiveRestTimers,
+              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: doneCount + 1 },
               timer: 0,
-              status: "RESTING",
+              status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
             return ensureExecutionData(nextState, candidate.sessionId, doneCount + 1);
@@ -337,10 +318,9 @@ function trainingReducer(state, action) {
       let nextState = {
         ...state,
         currentSerie: state.currentSerie + 1,
-        activeSeriesMap: { ...nextActiveSeriesMap, [currentExId]: state.currentSerie + 1 },
-        activeRestTimers: nextActiveRestTimers,
+        activeSeriesMap: { ...state.activeSeriesMap, [currentExId]: state.currentSerie + 1 },
         timer: 0,
-        status: "RESTING",
+        status: "IDLE",
         skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
       };
       return ensureExecutionData(nextState, currentExId, state.currentSerie + 1);
