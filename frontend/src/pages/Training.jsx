@@ -1349,6 +1349,32 @@ const Training = () => {
     setSavingSession(true);
     const historyData = [];
     const workoutTimestamp = new Date().toISOString();
+    let displayLetra = letra;
+
+    if (letra === "LIVRE") {
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from("usuarios")
+          .select("contador_treino_livre")
+          .eq("id", authUser.id)
+          .single();
+
+        if (userError) throw userError;
+
+        const novoContador = (userData.contador_treino_livre || 0) + 1;
+
+        const { error: updateError } = await supabase
+          .from("usuarios")
+          .update({ contador_treino_livre: novoContador })
+          .eq("id", authUser.id);
+
+        if (updateError) throw updateError;
+
+        displayLetra = `Livre ${novoContador}`;
+      } catch (err) {
+        console.error("Erro ao atualizar contador de treino livre:", err);
+      }
+    }
 
     state.originalBlocos.forEach((block) => {
       block.forEach((ex) => {
@@ -1376,7 +1402,7 @@ const Training = () => {
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
-            letra_treino: letra,
+            letra_treino: displayLetra,
             data_treino: workoutTimestamp,
           });
         }

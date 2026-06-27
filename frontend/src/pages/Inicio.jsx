@@ -120,6 +120,8 @@ const Inicio = () => {
       .from("treinos")
       .select("*")
       .eq("user_id", authUser.id)
+      .not("nome", "ilike", "Livre%")
+      .not("letra", "ilike", "Livre%")
       .order("ordem_exibicao", { ascending: true })
       .order("letra", { ascending: true });
 

@@ -19,6 +19,7 @@ const AdBanner = ({ isPremium, variant = 'fixed' }) => {
           overlays: { bottom: true }
         });
       }
+      // Individual ad unit initialization
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch (error) {
       console.error("AdSense error:", error);
