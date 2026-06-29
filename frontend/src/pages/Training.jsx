@@ -227,7 +227,9 @@ function trainingReducer(state, action) {
         };
       }
 
-      const nextSNum = state.currentSerie + 1;
+      // Rule 1: Visual focus (currentSerie) stays on the completed series for editing.
+      // We only update the data. Advancement happens in ADVANCE_STEP (Rule 2).
+      const currentSNum = state.currentSerie;
 
       let nextState = {
         ...state,
@@ -238,11 +240,9 @@ function trainingReducer(state, action) {
         exerciseReps: nextExerciseReps,
         exerciseTimes: nextExerciseTimes,
         activeRestTimers: nextActiveRestTimers,
-        currentSerie: nextSNum,
-        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextSNum },
+        // currentSerie and activeSeriesMap remain at currentSNum
       };
-      // Auto-populate for the next focused series
-      return ensureExecutionData(nextState, sessionId, nextSNum);
+      return nextState;
     }
 
     case "ADVANCE_STEP": {
@@ -289,41 +289,51 @@ function trainingReducer(state, action) {
         return ensureExecutionData(nextState, firstEx.sessionId, nextSNum);
       }
 
-      // Conjugated/Circuit Flow (A->B->C->A)
+      // Conjugated/Circuit Flow (A->B->C->A) - Rule 3
       if (state.executionMode === "alternated" && cBlock.length > 1) {
+        const totalBlockSeries = cBlock.reduce((acc, ex) => acc + ex.series_alvo, 0);
+        const totalDoneSeries = cBlock.reduce((acc, ex) => acc + (state.exerciseTimes[ex.sessionId]?.length || 0), 0);
+
+        // Find next exercise in the circuit
         let nextExIdx = (state.currentExerciseInBlock + 1) % cBlock.length;
 
-        // Find next exercise in the circuit that still has pending series
         for (let i = 0; i < cBlock.length; i++) {
           const candidate = cBlock[nextExIdx];
           if (!candidate) break;
 
           const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
+
+          // Rule 3: Move to next exercise, possibly keeping same series index
           if (doneCount < candidate.series_alvo) {
+            const nextSNumForCandidate = doneCount + 1;
             let nextState = {
               ...state,
               currentExerciseInBlock: nextExIdx,
-              currentSerie: doneCount + 1,
-              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: doneCount + 1 },
+              currentSerie: nextSNumForCandidate,
+              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: nextSNumForCandidate },
               timer: 0,
               status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
-            return ensureExecutionData(nextState, candidate.sessionId, doneCount + 1);
+            return ensureExecutionData(nextState, candidate.sessionId, nextSNumForCandidate);
           }
           nextExIdx = (nextExIdx + 1) % cBlock.length;
         }
       }
 
-      // Single Exercise Flow
-      // Focus already advanced in STOP_SERIES for the current exercise.
-      // ADVANCE_STEP here just needs to ensure state is clean and status is IDLE.
+      // Single Exercise Flow (Rule 2)
+      // Focus advancement now happens here instead of STOP_SERIES.
+      const currentEx = cBlock[state.currentExerciseInBlock];
+      const nextSNum = state.currentSerie + 1;
+
       let nextState = {
         ...state,
+        currentSerie: nextSNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [currentEx.sessionId]: nextSNum },
         timer: 0,
         status: "IDLE",
       };
-      return nextState;
+      return ensureExecutionData(nextState, currentEx.sessionId, nextSNum);
     }
 
     case "SKIP_EXERCISE": {

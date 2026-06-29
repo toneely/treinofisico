@@ -28,10 +28,10 @@ const AdBanner = ({ isPremium, variant = 'fixed' }) => {
 
   const containerClasses = variant === 'fixed'
     ? "fixed bottom-[72px] left-0 right-0 z-40 px-6 max-w-md mx-auto pointer-events-none"
-    : "w-full flex justify-center items-center py-4";
+    : "w-full flex justify-center items-center bg-transparent my-2";
 
   return (
-    <div className={containerClasses}>
+    <div className={containerClasses} style={variant === 'fixed' ? { zIndex: 40 } : {}}>
       <div
         className={`w-full flex justify-center items-center bg-transparent ${variant === 'fixed' ? 'pointer-events-auto' : ''}`}
         style={{ minHeight: '60px' }}
