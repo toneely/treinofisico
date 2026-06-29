@@ -200,23 +200,22 @@ function trainingReducer(state, action) {
       const { sessionId, currentInputLoad, currentInputReps, nomeEx, seriesAlvo } =
         action.payload;
       const isLastSerie = state.currentSerie >= seriesAlvo;
-      const currentDone = state.exerciseTimes[sessionId]?.length || 0;
+      const targetIdx = state.currentSerie - 1;
 
       const nextExerciseLoads = { ...state.exerciseLoads };
       const loads = [...(nextExerciseLoads[sessionId] || [])];
-      loads[currentDone] = currentInputLoad;
+      loads[targetIdx] = currentInputLoad;
       nextExerciseLoads[sessionId] = loads;
 
       const nextExerciseReps = { ...state.exerciseReps };
       const reps = [...(nextExerciseReps[sessionId] || [])];
-      reps[currentDone] = currentInputReps;
+      reps[targetIdx] = currentInputReps;
       nextExerciseReps[sessionId] = reps;
 
-      const nextDoneCount = (state.exerciseTimes[sessionId]?.length || 0) + 1;
-      const nextExerciseTimes = {
-        ...state.exerciseTimes,
-        [sessionId]: [...(state.exerciseTimes[sessionId] || []), state.timer],
-      };
+      const nextExerciseTimes = { ...state.exerciseTimes };
+      const times = [...(nextExerciseTimes[sessionId] || [])];
+      times[targetIdx] = state.timer;
+      nextExerciseTimes[sessionId] = times;
 
       const nextActiveRestTimers = { ...state.activeRestTimers };
       if (!isLastSerie) {
@@ -228,6 +227,8 @@ function trainingReducer(state, action) {
         };
       }
 
+      const nextSNum = state.currentSerie + 1;
+
       let nextState = {
         ...state,
         isTimerActive: false,
@@ -237,10 +238,11 @@ function trainingReducer(state, action) {
         exerciseReps: nextExerciseReps,
         exerciseTimes: nextExerciseTimes,
         activeRestTimers: nextActiveRestTimers,
-        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextDoneCount + 1 },
+        currentSerie: nextSNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextSNum },
       };
       // Auto-populate for the next focused series
-      return ensureExecutionData(nextState, sessionId, nextDoneCount + 1);
+      return ensureExecutionData(nextState, sessionId, nextSNum);
     }
 
     case "ADVANCE_STEP": {
@@ -314,16 +316,14 @@ function trainingReducer(state, action) {
       }
 
       // Single Exercise Flow
-      const currentExId = state.blocos[state.currentBlockIndex][state.currentExerciseInBlock].sessionId;
+      // Focus already advanced in STOP_SERIES for the current exercise.
+      // ADVANCE_STEP here just needs to ensure state is clean and status is IDLE.
       let nextState = {
         ...state,
-        currentSerie: state.currentSerie + 1,
-        activeSeriesMap: { ...state.activeSeriesMap, [currentExId]: state.currentSerie + 1 },
         timer: 0,
         status: "IDLE",
-        skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
       };
-      return ensureExecutionData(nextState, currentExId, state.currentSerie + 1);
+      return nextState;
     }
 
     case "SKIP_EXERCISE": {
@@ -582,10 +582,10 @@ function trainingReducer(state, action) {
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
 
-      // Rule 1: Retrocession (Reset Posterior series)
-      // When explicitly tapping an earlier series, remove data for all series after it.
+      // Rule 1: Retrocession (Reset current and Posterior series)
+      // When explicitly tapping an earlier series, remove data for it and all series after it.
       if (sNum !== null && sNum < currentPersistedSNum) {
-        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum);
+        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum - 1);
       }
 
       // Rule 2: Preservation (No mutation on focus switch)
