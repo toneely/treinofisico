@@ -18,6 +18,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
+import LoadingScreen from "../components/LoadingScreen";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -213,12 +214,7 @@ const Inicio = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-slate-400">
-        Carregando painel...
-      </div>
-    );
+  if (loading) return <LoadingScreen message="Carregando painel..." />;
 
   const atividadeAlt = user?.atividade_alternativa || "Capoeira";
 
@@ -227,16 +223,22 @@ const Inicio = () => {
       className="p-6 max-w-md mx-auto"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
-      <header className="flex justify-between items-center mb-8 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden shrink-0">
-            <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
-              Olá, {user?.nome?.split(" ")[0]}
-            </h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
+      <header className="mb-8">
+        <div className="flex items-center gap-2.5 mb-6">
+          <img src="/logo-app.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <h2 className="text-xl font-black tracking-tight" style={{ color: "var(--text-on-gestao)" }}>
+            Treino Físico
+          </h2>
+        </div>
+
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
+                Olá, {user?.nome?.split(" ")[0]}
+              </h1>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
+            </div>
           </div>
         </div>
       </header>

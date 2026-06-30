@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import AdBanner from "../components/ui/AdBanner";
+import LoadingScreen from "../components/LoadingScreen";
 
 const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
@@ -297,8 +298,8 @@ const WorkoutTemplates = () => {
 
           {loading ? (
             <div className="py-20 text-center animate-pulse">
-              <RefreshCw className="mx-auto mb-2 text-zinc-700 animate-spin" />
-              <p className="text-[10px] font-bold text-zinc-600 uppercase">Carregando...</p>
+              <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-[10px] font-bold text-zinc-600 uppercase">Carregando treinos...</p>
             </div>
           ) : workouts.length === 0 ? (
             <div className="py-20 text-center opacity-20">

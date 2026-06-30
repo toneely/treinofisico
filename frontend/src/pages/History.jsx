@@ -23,6 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
+import LoadingScreen from "../components/LoadingScreen";
 
 const History = () => {
   const navigate = useNavigate();
@@ -34,7 +35,6 @@ const History = () => {
   const [extraActivities, setExtraActivities] = useState([]);
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
-  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
@@ -239,6 +239,7 @@ const History = () => {
     setCurrentDate(
       new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1),
     );
+
   const nextMonth = () =>
     setCurrentDate(
       new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
@@ -1300,6 +1301,8 @@ const History = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
+
+      {loading && <LoadingScreen message="Carregando histórico..." />}
 
       <AdInterstitial
         show={showInterstitial}
