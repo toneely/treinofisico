@@ -35,6 +35,7 @@ import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
 import ConfirmationModal from "../components/ConfirmationModal";
+import AdInterstitial from "../components/ui/AdInterstitial";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -1138,7 +1139,7 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
 
 const Training = () => {
   const { showToast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isPremium } = useAuth();
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
@@ -1153,6 +1154,7 @@ const Training = () => {
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [saveAsData, setSaveAsData] = useState({ letra: "", nome: "", subtitulo: "" });
+  const [showInterstitial, setShowInterstitial] = useState(false);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -1425,14 +1427,19 @@ const Training = () => {
     const { error } = await supabase
       .from("historico_cargas")
       .insert(historyData);
-    if (error) showToast("Erro ao salvar histórico: " + error.message, "error");
-    else {
+    if (error) {
+      showToast("Erro ao salvar histórico: " + error.message, "error");
+      setSavingSession(false);
+    } else {
       localStorage.removeItem("active_training_session");
       showToast("Treino concluído!", "success");
-      navigate("/inicio");
+      if (!isPremium) {
+        setShowInterstitial(true);
+      } else {
+        navigate("/inicio");
+      }
     }
-    setSavingSession(false);
-  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
+  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
@@ -2941,6 +2948,12 @@ const Training = () => {
       <ConfirmationModal
         {...confirmationModal}
         onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+      />
+
+      <AdInterstitial
+        show={showInterstitial}
+        onClose={() => navigate("/inicio")}
+        isPremium={isPremium}
       />
     </div>
   );
