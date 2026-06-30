@@ -35,6 +35,7 @@ import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import ConfirmationModal from "../components/ConfirmationModal";
 import AdInterstitial from "../components/ui/AdInterstitial";
+import Logo from "../components/ui/Logo";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -1732,13 +1733,14 @@ const Training = () => {
       }}
     >
       <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
             onClick={handleGoBack}
             className="p-2 bg-white/5 rounded-xl opacity-50 hover:opacity-100 transition"
           >
             <ChevronLeft />
           </button>
+          <Logo size="w-8 h-8" />
         </div>
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-2 mb-1">

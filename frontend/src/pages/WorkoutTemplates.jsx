@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import AdBanner from "../components/ui/AdBanner";
+import Logo from "../components/ui/Logo";
 
 const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
@@ -269,7 +270,7 @@ const WorkoutTemplates = () => {
           </button>
           <div>
             <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 text-white">
-              <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
+              <Logo size="w-8 h-8" />
               Gerenciar Treinos
             </h2>
             <p className="text-[10px] text-zinc-500 font-bold uppercase opacity-60">Templates & Ordem</p>

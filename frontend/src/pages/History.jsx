@@ -23,6 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
+import Logo from "../components/ui/Logo";
 
 const History = () => {
   const navigate = useNavigate();
@@ -553,14 +554,17 @@ const History = () => {
       className="p-6 max-w-md mx-auto"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
-      <header className="mb-6 flex justify-between items-center">
+      <header className="mb-6 flex justify-between items-center gap-3">
         <Link
           to="/inicio"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:opacity-70 transition"
         >
           <ChevronLeft size={20} />
         </Link>
-        <h1 className="text-2xl font-bold ">Histórico</h1>
+        <div className="flex items-center gap-2 flex-1">
+          <Logo size="w-8 h-8" />
+          <h1 className="text-2xl font-bold ">Histórico</h1>
+        </div>
         <button
           onClick={() => setShowExportModal(true)}
           className="p-2 rounded-xl shadow-lg transition-all active:scale-95"
