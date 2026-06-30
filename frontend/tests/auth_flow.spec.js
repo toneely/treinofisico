@@ -9,7 +9,7 @@ test('verify login page renders and toggles modes', async ({ page }) => {
 
   // Toggle to Sign Up
   await page.click('text=Não tem uma conta? Cadastre-se');
-  await expect(page.locator('button', { hasText: 'Criar Conta' })).toBeVisible();
+  await expect(page.locator('button', { hasText: /Criar Conta/i })).toBeVisible();
 
   await page.screenshot({ path: 'login_verification.png' });
 });

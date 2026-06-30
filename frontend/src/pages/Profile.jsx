@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
+import AdBanner from "../components/ui/AdBanner";
 import {
   ChevronLeft,
   User,
@@ -187,7 +187,7 @@ const Profile = () => {
   return (
     <div
       className="p-6 max-w-2xl mx-auto"
-      style={{ paddingBottom: isPremium ? "96px" : "164px" }}
+      style={{ paddingBottom: "80px" }}
     >
       <header className="mb-8 flex justify-between items-center">
         <Link
@@ -249,6 +249,8 @@ const Profile = () => {
           </Link>
         )}
       </section>
+
+      <AdBanner isPremium={isPremium} variant="inline" />
 
       <div className="space-y-6">
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
@@ -425,8 +427,6 @@ const Profile = () => {
           </form>
         </section>
       </div>
-
-      {!isPremium && <AdBannerPlaceholder />}
 
       {/* Avatar Upload Modal */}
       {showAvatarModal && (

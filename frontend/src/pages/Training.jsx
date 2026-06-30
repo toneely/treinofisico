@@ -35,6 +35,7 @@ import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
 import ConfirmationModal from "../components/ConfirmationModal";
+import AdInterstitial from "../components/ui/AdInterstitial";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -200,23 +201,22 @@ function trainingReducer(state, action) {
       const { sessionId, currentInputLoad, currentInputReps, nomeEx, seriesAlvo } =
         action.payload;
       const isLastSerie = state.currentSerie >= seriesAlvo;
-      const currentDone = state.exerciseTimes[sessionId]?.length || 0;
+      const targetIdx = state.currentSerie - 1;
 
       const nextExerciseLoads = { ...state.exerciseLoads };
       const loads = [...(nextExerciseLoads[sessionId] || [])];
-      loads[currentDone] = currentInputLoad;
+      loads[targetIdx] = currentInputLoad;
       nextExerciseLoads[sessionId] = loads;
 
       const nextExerciseReps = { ...state.exerciseReps };
       const reps = [...(nextExerciseReps[sessionId] || [])];
-      reps[currentDone] = currentInputReps;
+      reps[targetIdx] = currentInputReps;
       nextExerciseReps[sessionId] = reps;
 
-      const nextDoneCount = (state.exerciseTimes[sessionId]?.length || 0) + 1;
-      const nextExerciseTimes = {
-        ...state.exerciseTimes,
-        [sessionId]: [...(state.exerciseTimes[sessionId] || []), state.timer],
-      };
+      const nextExerciseTimes = { ...state.exerciseTimes };
+      const times = [...(nextExerciseTimes[sessionId] || [])];
+      times[targetIdx] = state.timer;
+      nextExerciseTimes[sessionId] = times;
 
       const nextActiveRestTimers = { ...state.activeRestTimers };
       if (!isLastSerie) {
@@ -228,6 +228,10 @@ function trainingReducer(state, action) {
         };
       }
 
+      // Rule 1: Visual focus (currentSerie) stays on the completed series for editing.
+      // We only update the data. Advancement happens in ADVANCE_STEP (Rule 2).
+      const currentSNum = state.currentSerie;
+
       let nextState = {
         ...state,
         isTimerActive: false,
@@ -237,10 +241,9 @@ function trainingReducer(state, action) {
         exerciseReps: nextExerciseReps,
         exerciseTimes: nextExerciseTimes,
         activeRestTimers: nextActiveRestTimers,
-        activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: nextDoneCount + 1 },
+        // currentSerie and activeSeriesMap remain at currentSNum
       };
-      // Auto-populate for the next focused series
-      return ensureExecutionData(nextState, sessionId, nextDoneCount + 1);
+      return nextState;
     }
 
     case "ADVANCE_STEP": {
@@ -287,43 +290,48 @@ function trainingReducer(state, action) {
         return ensureExecutionData(nextState, firstEx.sessionId, nextSNum);
       }
 
-      // Conjugated/Circuit Flow (A->B->C->A)
+      // Conjugated/Circuit Flow (A->B->C->A) - Rule 3
       if (state.executionMode === "alternated" && cBlock.length > 1) {
+        // Find next exercise in the circuit
         let nextExIdx = (state.currentExerciseInBlock + 1) % cBlock.length;
 
-        // Find next exercise in the circuit that still has pending series
         for (let i = 0; i < cBlock.length; i++) {
           const candidate = cBlock[nextExIdx];
           if (!candidate) break;
 
           const doneCount = state.exerciseTimes[candidate.sessionId]?.length || 0;
+
+          // Rule 3: Move to next exercise, possibly keeping same series index
           if (doneCount < candidate.series_alvo) {
+            const nextSNumForCandidate = doneCount + 1;
             let nextState = {
               ...state,
               currentExerciseInBlock: nextExIdx,
-              currentSerie: doneCount + 1,
-              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: doneCount + 1 },
+              currentSerie: nextSNumForCandidate,
+              activeSeriesMap: { ...state.activeSeriesMap, [candidate.sessionId]: nextSNumForCandidate },
               timer: 0,
               status: "IDLE",
               skippedExercises: state.skippedExercises.filter(s => s.sessionId !== candidate.sessionId)
             };
-            return ensureExecutionData(nextState, candidate.sessionId, doneCount + 1);
+            return ensureExecutionData(nextState, candidate.sessionId, nextSNumForCandidate);
           }
           nextExIdx = (nextExIdx + 1) % cBlock.length;
         }
       }
 
-      // Single Exercise Flow
-      const currentExId = state.blocos[state.currentBlockIndex][state.currentExerciseInBlock].sessionId;
+      // Single Exercise Flow (Rule 2)
+      // Focus advancement now happens here instead of STOP_SERIES.
+      const currentEx = cBlock[state.currentExerciseInBlock];
+      const nextSNum = state.currentSerie + 1;
+
       let nextState = {
         ...state,
-        currentSerie: state.currentSerie + 1,
-        activeSeriesMap: { ...state.activeSeriesMap, [currentExId]: state.currentSerie + 1 },
+        currentSerie: nextSNum,
+        activeSeriesMap: { ...state.activeSeriesMap, [currentEx.sessionId]: nextSNum },
         timer: 0,
         status: "IDLE",
-        skippedExercises: state.skippedExercises // already handled by START_SERIES if needed
       };
-      return ensureExecutionData(nextState, currentExId, state.currentSerie + 1);
+      return ensureExecutionData(nextState, currentEx.sessionId, nextSNum);
     }
 
     case "SKIP_EXERCISE": {
@@ -582,10 +590,10 @@ function trainingReducer(state, action) {
         skippedExercises: state.skippedExercises.filter(s => s.sessionId !== targetEx.sessionId)
       };
 
-      // Rule 1: Retrocession (Reset Posterior series)
-      // When explicitly tapping an earlier series, remove data for all series after it.
+      // Rule 1: Retrocession (Reset current and Posterior series)
+      // When explicitly tapping an earlier series, remove data for it and all series after it.
       if (sNum !== null && sNum < currentPersistedSNum) {
-        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum);
+        nextState = truncateExecutionData(nextState, targetEx.sessionId, sNum - 1);
       }
 
       // Rule 2: Preservation (No mutation on focus switch)
@@ -1131,7 +1139,7 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
 
 const Training = () => {
   const { showToast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isPremium } = useAuth();
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
@@ -1146,6 +1154,7 @@ const Training = () => {
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [saveAsData, setSaveAsData] = useState({ letra: "", nome: "", subtitulo: "" });
+  const [showInterstitial, setShowInterstitial] = useState(false);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -1349,6 +1358,32 @@ const Training = () => {
     setSavingSession(true);
     const historyData = [];
     const workoutTimestamp = new Date().toISOString();
+    let displayLetra = letra;
+
+    if (letra === "LIVRE") {
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from("usuarios")
+          .select("contador_treino_livre")
+          .eq("id", authUser.id)
+          .single();
+
+        if (userError) throw userError;
+
+        const novoContador = (userData.contador_treino_livre || 0) + 1;
+
+        const { error: updateError } = await supabase
+          .from("usuarios")
+          .update({ contador_treino_livre: novoContador })
+          .eq("id", authUser.id);
+
+        if (updateError) throw updateError;
+
+        displayLetra = `Livre ${novoContador}`;
+      } catch (err) {
+        console.error("Erro ao atualizar contador de treino livre:", err);
+      }
+    }
 
     state.originalBlocos.forEach((block) => {
       block.forEach((ex) => {
@@ -1376,7 +1411,7 @@ const Training = () => {
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
-            letra_treino: letra,
+            letra_treino: displayLetra,
             data_treino: workoutTimestamp,
           });
         }
@@ -1392,14 +1427,19 @@ const Training = () => {
     const { error } = await supabase
       .from("historico_cargas")
       .insert(historyData);
-    if (error) showToast("Erro ao salvar histórico: " + error.message, "error");
-    else {
+    if (error) {
+      showToast("Erro ao salvar histórico: " + error.message, "error");
+      setSavingSession(false);
+    } else {
       localStorage.removeItem("active_training_session");
       showToast("Treino concluído!", "success");
-      navigate("/inicio");
+      if (!isPremium) {
+        setShowInterstitial(true);
+      } else {
+        navigate("/inicio");
+      }
     }
-    setSavingSession(false);
-  }, [authUser.id, letra, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
+  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
@@ -2908,6 +2948,12 @@ const Training = () => {
       <ConfirmationModal
         {...confirmationModal}
         onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+      />
+
+      <AdInterstitial
+        show={showInterstitial}
+        onClose={() => navigate("/inicio")}
+        isPremium={isPremium}
       />
     </div>
   );

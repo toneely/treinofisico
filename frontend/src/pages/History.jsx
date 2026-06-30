@@ -17,13 +17,15 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { exportHistoryToPDF } from "../utils/pdfExport";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
-import AdBannerPlaceholder from "../components/ui/AdBannerPlaceholder";
+import AdBanner from "../components/ui/AdBanner";
+import AdInterstitial from "../components/ui/AdInterstitial";
 
 const History = () => {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, isPremium } = useAuth();
 
@@ -51,6 +53,7 @@ const History = () => {
   const [showAddForm, setShowAddForm] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [formData, setFormData] = useState({});
+  const [showInterstitial, setShowInterstitial] = useState(false);
 
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined) return "";
@@ -513,6 +516,9 @@ const History = () => {
       exportHistoryToPDF(userData, data);
       setShowExportModal(false);
       showToast("PDF gerado com sucesso!", "success");
+      if (!isPremium) {
+        setShowInterstitial(true);
+      }
     } catch (err) {
       showToast("Erro ao exportar PDF: " + err.message, "error");
     } finally {
@@ -523,7 +529,7 @@ const History = () => {
   return (
     <div
       className="p-6 max-w-md mx-auto"
-      style={{ paddingBottom: isPremium ? "96px" : "164px" }}
+      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       <header className="mb-6 flex justify-between items-center">
         <Link
@@ -1273,7 +1279,13 @@ const History = () => {
         </div>
       )}
 
-      {!isPremium && <AdBannerPlaceholder />}
+      <AdBanner isPremium={isPremium} />
+
+      <AdInterstitial
+        show={showInterstitial}
+        onClose={() => navigate("/inicio")}
+        isPremium={isPremium}
+      />
 
       {/* Footer Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
