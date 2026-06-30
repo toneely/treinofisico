@@ -18,6 +18,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
+import Logo from "../components/ui/Logo";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -229,9 +230,7 @@ const Inicio = () => {
     >
       <header className="flex justify-between items-center mb-8 gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden shrink-0">
-            <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
-          </div>
+          <Logo />
           <div>
             <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
               Olá, {user?.nome?.split(" ")[0]}

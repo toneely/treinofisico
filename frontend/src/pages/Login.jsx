@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 import { LogIn, Mail, Lock, Chrome, Loader2 } from "lucide-react";
+import Logo from "../components/ui/Logo";
 const Login = () => {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
@@ -52,14 +53,8 @@ const Login = () => {
         {" "}
         <div className="text-center mb-8">
           {" "}
-          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-100 overflow-hidden">
-            {" "}
-            <img
-              src="/logo-app.png"
-              alt="Logo"
-              className="w-full h-full object-cover"
-            />{" "}
-          </div>{" "}
+          <Logo size="w-20 h-20" className="mx-auto mb-4 rounded-3xl shadow-lg shadow-slate-100" />
+          {" "}
           <h1 className="text-2xl font-black ">Treino Físico</h1>{" "}
           <p className="text-slate-500 text-sm">
             Sua jornada para a excelência

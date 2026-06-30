@@ -21,6 +21,7 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
+import Logo from "../components/ui/Logo";
 
 const Profile = () => {
   const { user, signOut, isPremium } = useAuth();
@@ -188,14 +189,17 @@ const Profile = () => {
       className="p-6 max-w-2xl mx-auto"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
-      <header className="mb-8 flex justify-between items-center">
+      <header className="mb-8 flex justify-between items-center gap-3">
         <Link
           to="/inicio"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
         >
           <ChevronLeft size={20} />
         </Link>
-        <h1 className="text-2xl font-black ">Meu Perfil</h1>
+        <div className="flex items-center gap-2 flex-1">
+          <Logo size="w-8 h-8" />
+          <h1 className="text-2xl font-black ">Meu Perfil</h1>
+        </div>
         <button
           onClick={handleLogout}
           className="p-2 rounded-xl hover:opacity-70 transition text-slate-400"

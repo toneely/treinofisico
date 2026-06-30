@@ -13,6 +13,7 @@ import { supabase } from "../supabaseClient";
 import ExerciseManager from "../components/ExerciseManager";
 import BlockConfigurator from "../components/BlockConfigurator";
 import WorkoutManager from "../components/WorkoutManager";
+import Logo from "../components/ui/Logo";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("onboarding");
@@ -31,13 +32,16 @@ const Admin = () => {
       <header className="mb-8">
         <Link
           to="/inicio"
-          className="text-slate-500 flex items-center gap-1 mb-4 hover: transition w-fit"
+          className="text-slate-500 flex items-center gap-1 mb-6 hover: transition w-fit"
         >
           <ChevronLeft size={20} /> Voltar para Início
         </Link>
-        <h1 className="text-3xl font-bold  tracking-tight">
-          Painel Administrativo
-        </h1>
+        <div className="flex items-center gap-4 mb-2">
+          <Logo size="w-10 h-10" />
+          <h1 className="text-3xl font-bold  tracking-tight">
+            Painel Administrativo
+          </h1>
+        </div>
         <p className="text-slate-500">
           Gestão da plataforma e conteúdo padrão de onboarding.
         </p>
