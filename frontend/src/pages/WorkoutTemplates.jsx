@@ -1,24 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
-  X, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
+  ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
   LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import AdBanner from "../components/ui/AdBanner";
 
-const WorkoutTemplateManager = ({
-  isOpen,
-  onClose,
-  currentLetra,
-  hasActiveProgress = false,
-  hasUnsavedChanges = false,
-  onFinishCurrent,
-  onDiscardCurrent
-}) => {
-  const { user: authUser } = useAuth();
+const WorkoutTemplates = () => {
+  const { user: authUser, isPremium } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [workouts, setWorkouts] = useState([]);
@@ -33,15 +25,22 @@ const WorkoutTemplateManager = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [conflictConfig, setConflictModal] = useState({ isOpen: false, targetLetra: null, type: null });
 
-  const scrollRef = useRef(null);
+  // Session conflict states derived from localStorage
+  const [activeSession, setActiveSession] = useState(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchWorkouts();
+  const checkActiveSession = useCallback(() => {
+    const saved = localStorage.getItem("active_training_session");
+    if (saved) {
+      try {
+        setActiveSession(JSON.parse(saved));
+      } catch {
+        localStorage.removeItem("active_training_session");
+      }
     }
-  }, [isOpen]);
+  }, []);
 
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
+    if (!authUser) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("treinos")
@@ -53,10 +52,18 @@ const WorkoutTemplateManager = ({
     if (error) {
       showToast("Erro ao buscar treinos: " + error.message, "error");
     } else {
-      setWorkouts(data);
+      setWorkouts(data || []);
     }
     setLoading(false);
-  };
+  }, [authUser, showToast]);
+
+  useEffect(() => {
+    // Wrapped in setTimeout to avoid cascading render lint error
+    setTimeout(() => {
+      fetchWorkouts();
+      checkActiveSession();
+    }, 0);
+  }, [fetchWorkouts, checkActiveSession]);
 
   const resetForm = () => {
     setFormData({ letra: "", nome: "", subtitulo: "" });
@@ -109,8 +116,7 @@ const WorkoutTemplateManager = ({
       nome: workout.nome,
       subtitulo: workout.subtitulo || "",
     });
-    // Smooth scroll to top
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDuplicate = async (workout) => {
@@ -127,7 +133,7 @@ const WorkoutTemplateManager = ({
       }
       if (!newLetra) newLetra = workout.letra + "2";
 
-      const { data: newWorkout, error: wError } = await supabase
+      const { error: wError } = await supabase
         .from("treinos")
         .insert([{
           user_id: authUser.id,
@@ -135,9 +141,7 @@ const WorkoutTemplateManager = ({
           nome: `${workout.nome} (Cópia)`,
           subtitulo: workout.subtitulo,
           ordem_exibicao: workouts.length
-        }])
-        .select()
-        .single();
+        }]);
 
       if (wError) throw wError;
 
@@ -148,11 +152,15 @@ const WorkoutTemplateManager = ({
         .eq("user_id", authUser.id);
 
       if (blocks && blocks.length > 0) {
-        const newBlocks = blocks.map(({ id, created_at, ...rest }) => ({
-          ...rest,
-          letra_treino: newLetra,
-          user_id: authUser.id
-        }));
+        const newBlocks = blocks.map((block) => {
+          // eslint-disable-next-line no-unused-vars
+          const { id, created_at, ...rest } = block;
+          return {
+            ...rest,
+            letra_treino: newLetra,
+            user_id: authUser.id
+          };
+        });
         const { error: bError } = await supabase.from("blocos_treino").insert(newBlocks);
         if (bError) throw bError;
       }
@@ -203,13 +211,26 @@ const WorkoutTemplateManager = ({
         supabase.from("treinos").update({ ordem_exibicao: w.ordem_exibicao }).eq("id", w.id).eq("user_id", authUser.id)
       );
       await Promise.all(updates);
-    } catch (err) {
+    } catch {
       showToast("Erro ao salvar ordem", "error");
     }
   };
 
+  const startNewTraining = useCallback((letra) => {
+    if (activeSession && activeSession.letra === letra) {
+      showToast("Você já está neste treino.", "info");
+      navigate(`/treino/${letra}`);
+    } else {
+      localStorage.removeItem("active_training_session");
+      navigate(`/treino/${letra}`);
+    }
+  }, [activeSession, navigate, showToast]);
+
   const handlePlay = (letra) => {
-    if (hasActiveProgress) {
+    const hasProgress = activeSession && Object.values(activeSession.exerciseTimes || {}).some(times => times.length > 0);
+    const hasUnsavedChanges = activeSession && JSON.stringify(activeSession.blocos) !== JSON.stringify(activeSession.originalBlocos);
+
+    if (hasProgress) {
       setConflictModal({ isOpen: true, targetLetra: letra, type: 'active' });
     } else if (hasUnsavedChanges) {
       setConflictModal({ isOpen: true, targetLetra: letra, type: 'unsaved' });
@@ -218,26 +239,30 @@ const WorkoutTemplateManager = ({
     }
   };
 
-  const startNewTraining = (letra) => {
-    onClose();
-    if (letra === currentLetra) {
-      showToast("Você já está neste treino.", "info");
-    } else {
-      navigate(`/treino/${letra}`);
-    }
+  const finishCurrentAndStart = () => {
+    showToast("Por favor, finalize seu treino atual na tela de treino antes de iniciar um novo.", "info");
+    navigate(-1);
   };
 
-  if (!isOpen) return null;
+  const discardAndStart = (letra) => {
+    localStorage.removeItem("active_training_session");
+    navigate(`/treino/${letra}`);
+  };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-start justify-center animate-in fade-in duration-300">
-      <div
-        ref={scrollRef}
-        className="bg-zinc-950 w-full max-w-2xl h-[100dvh] flex flex-col overflow-y-auto shadow-2xl animate-in slide-in-from-top-10 duration-500 border-x border-white/5"
-      >
-
-        {/* Header */}
-        <div className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20">
+  return (
+    <div
+      className="min-h-screen bg-zinc-950 text-white flex flex-col"
+      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
+    >
+      {/* Header */}
+      <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 bg-white/5 rounded-xl text-zinc-400 hover:text-white transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
           <div>
             <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 text-white">
               <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
@@ -245,14 +270,10 @@ const WorkoutTemplateManager = ({
             </h2>
             <p className="text-[10px] text-zinc-500 font-bold uppercase opacity-60">Templates & Ordem</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/5 rounded-xl transition-colors"
-          >
-            <X size={20} className="text-zinc-500" />
-          </button>
         </div>
+      </header>
 
+      <main className="max-w-2xl mx-auto w-full flex-1">
         {/* Form Area */}
         <div className="p-6 border-b border-white/5 bg-zinc-900/30">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -312,7 +333,7 @@ const WorkoutTemplateManager = ({
         </div>
 
         {/* List Area */}
-        <div className="flex-1 p-6 space-y-3">
+        <div className="p-6 space-y-3">
           <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Biblioteca de Treinos</h3>
 
           {loading ? (
@@ -327,7 +348,7 @@ const WorkoutTemplateManager = ({
             </div>
           ) : (
             workouts.map((workout, idx) => {
-              const isCurrent = workout.letra === currentLetra;
+              const isCurrent = activeSession && workout.letra === activeSession.letra;
               return (
                 <div
                   key={workout.id}
@@ -396,7 +417,7 @@ const WorkoutTemplateManager = ({
             })
           )}
         </div>
-      </div>
+      </main>
 
       {/* Internal Modals */}
       {showDeleteConfirm && (
@@ -438,20 +459,20 @@ const WorkoutTemplateManager = ({
             </h2>
             <p className="text-zinc-500 text-center text-sm mb-8">
               {conflictConfig.type === 'active'
-                ? 'Você já tem uma sessão iniciada. Deseja salvar o progresso atual ou descartar antes de mudar?'
+                ? 'Você já tem uma sessão iniciada. Deseja finalizar o progresso atual ou descartar antes de mudar?'
                 : 'O treino atual possui alterações não salvas. Deseja descartar as edições e abrir o novo treino?'}
             </p>
             <div className="flex flex-col gap-2">
               {conflictConfig.type === 'active' ? (
                 <>
                   <button
-                    onClick={() => { onFinishCurrent(); startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                    onClick={() => { finishCurrentAndStart(); setConflictModal({ isOpen: false }); }}
                     className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all"
                   >
                     Finalizar e Abrir
                   </button>
                   <button
-                    onClick={() => { onDiscardCurrent(); startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                    onClick={() => { discardAndStart(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
                     className="w-full py-4 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 active:scale-95 transition-all"
                   >
                     Descartar e Abrir
@@ -459,7 +480,7 @@ const WorkoutTemplateManager = ({
                 </>
               ) : (
                 <button
-                  onClick={() => { startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                  onClick={() => { discardAndStart(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
                   className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-600 active:scale-95 transition-all"
                 >
                   Descartar Edições
@@ -475,9 +496,10 @@ const WorkoutTemplateManager = ({
           </div>
         </div>
       )}
-    </div>,
-    document.body
+
+      <AdBanner isPremium={isPremium} />
+    </div>
   );
 };
 
-export default WorkoutTemplateManager;
+export default WorkoutTemplates;

@@ -33,7 +33,6 @@ import { useAuth } from "../context/AuthContext";
 import { useAppearance } from "../context/AppearanceContext";
 import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
-import WorkoutTemplateManager from "../components/WorkoutTemplateManager";
 import ConfirmationModal from "../components/ConfirmationModal";
 import AdInterstitial from "../components/ui/AdInterstitial";
 
@@ -1158,7 +1157,6 @@ const Training = () => {
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
-  const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     onConfirm: () => {},
@@ -1804,7 +1802,7 @@ const Training = () => {
                 { label: 'Finalizar Treino', icon: <CheckCircle2 size={14} />, onClick: promptFinishWorkout },
                 { label: 'Descartar Treino', icon: <Trash2 size={14} />, onClick: handleDiscardTraining },
                 { label: 'Salvar como Novo', icon: <PlusCircle size={14} />, onClick: () => setShowSaveAsModal(true) },
-                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => setShowTemplateManager(true) },
+                { label: 'Gerenciar treinos', icon: <Layers size={14} />, onClick: () => navigate('/gerenciar-treinos') },
               ].filter(opt => !opt.hidden).map((opt, i) => (
                 <button
                   key={i}
@@ -2931,19 +2929,6 @@ const Training = () => {
         </div>,
         document.body
       )}
-
-      <WorkoutTemplateManager
-        isOpen={showTemplateManager}
-        onClose={() => setShowTemplateManager(false)}
-        currentLetra={letra}
-        hasActiveProgress={Object.values(state.exerciseTimes).some(times => times.length > 0)}
-        hasUnsavedChanges={JSON.stringify(state.blocos) !== JSON.stringify(state.originalBlocos)}
-        onFinishCurrent={finishWorkout}
-        onDiscardCurrent={() => {
-          localStorage.removeItem("active_training_session");
-          showToast("Treino anterior descartado.", "info");
-        }}
-      />
 
       <ConfirmationModal
         {...confirmationModal}
