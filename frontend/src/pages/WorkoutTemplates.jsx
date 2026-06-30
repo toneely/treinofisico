@@ -59,10 +59,11 @@ const WorkoutTemplates = () => {
 
   useEffect(() => {
     // Wrapped in setTimeout to avoid cascading render lint error
-    setTimeout(() => {
+    const t = setTimeout(() => {
       fetchWorkouts();
       checkActiveSession();
     }, 0);
+    return () => clearTimeout(t);
   }, [fetchWorkouts, checkActiveSession]);
 
   const resetForm = () => {
@@ -252,7 +253,6 @@ const WorkoutTemplates = () => {
   return (
     <div
       className="min-h-screen bg-zinc-950 text-white flex flex-col"
-      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       {/* Header */}
       <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full">
@@ -333,7 +333,10 @@ const WorkoutTemplates = () => {
         </div>
 
         {/* List Area */}
-        <div className="p-6 space-y-3">
+        <div
+          className="p-6 space-y-3"
+          style={{ paddingBottom: isPremium ? "20px" : "80px" }}
+        >
           <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Biblioteca de Treinos</h3>
 
           {loading ? (
@@ -497,7 +500,7 @@ const WorkoutTemplates = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremium} variant="fixed-bottom" />
     </div>
   );
 };
