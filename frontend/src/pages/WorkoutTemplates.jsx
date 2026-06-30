@@ -1,24 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
-  X, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
-  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle
+  ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
+  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import AdBanner from "../components/ui/AdBanner";
 
-const WorkoutTemplateManager = ({
-  isOpen,
-  onClose,
-  currentLetra,
-  hasActiveProgress = false,
-  hasUnsavedChanges = false,
-  onFinishCurrent,
-  onDiscardCurrent
-}) => {
-  const { user: authUser } = useAuth();
+const WorkoutTemplates = () => {
+  const { user: authUser, isPremium } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [workouts, setWorkouts] = useState([]);
@@ -31,17 +23,25 @@ const WorkoutTemplateManager = ({
     subtitulo: "",
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [conflictConfig, setConflictModal] = useState({ isOpen: false, targetLetra: null, type: null });
 
-  const scrollRef = useRef(null);
+  // Session conflict states derived from localStorage
+  const [activeSession, setActiveSession] = useState(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchWorkouts();
+  const checkActiveSession = useCallback(() => {
+    const saved = localStorage.getItem("active_training_session");
+    if (saved) {
+      try {
+        setActiveSession(JSON.parse(saved));
+      } catch {
+        localStorage.removeItem("active_training_session");
+      }
     }
-  }, [isOpen]);
+  }, []);
 
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
+    if (!authUser) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("treinos")
@@ -53,14 +53,24 @@ const WorkoutTemplateManager = ({
     if (error) {
       showToast("Erro ao buscar treinos: " + error.message, "error");
     } else {
-      setWorkouts(data);
+      setWorkouts(data || []);
     }
     setLoading(false);
-  };
+  }, [authUser, showToast]);
+
+  useEffect(() => {
+    // Wrapped in setTimeout to avoid cascading render lint error
+    const t = setTimeout(() => {
+      fetchWorkouts();
+      checkActiveSession();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [fetchWorkouts, checkActiveSession]);
 
   const resetForm = () => {
     setFormData({ letra: "", nome: "", subtitulo: "" });
     setIsEditing(null);
+    setIsFormModalOpen(false);
   };
 
   const handleSubmit = async (e) => {
@@ -95,8 +105,9 @@ const WorkoutTemplateManager = ({
       }
       resetForm();
       fetchWorkouts();
-    } catch (error) {
-      showToast("Erro: " + error.message, "error");
+      setIsFormModalOpen(false);
+    } catch (err) {
+      showToast("Erro: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -109,8 +120,7 @@ const WorkoutTemplateManager = ({
       nome: workout.nome,
       subtitulo: workout.subtitulo || "",
     });
-    // Smooth scroll to top
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsFormModalOpen(true);
   };
 
   const handleDuplicate = async (workout) => {
@@ -127,7 +137,7 @@ const WorkoutTemplateManager = ({
       }
       if (!newLetra) newLetra = workout.letra + "2";
 
-      const { data: newWorkout, error: wError } = await supabase
+      const { error: wError } = await supabase
         .from("treinos")
         .insert([{
           user_id: authUser.id,
@@ -135,9 +145,7 @@ const WorkoutTemplateManager = ({
           nome: `${workout.nome} (Cópia)`,
           subtitulo: workout.subtitulo,
           ordem_exibicao: workouts.length
-        }])
-        .select()
-        .single();
+        }]);
 
       if (wError) throw wError;
 
@@ -148,19 +156,24 @@ const WorkoutTemplateManager = ({
         .eq("user_id", authUser.id);
 
       if (blocks && blocks.length > 0) {
-        const newBlocks = blocks.map(({ id, created_at, ...rest }) => ({
-          ...rest,
-          letra_treino: newLetra,
-          user_id: authUser.id
-        }));
+        const newBlocks = blocks.map((block) => {
+          const rest = { ...block };
+          delete rest.id;
+          delete rest.created_at;
+          return {
+            ...rest,
+            letra_treino: newLetra,
+            user_id: authUser.id
+          };
+        });
         const { error: bError } = await supabase.from("blocos_treino").insert(newBlocks);
         if (bError) throw bError;
       }
 
       showToast(`Treino duplicado como ${newLetra}!`, "success");
       fetchWorkouts();
-    } catch (error) {
-      showToast("Erro ao duplicar: " + error.message, "error");
+    } catch (err) {
+      showToast("Erro ao duplicar: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -203,13 +216,26 @@ const WorkoutTemplateManager = ({
         supabase.from("treinos").update({ ordem_exibicao: w.ordem_exibicao }).eq("id", w.id).eq("user_id", authUser.id)
       );
       await Promise.all(updates);
-    } catch (err) {
+    } catch {
       showToast("Erro ao salvar ordem", "error");
     }
   };
 
+  const startNewTraining = useCallback((letra) => {
+    if (activeSession && activeSession.letra === letra) {
+      showToast("Você já está neste treino.", "info");
+      navigate(`/treino/${letra}`);
+    } else {
+      localStorage.removeItem("active_training_session");
+      navigate(`/treino/${letra}`);
+    }
+  }, [activeSession, navigate, showToast]);
+
   const handlePlay = (letra) => {
-    if (hasActiveProgress) {
+    const hasProgress = activeSession && Object.values(activeSession.exerciseTimes || {}).some(times => times.length > 0);
+    const hasUnsavedChanges = activeSession && JSON.stringify(activeSession.blocos) !== JSON.stringify(activeSession.originalBlocos);
+
+    if (hasProgress) {
       setConflictModal({ isOpen: true, targetLetra: letra, type: 'active' });
     } else if (hasUnsavedChanges) {
       setConflictModal({ isOpen: true, targetLetra: letra, type: 'unsaved' });
@@ -218,26 +244,29 @@ const WorkoutTemplateManager = ({
     }
   };
 
-  const startNewTraining = (letra) => {
-    onClose();
-    if (letra === currentLetra) {
-      showToast("Você já está neste treino.", "info");
-    } else {
-      navigate(`/treino/${letra}`);
-    }
+  const finishCurrentAndStart = () => {
+    showToast("Por favor, finalize seu treino atual na tela de treino antes de iniciar um novo.", "info");
+    navigate(-1);
   };
 
-  if (!isOpen) return null;
+  const discardAndStart = (letra) => {
+    localStorage.removeItem("active_training_session");
+    navigate(`/treino/${letra}`);
+  };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-start justify-center animate-in fade-in duration-300">
-      <div
-        ref={scrollRef}
-        className="bg-zinc-950 w-full max-w-2xl h-[100dvh] flex flex-col overflow-y-auto shadow-2xl animate-in slide-in-from-top-10 duration-500 border-x border-white/5"
-      >
-
-        {/* Header */}
-        <div className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20">
+  return (
+    <div
+      className="min-h-screen bg-zinc-950 text-white flex flex-col"
+    >
+      {/* Header */}
+      <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 bg-white/5 rounded-xl text-zinc-400 hover:text-white transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
           <div>
             <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 text-white">
               <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
@@ -245,75 +274,26 @@ const WorkoutTemplateManager = ({
             </h2>
             <p className="text-[10px] text-zinc-500 font-bold uppercase opacity-60">Templates & Ordem</p>
           </div>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto w-full flex-1">
+        <div className="p-6 pb-0">
           <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+            onClick={() => { resetForm(); setIsFormModalOpen(true); }}
+            className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
           >
-            <X size={20} className="text-zinc-500" />
+            <Plus size={18} />
+            Adicionar novo treino
           </button>
         </div>
 
-        {/* Form Area */}
-        <div className="p-6 border-b border-white/5 bg-zinc-900/30">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="col-span-1">
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Letra</label>
-                <input
-                  type="text"
-                  value={formData.letra}
-                  onChange={(e) => setFormData({ ...formData, letra: e.target.value.toUpperCase().slice(0, 2) })}
-                  placeholder="EX: A"
-                  required
-                  className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-                />
-              </div>
-              <div className="col-span-3">
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Nome do Treino</label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  placeholder="Nome do Treino"
-                  required
-                  className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Subtítulo / Descrição</label>
-              <input
-                type="text"
-                value={formData.subtitulo}
-                onChange={(e) => setFormData({ ...formData, subtitulo: e.target.value })}
-                placeholder="Ex: Foco em membros superiores"
-                className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
-                style={{ backgroundColor: "var(--color-primary)", color: "var(--text-on-primary)" }}
-              >
-                {isEditing ? <Check size={18} /> : <Plus size={18} />}
-                {isEditing ? "Atualizar" : "Salvar Template"}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-6 py-3.5 bg-white/5 text-zinc-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
-              >
-                Limpar
-              </button>
-            </div>
-          </form>
-        </div>
-
         {/* List Area */}
-        <div className="flex-1 p-6 space-y-3">
-          <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Biblioteca de Treinos</h3>
+        <div
+          className="p-6 space-y-3"
+          style={{ paddingBottom: isPremium ? "20px" : "80px" }}
+        >
+          <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Sua Biblioteca</h3>
 
           {loading ? (
             <div className="py-20 text-center animate-pulse">
@@ -327,7 +307,7 @@ const WorkoutTemplateManager = ({
             </div>
           ) : (
             workouts.map((workout, idx) => {
-              const isCurrent = workout.letra === currentLetra;
+              const isCurrent = activeSession && workout.letra === activeSession.letra;
               return (
                 <div
                   key={workout.id}
@@ -396,7 +376,7 @@ const WorkoutTemplateManager = ({
             })
           )}
         </div>
-      </div>
+      </main>
 
       {/* Internal Modals */}
       {showDeleteConfirm && (
@@ -405,9 +385,9 @@ const WorkoutTemplateManager = ({
             <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={32} />
             </div>
-            <h2 className="text-xl font-bold text-center text-white mb-2">Excluir Template?</h2>
+            <h2 className="text-xl font-bold text-center text-white mb-2">Excluir Treino?</h2>
             <p className="text-zinc-500 text-center text-sm mb-8">
-              Tem certeza que deseja apagar o template <strong>{showDeleteConfirm.letra}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja apagar o treino <strong>{showDeleteConfirm.letra}</strong>? Esta ação não pode ser desfeita.
             </p>
             <div className="flex flex-col gap-2">
               <button
@@ -427,6 +407,74 @@ const WorkoutTemplateManager = ({
         </div>
       )}
 
+      {isFormModalOpen && (
+        <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white uppercase tracking-tight">
+                {isEditing ? 'Editar Treino' : 'Novo Treino'}
+              </h2>
+              <button onClick={resetForm} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-1">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Letra</label>
+                  <input
+                    type="text"
+                    value={formData.letra}
+                    onChange={(e) => setFormData({ ...formData, letra: e.target.value.toUpperCase().slice(0, 2) })}
+                    placeholder="EX: A"
+                    required
+                    className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all uppercase"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Nome do Treino</label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Ex: Peito e Tríceps"
+                    required
+                    className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Subtítulo / Descrição</label>
+                <input
+                  type="text"
+                  value={formData.subtitulo}
+                  onChange={(e) => setFormData({ ...formData, subtitulo: e.target.value })}
+                  placeholder="Ex: Foco em hipertrofia"
+                  className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {isEditing ? <Check size={16} /> : <Plus size={16} />}
+                  {isEditing ? "Atualizar Dados" : "Criar Treino"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="w-full py-3 bg-white/5 text-zinc-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {conflictConfig.isOpen && (
         <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-zinc-950 border border-white/10 w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95">
@@ -438,20 +486,20 @@ const WorkoutTemplateManager = ({
             </h2>
             <p className="text-zinc-500 text-center text-sm mb-8">
               {conflictConfig.type === 'active'
-                ? 'Você já tem uma sessão iniciada. Deseja salvar o progresso atual ou descartar antes de mudar?'
+                ? 'Você já tem uma sessão iniciada. Deseja finalizar o progresso atual ou descartar antes de mudar?'
                 : 'O treino atual possui alterações não salvas. Deseja descartar as edições e abrir o novo treino?'}
             </p>
             <div className="flex flex-col gap-2">
               {conflictConfig.type === 'active' ? (
                 <>
                   <button
-                    onClick={() => { onFinishCurrent(); startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                    onClick={() => { finishCurrentAndStart(); setConflictModal({ isOpen: false }); }}
                     className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all"
                   >
                     Finalizar e Abrir
                   </button>
                   <button
-                    onClick={() => { onDiscardCurrent(); startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                    onClick={() => { discardAndStart(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
                     className="w-full py-4 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 active:scale-95 transition-all"
                   >
                     Descartar e Abrir
@@ -459,7 +507,7 @@ const WorkoutTemplateManager = ({
                 </>
               ) : (
                 <button
-                  onClick={() => { startNewTraining(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
+                  onClick={() => { discardAndStart(conflictConfig.targetLetra); setConflictModal({ isOpen: false }); }}
                   className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-600 active:scale-95 transition-all"
                 >
                   Descartar Edições
@@ -475,9 +523,10 @@ const WorkoutTemplateManager = ({
           </div>
         </div>
       )}
-    </div>,
-    document.body
+
+      {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
+    </div>
   );
 };
 
-export default WorkoutTemplateManager;
+export default WorkoutTemplates;

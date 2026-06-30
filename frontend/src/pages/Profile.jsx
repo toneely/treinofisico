@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -14,8 +14,9 @@ import {
   Loader2,
   Check,
   Image as ImageIcon,
-  Upload,
   Palette,
+  Dumbbell,
+  History as HistoryIcon,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
@@ -26,7 +27,6 @@ const Profile = () => {
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -47,14 +47,7 @@ const Profile = () => {
     confirmPassword: "",
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchUserData();
-    }
-  }, [user]);
-
-  const fetchUserData = async () => {
-    setLoading(true);
+  const fetchUserData = useCallback(async () => {
     const { data, error } = await supabase
       .from("usuarios")
       .select("*")
@@ -77,8 +70,14 @@ const Profile = () => {
         avatar_url: user.user_metadata?.avatar_url || null,
       }));
     }
-    setLoading(false);
-  };
+  }, [showToast, user]);
+
+  useEffect(() => {
+    if (user) {
+      const t = setTimeout(() => fetchUserData(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [user, fetchUserData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -177,17 +176,17 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-slate-400">
-        Carregando perfil...
-      </div>
-    );
+  // if (loading && !user)
+  //   return (
+  //     <div className="p-10 text-center text-slate-400">
+  //       Carregando perfil...
+  //     </div>
+  //   );
 
   return (
     <div
       className="p-6 max-w-2xl mx-auto"
-      style={{ paddingBottom: "80px" }}
+      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       <header className="mb-8 flex justify-between items-center">
         <Link
@@ -249,8 +248,6 @@ const Profile = () => {
           </Link>
         )}
       </section>
-
-      <AdBanner isPremium={isPremium} variant="inline" />
 
       <div className="space-y-6">
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
@@ -474,6 +471,34 @@ const Profile = () => {
           </div>
         </div>
       )}
+
+      <AdBanner isPremium={isPremium} />
+
+      {/* Footer Nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
+        <Link
+          to="/inicio"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <Dumbbell size={24} />
+          <span className="text-[10px] font-bold uppercase">Treinos</span>
+        </Link>
+        <Link
+          to="/historico"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <HistoryIcon size={24} />
+          <span className="text-[10px] font-bold uppercase">Histórico</span>
+        </Link>
+        <Link
+          to="/perfil"
+          className="flex flex-col items-center gap-1"
+          style={{ color: "var(--color-primary-safe)" }}
+        >
+          <User size={24} />
+          <span className="text-[10px] font-bold uppercase">Perfil</span>
+        </Link>
+      </nav>
     </div>
   );
 };

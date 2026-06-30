@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const AdBanner = ({ isPremium, variant = 'fixed' }) => {
   const [adStatus, setAdStatus] = useState('loading'); // 'loading', 'filled', 'failed'
   const adRef = useRef(null);
 
-  if (isPremium) return null;
-
   useEffect(() => {
+    if (isPremium) return;
+
     const timeout = setTimeout(() => {
       if (adStatus === 'loading') {
         // If still loading after timeout, check if AdSense marked it as unfilled
@@ -42,20 +42,25 @@ const AdBanner = ({ isPremium, variant = 'fixed' }) => {
       // so we rely on the timeout and status check.
     } catch (error) {
       console.error("AdSense error:", error);
-      setAdStatus('failed');
+      setTimeout(() => setAdStatus('failed'), 0);
     }
 
     return () => clearTimeout(timeout);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPremium]);
 
-  const containerClasses = variant === 'fixed'
-    ? "fixed bottom-[72px] left-0 right-0 z-40 px-6 max-w-md mx-auto pointer-events-none"
+  if (isPremium) return null;
+
+  const isFixed = variant === 'fixed' || variant === 'fixed-bottom';
+
+  const containerClasses = isFixed
+    ? `fixed ${variant === 'fixed' ? 'bottom-[72px]' : 'bottom-0'} left-0 right-0 z-40 px-6 max-w-md mx-auto pointer-events-none`
     : "w-full flex justify-center items-center bg-transparent my-2";
 
   return (
-    <div className={containerClasses} style={variant === 'fixed' ? { zIndex: 40 } : {}}>
+    <div className={containerClasses} style={isFixed ? { zIndex: 40 } : {}}>
       <div
-        className={`w-full flex justify-center items-center bg-transparent ${variant === 'fixed' ? 'pointer-events-auto' : ''}`}
+        className={`w-full flex justify-center items-center bg-transparent ${isFixed ? 'pointer-events-auto' : ''}`}
         style={{ minHeight: '60px' }}
       >
         {adStatus === 'failed' ? (

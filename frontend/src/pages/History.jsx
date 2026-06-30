@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
   ChevronLeft,
@@ -13,7 +13,6 @@ import {
   Trash2,
   Edit2,
   Plus,
-  Check,
   X,
   RotateCcw,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const History = () => {
   const navigate = useNavigate();
@@ -34,6 +34,7 @@ const History = () => {
   const [extraActivities, setExtraActivities] = useState([]);
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
@@ -54,7 +55,14 @@ const History = () => {
   const [exercises, setExercises] = useState([]);
   const [formData, setFormData] = useState({});
   const [showInterstitial, setShowInterstitial] = useState(false);
+  const [confirmationModal, setConfirmationModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
+  // eslint-disable-next-line no-unused-vars
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined) return "";
     const mins = Math.floor(seconds / 60);
@@ -68,19 +76,12 @@ const History = () => {
     return mins * 60 + (secs || 0);
   };
 
-  useEffect(() => {
-    fetchHistory();
-    fetchUser();
-    fetchExercises();
-    fetchWorkoutsMetadata();
-  }, [currentDate]);
-
-  const fetchWorkoutsMetadata = async () => {
+  const fetchWorkoutsMetadata = useCallback(async () => {
     const { data } = await supabase.from("treinos").select("letra");
     setWorkoutsMetadata(data || []);
-  };
+  }, []);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     const { data } = await supabase
       .from("usuarios")
       .select("*")
@@ -92,17 +93,17 @@ const History = () => {
         nome: authUser.user_metadata?.full_name || authUser.email,
       },
     );
-  };
+  }, [authUser]);
 
-  const fetchExercises = async () => {
+  const fetchExercises = useCallback(async () => {
     const { data } = await supabase
       .from("exercicios")
       .select("*")
       .order("nome");
     setExercises(data || []);
-  };
+  }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     const startOfMonth = new Date(
       currentDate.getFullYear(),
@@ -142,7 +143,17 @@ const History = () => {
     setHistory(loads || []);
     setExtraActivities(extras || []);
     setLoading(false);
-  };
+  }, [authUser.id, currentDate, showToast]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchHistory();
+      fetchUser();
+      fetchExercises();
+      fetchWorkoutsMetadata();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [currentDate, fetchHistory, fetchUser, fetchExercises, fetchWorkoutsMetadata]);
 
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
@@ -233,54 +244,65 @@ const History = () => {
       new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
     );
 
-  const handleDeleteWorkout = async (letra, date) => {
-    if (
-      window.confirm(
-        `Excluir todo o Treino ${letra} registrado em ${new Date(date).toLocaleString()}?`,
-      )
-    ) {
-      const { error } = await supabase
-        .from("historico_cargas")
-        .delete()
-        .eq("letra_treino", letra)
-        .eq("data_treino", date)
-        .eq("user_id", authUser.id);
-      if (error) showToast("Erro ao excluir: " + error.message, "error");
-      else {
-        showToast("Treino removido do histórico", "success");
-        fetchHistory();
-      }
-    }
+  const handleDeleteWorkout = (letra, date) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: "Excluir Treino?",
+      message: `Deseja apagar todo o Treino ${letra} registrado em ${new Date(date).toLocaleString()}? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("historico_cargas")
+          .delete()
+          .eq("letra_treino", letra)
+          .eq("data_treino", date)
+          .eq("user_id", authUser.id);
+        if (error) showToast("Erro ao excluir: " + error.message, "error");
+        else {
+          showToast("Treino removido do histórico", "success");
+          fetchHistory();
+        }
+      },
+    });
   };
 
-  const handleDeleteExercise = async (id) => {
-    if (window.confirm("Excluir este registro de exercício?")) {
-      const { error } = await supabase
-        .from("historico_cargas")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", authUser.id);
-      if (error) showToast("Erro ao excluir: " + error.message, "error");
-      else {
-        showToast("Exercício removido", "success");
-        fetchHistory();
-      }
-    }
+  const handleDeleteExercise = (id) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: "Excluir Registro?",
+      message: "Tem certeza que deseja apagar este registro de exercício?",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("historico_cargas")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", authUser.id);
+        if (error) showToast("Erro ao excluir: " + error.message, "error");
+        else {
+          showToast("Exercício removido", "success");
+          fetchHistory();
+        }
+      },
+    });
   };
 
-  const handleDeleteExtra = async (id) => {
-    if (window.confirm("Excluir esta atividade?")) {
-      const { error } = await supabase
-        .from("registro_atividades")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", authUser.id);
-      if (error) showToast("Erro ao excluir: " + error.message, "error");
-      else {
-        showToast("Atividade removida", "success");
-        fetchHistory();
-      }
-    }
+  const handleDeleteExtra = (id) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: "Excluir Atividade?",
+      message: "Tem certeza que deseja apagar esta atividade registrada?",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("registro_atividades")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", authUser.id);
+        if (error) showToast("Erro ao excluir: " + error.message, "error");
+        else {
+          showToast("Atividade removida", "success");
+          fetchHistory();
+        }
+      },
+    });
   };
 
   const handleAddWorkoutRecord = async (e) => {
@@ -770,9 +792,7 @@ const History = () => {
                     <div
                       className="px-4 py-2 flex justify-between items-center"
                       style={{
-                        backgroundColor: "var(--color-primary)"
-                          ? "var(--color-primary)"
-                          : "#1e293b",
+                      backgroundColor: "var(--color-primary)",
                         color: "white",
                       }}
                     >
@@ -1285,6 +1305,16 @@ const History = () => {
         show={showInterstitial}
         onClose={() => navigate("/inicio")}
         isPremium={isPremium}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        confirmText="Excluir"
+        variant="danger"
+        onConfirm={confirmationModal.onConfirm}
+        onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
       />
 
       {/* Footer Nav */}

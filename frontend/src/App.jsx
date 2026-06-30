@@ -1,14 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ToastProvider } from './context/ToastContext';
-import { AppearanceProvider } from './context/AppearanceContext';
+import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
 import Admin from './pages/Admin';
 import History from './pages/History';
 import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import WorkoutTemplates from './pages/WorkoutTemplates';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 
@@ -121,6 +120,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/gerenciar-treinos"
+          element={
+            <ProtectedRoute>
+              <WorkoutTemplates />
             </ProtectedRoute>
           }
         />
