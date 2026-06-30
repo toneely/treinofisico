@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
   ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
-  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle
+  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
@@ -23,6 +23,7 @@ const WorkoutTemplates = () => {
     subtitulo: "",
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [conflictConfig, setConflictModal] = useState({ isOpen: false, targetLetra: null, type: null });
 
   // Session conflict states derived from localStorage
@@ -69,6 +70,7 @@ const WorkoutTemplates = () => {
   const resetForm = () => {
     setFormData({ letra: "", nome: "", subtitulo: "" });
     setIsEditing(null);
+    setIsFormModalOpen(false);
   };
 
   const handleSubmit = async (e) => {
@@ -103,6 +105,7 @@ const WorkoutTemplates = () => {
       }
       resetForm();
       fetchWorkouts();
+      setIsFormModalOpen(false);
     } catch (error) {
       showToast("Erro: " + error.message, "error");
     } finally {
@@ -117,7 +120,7 @@ const WorkoutTemplates = () => {
       nome: workout.nome,
       subtitulo: workout.subtitulo || "",
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsFormModalOpen(true);
   };
 
   const handleDuplicate = async (workout) => {
@@ -274,62 +277,14 @@ const WorkoutTemplates = () => {
       </header>
 
       <main className="max-w-2xl mx-auto w-full flex-1">
-        {/* Form Area */}
-        <div className="p-6 border-b border-white/5 bg-zinc-900/30">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="col-span-1">
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Letra</label>
-                <input
-                  type="text"
-                  value={formData.letra}
-                  onChange={(e) => setFormData({ ...formData, letra: e.target.value.toUpperCase().slice(0, 2) })}
-                  placeholder="EX: A"
-                  required
-                  className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-                />
-              </div>
-              <div className="col-span-3">
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Nome do Treino</label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  placeholder="Nome do Treino"
-                  required
-                  className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Subtítulo / Descrição</label>
-              <input
-                type="text"
-                value={formData.subtitulo}
-                onChange={(e) => setFormData({ ...formData, subtitulo: e.target.value })}
-                placeholder="Ex: Foco em membros superiores"
-                className="w-full p-2.5 bg-zinc-900 border border-white/5 text-white rounded-xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
-                style={{ backgroundColor: "var(--color-primary)", color: "var(--text-on-primary)" }}
-              >
-                {isEditing ? <Check size={18} /> : <Plus size={18} />}
-                {isEditing ? "Atualizar" : "Salvar Template"}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-6 py-3.5 bg-white/5 text-zinc-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
-              >
-                Limpar
-              </button>
-            </div>
-          </form>
+        <div className="p-6 pb-0">
+          <button
+            onClick={() => { resetForm(); setIsFormModalOpen(true); }}
+            className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            Adicionar novo treino
+          </button>
         </div>
 
         {/* List Area */}
@@ -337,7 +292,7 @@ const WorkoutTemplates = () => {
           className="p-6 space-y-3"
           style={{ paddingBottom: isPremium ? "20px" : "80px" }}
         >
-          <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Biblioteca de Treinos</h3>
+          <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Sua Biblioteca</h3>
 
           {loading ? (
             <div className="py-20 text-center animate-pulse">
@@ -429,9 +384,9 @@ const WorkoutTemplates = () => {
             <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={32} />
             </div>
-            <h2 className="text-xl font-bold text-center text-white mb-2">Excluir Template?</h2>
+            <h2 className="text-xl font-bold text-center text-white mb-2">Excluir Treino?</h2>
             <p className="text-zinc-500 text-center text-sm mb-8">
-              Tem certeza que deseja apagar o template <strong>{showDeleteConfirm.letra}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja apagar o treino <strong>{showDeleteConfirm.letra}</strong>? Esta ação não pode ser desfeita.
             </p>
             <div className="flex flex-col gap-2">
               <button
@@ -447,6 +402,74 @@ const WorkoutTemplates = () => {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isFormModalOpen && (
+        <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-white/10 w-full max-w-sm rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white uppercase tracking-tight">
+                {isEditing ? 'Editar Treino' : 'Novo Treino'}
+              </h2>
+              <button onClick={resetForm} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-1">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Letra</label>
+                  <input
+                    type="text"
+                    value={formData.letra}
+                    onChange={(e) => setFormData({ ...formData, letra: e.target.value.toUpperCase().slice(0, 2) })}
+                    placeholder="EX: A"
+                    required
+                    className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all uppercase"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Nome do Treino</label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Ex: Peito e Tríceps"
+                    required
+                    className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 ml-1">Subtítulo / Descrição</label>
+                <input
+                  type="text"
+                  value={formData.subtitulo}
+                  onChange={(e) => setFormData({ ...formData, subtitulo: e.target.value })}
+                  placeholder="Ex: Foco em hipertrofia"
+                  className="w-full p-3 bg-zinc-900 border border-white/5 text-white rounded-2xl font-bold focus:ring-1 focus:ring-[var(--color-primary)] outline-none transition-all"
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {isEditing ? <Check size={18} /> : <Plus size={18} />}
+                  {isEditing ? "Atualizar Dados" : "Criar Treino"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="w-full py-4 bg-white/5 text-zinc-500 rounded-2xl font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -500,7 +523,7 @@ const WorkoutTemplates = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} variant="fixed-bottom" />
+      {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
     </div>
   );
 };
