@@ -227,13 +227,22 @@ const Inicio = () => {
       className="p-6 max-w-md mx-auto"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
-      <header className="flex justify-between items-center mb-8 gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
-              Olá, {user?.nome?.split(" ")[0]}
-            </h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
+      <header className="mb-8">
+        <div className="flex items-center gap-2.5 mb-6">
+          <img src="/logo-app.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <h2 className="text-xl font-black tracking-tight" style={{ color: "var(--text-on-gestao)" }}>
+            Treino Físico
+          </h2>
+        </div>
+
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
+                Olá, {user?.nome?.split(" ")[0]}
+              </h1>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
+            </div>
           </div>
         </div>
       </header>
