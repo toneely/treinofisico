@@ -291,9 +291,6 @@ function trainingReducer(state, action) {
 
       // Conjugated/Circuit Flow (A->B->C->A) - Rule 3
       if (state.executionMode === "alternated" && cBlock.length > 1) {
-        const totalBlockSeries = cBlock.reduce((acc, ex) => acc + ex.series_alvo, 0);
-        const totalDoneSeries = cBlock.reduce((acc, ex) => acc + (state.exerciseTimes[ex.sessionId]?.length || 0), 0);
-
         // Find next exercise in the circuit
         let nextExIdx = (state.currentExerciseInBlock + 1) % cBlock.length;
 
