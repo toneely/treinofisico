@@ -229,7 +229,6 @@ function trainingReducer(state, action) {
 
       // Rule 1: Visual focus (currentSerie) stays on the completed series for editing.
       // We only update the data. Advancement happens in ADVANCE_STEP (Rule 2).
-      const currentSNum = state.currentSerie;
 
       let nextState = {
         ...state,

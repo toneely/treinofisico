@@ -27,7 +27,6 @@ const Profile = () => {
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -49,7 +48,6 @@ const Profile = () => {
   });
 
   const fetchUserData = useCallback(async () => {
-    setLoading(true);
     const { data, error } = await supabase
       .from("usuarios")
       .select("*")
@@ -72,7 +70,6 @@ const Profile = () => {
         avatar_url: user.user_metadata?.avatar_url || null,
       }));
     }
-    setLoading(false);
   }, [showToast, user]);
 
   useEffect(() => {

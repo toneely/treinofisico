@@ -106,8 +106,8 @@ const WorkoutTemplates = () => {
       resetForm();
       fetchWorkouts();
       setIsFormModalOpen(false);
-    } catch (error) {
-      showToast("Erro: " + error.message, "error");
+    } catch (err) {
+      showToast("Erro: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -157,8 +157,9 @@ const WorkoutTemplates = () => {
 
       if (blocks && blocks.length > 0) {
         const newBlocks = blocks.map((block) => {
-          // eslint-disable-next-line no-unused-vars
-          const { id, created_at, ...rest } = block;
+          const rest = { ...block };
+          delete rest.id;
+          delete rest.created_at;
           return {
             ...rest,
             letra_treino: newLetra,
@@ -171,8 +172,8 @@ const WorkoutTemplates = () => {
 
       showToast(`Treino duplicado como ${newLetra}!`, "success");
       fetchWorkouts();
-    } catch (error) {
-      showToast("Erro ao duplicar: " + error.message, "error");
+    } catch (err) {
+      showToast("Erro ao duplicar: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -280,9 +281,9 @@ const WorkoutTemplates = () => {
         <div className="p-6 pb-0">
           <button
             onClick={() => { resetForm(); setIsFormModalOpen(true); }}
-            className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
           >
-            <Plus size={20} />
+            <Plus size={18} />
             Adicionar novo treino
           </button>
         </div>
@@ -456,15 +457,15 @@ const WorkoutTemplates = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  {isEditing ? <Check size={18} /> : <Plus size={18} />}
+                  {isEditing ? <Check size={16} /> : <Plus size={16} />}
                   {isEditing ? "Atualizar Dados" : "Criar Treino"}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="w-full py-4 bg-white/5 text-zinc-500 rounded-2xl font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                  className="w-full py-3 bg-white/5 text-zinc-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
                 >
                   Cancelar
                 </button>
