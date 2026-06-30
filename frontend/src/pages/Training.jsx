@@ -34,6 +34,7 @@ import { useAppearance } from "../context/AppearanceContext";
 import { getContrastColor, getSafeColor } from "../utils/colors";
 import ExerciseSelector from "../components/ExerciseSelector";
 import ConfirmationModal from "../components/ConfirmationModal";
+import LoadingScreen from "../components/LoadingScreen";
 import AdInterstitial from "../components/ui/AdInterstitial";
 
 // --- State Machine Helpers ---
@@ -1706,10 +1707,7 @@ const Training = () => {
     }
   }, [state.status, state.isCatchupPhase, state.originalBlocos, state.exerciseTimes, finishWorkout]);
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-slate-500">Iniciando treino...</div>
-    );
+  if (loading) return <LoadingScreen message="Iniciando treino..." />;
   if (!isFreeTraining && !state.blocos.length)
     return (
       <div className="p-10 text-center text-slate-500">

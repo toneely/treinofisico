@@ -18,6 +18,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
+import LoadingScreen from "../components/LoadingScreen";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -213,12 +214,7 @@ const Inicio = () => {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-slate-400">
-        Carregando painel...
-      </div>
-    );
+  if (loading) return <LoadingScreen message="Carregando painel..." />;
 
   const atividadeAlt = user?.atividade_alternativa || "Capoeira";
 

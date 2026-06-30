@@ -13,6 +13,7 @@ import { supabase } from "../supabaseClient";
 import ExerciseManager from "../components/ExerciseManager";
 import BlockConfigurator from "../components/BlockConfigurator";
 import WorkoutManager from "../components/WorkoutManager";
+import LoadingScreen from "../components/LoadingScreen";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("onboarding");
@@ -21,10 +22,7 @@ const Admin = () => {
   const [moldeUserId] = useState(null);
   const [loading] = useState(false);
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-slate-400">Carregando Admin...</div>
-    );
+  if (loading) return <LoadingScreen message="Carregando Admin..." />;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
