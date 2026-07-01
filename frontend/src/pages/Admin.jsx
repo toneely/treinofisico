@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
   ChevronLeft,
@@ -17,9 +17,6 @@ import {
   Plus,
   X,
   AlertTriangle,
-  Calendar,
-  AlertCircle,
-  Trash2,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import ExerciseManager from "../components/ExerciseManager";
@@ -28,6 +25,7 @@ import WorkoutManager from "../components/WorkoutManager";
 import LoadingScreen from "../components/LoadingScreen";
 
 const Admin = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("onboarding");
   const [subTab, setSubTab] = useState("workouts");
   // moldeUserId set to null represents global templates (where user_id is NULL)
@@ -37,12 +35,6 @@ const Admin = () => {
   const [userSearch, setUserSearch] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [userModalData, setUserModalData] = useState({
-    status_assinatura: "free",
-    data_vencimento: "",
-  });
   const [formData, setFormData] = useState({
     tipo: "receita",
     valor: "",
@@ -85,43 +77,6 @@ const Admin = () => {
     return calculateSubscriptionStatus(user.status_assinatura, user.data_vencimento).status;
   };
 
-  const handleOpenUserModal = (user) => {
-    setSelectedUser(user);
-    setUserModalData({
-      status_assinatura: user.status_assinatura || "free",
-      data_vencimento: user.data_vencimento ? user.data_vencimento.split("T")[0] : "",
-    });
-    setIsUserModalOpen(true);
-  };
-
-  const handleSaveUser = async () => {
-    const { error } = await supabase
-      .from("usuarios")
-      .update({
-        status_assinatura: userModalData.status_assinatura,
-        data_vencimento: userModalData.data_vencimento || null,
-      })
-      .eq("id", selectedUser.id);
-
-    if (!error) {
-      setIsUserModalOpen(false);
-      fetchData();
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    if (window.confirm("Tem certeza que deseja excluir permanentemente este usuário? Esta ação não pode ser desfeita.")) {
-      const { error } = await supabase
-        .from("usuarios")
-        .delete()
-        .eq("id", selectedUser.id);
-
-      if (!error) {
-        setIsUserModalOpen(false);
-        fetchData();
-      }
-    }
-  };
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
@@ -377,7 +332,7 @@ const Admin = () => {
                           </td>
                           <td className="px-3 py-1 text-right">
                             <button
-                              onClick={() => handleOpenUserModal(user)}
+                              onClick={() => navigate(`/admin/user/${user.id}`)}
                               className="p-1 text-slate-400 hover:text-orange-500 transition-colors"
                             >
                               <ArrowRight size={14} />
@@ -494,111 +449,6 @@ const Admin = () => {
           </div>
         )}
       </main>
-      {isUserModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 relative">
-            <button
-              onClick={() => setIsUserModalOpen(false)}
-              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X size={20} />
-            </button>
-
-            <header className="mb-6">
-              <h2 className="text-lg font-bold text-slate-900 leading-tight">
-                {selectedUser.nome || "Sem Nome"}
-              </h2>
-              <p className="text-xs text-slate-500">{selectedUser.email}</p>
-            </header>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
-                  Status da Assinatura
-                </label>
-                <select
-                  value={userModalData.status_assinatura}
-                  onChange={(e) =>
-                    setUserModalData({
-                      ...userModalData,
-                      status_assinatura: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all text-sm"
-                >
-                  <option value="free">Free</option>
-                  <option value="premium">Premium</option>
-                  <option value="grace_period">Grace Period</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
-                  Data de Vencimento
-                </label>
-                <div className="relative">
-                  <Calendar
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={16}
-                  />
-                  <input
-                    type="date"
-                    value={userModalData.data_vencimento}
-                    onChange={(e) =>
-                      setUserModalData({
-                        ...userModalData,
-                        data_vencimento: e.target.value,
-                      })
-                    }
-                    className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-[10px] font-black uppercase tracking-tight text-slate-400 mb-2">
-                  Gestão de Exclusão
-                </h3>
-                {selectedUser.solicitou_exclusao ? (
-                  <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-3">
-                    <div className="flex gap-2 text-red-600 mb-2">
-                      <AlertCircle size={18} className="shrink-0" />
-                      <p className="text-xs font-bold leading-tight">
-                        Este usuário solicitou o encerramento da conta.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleDeleteUser}
-                      className="w-full py-2 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-tight hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 size={12} /> Confirmar Exclusão
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">
-                    Nenhuma solicitação de exclusão ativa.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => setIsUserModalOpen(false)}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-tight hover:bg-slate-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSaveUser}
-                  className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-tight shadow-md shadow-orange-500/20 active:scale-95 transition-all"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
