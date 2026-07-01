@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 
 const AuthContext = createContext({});
 
@@ -7,11 +8,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
+  const [isGracePeriod, setIsGracePeriod] = useState(false);
+
+  const fetchProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("status_assinatura, data_vencimento")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const { isPremium: premium, isGracePeriod: grace } =
+          calculateSubscriptionStatus(data.status_assinatura, data.data_vencimento);
+
+        setIsPremium(premium);
+        setIsGracePeriod(grace);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar perfil:", error);
+    }
+  };
 
   useEffect(() => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id);
+      }
       setLoading(false);
     });
 
@@ -20,7 +48,14 @@ export const AuthProvider = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id);
+      } else {
+        setIsPremium(false);
+        setIsGracePeriod(false);
+      }
       setLoading(false);
     });
 
@@ -50,6 +85,7 @@ export const AuthProvider = ({ children }) => {
         signOut,
         isPremium,
         setIsPremium,
+        isGracePeriod,
       }}
     >
       {children}
@@ -57,4 +93,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

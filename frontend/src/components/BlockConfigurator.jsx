@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { Plus, Trash2, GripVertical, Save, X, AlertCircle } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import ExerciseSelector from "./ExerciseSelector";
 
-const BlockConfigurator = ({ overrideUserId = null }) => {
+const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
@@ -15,18 +15,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchExercises();
-    fetchWorkouts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedWorkout) {
-      fetchBlocks(selectedWorkout);
-    }
-  }, [selectedWorkout]);
-
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
     let query = supabase.from("treinos").select("*").order("letra");
 
     if (overrideUserId === null) {
@@ -41,17 +30,17 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
       setWorkouts(data);
       if (!selectedWorkout) setSelectedWorkout(data[0].letra);
     }
-  };
+  }, [authUser.id, overrideUserId, selectedWorkout]);
 
-  const fetchExercises = async () => {
+  const fetchExercises = useCallback(async () => {
     const { data } = await supabase
       .from("exercicios")
       .select("id, nome, descanso_passivo_segundos")
       .order("nome");
     setExercises(data || []);
-  };
+  }, []);
 
-  const fetchBlocks = async (letra) => {
+  const fetchBlocks = useCallback(async (letra) => {
     setLoading(true);
     let query = supabase
       .from("blocos_treino")
@@ -85,7 +74,24 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
       setBlocks(blocksArray);
     }
     setLoading(false);
-  };
+  }, [authUser.id, overrideUserId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchExercises();
+      fetchWorkouts();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchExercises, fetchWorkouts]);
+
+  useEffect(() => {
+    if (selectedWorkout) {
+      const timer = setTimeout(() => {
+        fetchBlocks(selectedWorkout);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedWorkout, fetchBlocks]);
 
   const handleExerciseSelect = async (blockIndex, exerciseIndex, exerciseData) => {
     const newId = parseInt(exerciseData.id);
@@ -253,18 +259,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h2 className="text-xl font-bold  flex items-center gap-2">
-          <GripVertical size={20} style={{ color: "var(--color-primary)" }} />{" "}
-          Configurador de Blocos
-        </h2>
-        <div className="flex flex-wrap gap-2">
+    <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${isCompact ? 'text-xs' : ''}`}>
+      <div className={`${isCompact ? 'p-3' : 'p-6'} border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4`}>
+        {!isCompact && (
+          <h2 className="text-xl font-bold  flex items-center gap-2">
+            <GripVertical size={20} style={{ color: "var(--color-primary)" }} />{" "}
+            Configurador de Blocos
+          </h2>
+        )}
+        <div className="flex flex-wrap gap-1.5">
           {workouts.map((w) => (
             <button
               key={w.letra}
               onClick={() => setSelectedWorkout(w.letra)}
-              className={`w-10 h-10 rounded-lg font-bold transition ${
+              className={`${isCompact ? 'w-8 h-8 text-sm' : 'w-10 h-10'} rounded-lg font-bold transition ${
                 selectedWorkout === w.letra
                   ? "text-white"
                   : "bg-white text-slate-500 border border-slate-200"
@@ -281,32 +289,32 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className={isCompact ? "p-3" : "p-6"}>
         {loading ? (
           <div className="text-center py-10 text-slate-400">
             Carregando estrutura...
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className={isCompact ? "space-y-3" : "space-y-6"}>
             {blocks.map((block, bIdx) => (
               <div
                 key={bIdx}
-                className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+                className={`border border-slate-200 rounded-2xl ${isCompact ? 'p-2.5' : 'p-4'} bg-slate-50/50`}
               >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold ">
+                <div className={`flex justify-between items-center ${isCompact ? 'mb-2' : 'mb-4'}`}>
+                  <h3 className="font-bold">
                     {block.exercicios.length > 1 ? "Conjugado" : "Bloco"} {block.numero}
                   </h3>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => addExerciseToBlock(bIdx)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                      className={`${isCompact ? 'text-[9px] px-2 py-1' : 'text-xs px-3 py-1.5'} font-bold rounded-lg transition flex items-center gap-1`}
                       style={{
                         color: "var(--color-primary)",
                         backgroundColor: "var(--color-primary)10",
                       }}
                     >
-                      <Plus size={14} /> Adicionar Exercício Conjugado
+                      <Plus size={isCompact ? 12 : 14} /> {isCompact ? "Conjugado" : "Adicionar Exercício Conjugado"}
                     </button>
                     <button
                       onClick={() => {
@@ -316,20 +324,20 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                       }}
                       className="text-slate-400 hover:text-red-500 p-1"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={isCompact ? 14 : 18} />
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className={isCompact ? "space-y-2" : "space-y-3"}>
                   {block.exercicios.map((ex, eIdx) => (
                     <div
                       key={eIdx}
-                      className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end"
+                      className={`bg-white ${isCompact ? 'p-2.5' : 'p-4'} rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-end`}
                     >
-                      <div className="flex-1 w-full flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Exercício {eIdx + 1}
+                      <div className="flex-1 w-full flex flex-col gap-1 text-[10px]">
+                        <label className={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-400 uppercase tracking-wider`}>
+                          Ex {eIdx + 1}
                         </label>
                         <ExerciseSelector
                           context="admin"
@@ -341,8 +349,8 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                           overrideUserId={overrideUserId}
                         />
                       </div>
-                      <div className="w-20 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <div className={`${isCompact ? 'w-16' : 'w-20'} flex flex-col gap-1`}>
+                        <label className={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-400 uppercase`}>
                           Séries
                         </label>
                         <input
@@ -356,11 +364,11 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                               e.target.value,
                             )
                           }
-                          className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                          className={`w-full ${isCompact ? 'p-1.5' : 'p-2'} border border-slate-200 rounded-lg text-xs`}
                         />
                       </div>
-                      <div className="w-24 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <div className={`${isCompact ? 'w-16' : 'w-24'} flex flex-col gap-1`}>
+                        <label className={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-400 uppercase`}>
                           Reps
                         </label>
                         <input
@@ -374,12 +382,12 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                               e.target.value,
                             )
                           }
-                          className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                          placeholder="Ex: 8-10"
+                          className={`w-full ${isCompact ? 'p-1.5' : 'p-2'} border border-slate-200 rounded-lg text-xs`}
+                          placeholder="8-10"
                         />
                       </div>
-                      <div className="w-20 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <div className={`${isCompact ? 'w-16' : 'w-20'} flex flex-col gap-1`}>
+                        <label className={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-400 uppercase`}>
                           Desc (s)
                         </label>
                         <input
@@ -422,17 +430,17 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
 
             <button
               onClick={addBlock}
-              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold transition flex items-center justify-center gap-2"
+              className={`w-full ${isCompact ? 'py-2.5' : 'py-4'} border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold transition flex items-center justify-center gap-2`}
               style={{ color: "var(--color-primary)" }}
             >
-              <Plus size={20} /> Novo Bloco
+              <Plus size={isCompact ? 16 : 20} /> Novo Bloco
             </button>
 
-            <div className="flex justify-end pt-4">
+            <div className={`flex justify-end ${isCompact ? 'pt-2' : 'pt-4'}`}>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-8 py-3 rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-lg"
+                className={`${isCompact ? 'px-4 py-2 text-xs' : 'px-8 py-3'} rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-lg`}
                 style={{
                   backgroundColor: "var(--color-primary)",
                   color: "var(--text-on-primary)",
@@ -442,7 +450,7 @@ const BlockConfigurator = ({ overrideUserId = null }) => {
                   "Salvando..."
                 ) : (
                   <>
-                    <Save size={20} /> Salvar Treino {selectedWorkout}
+                    <Save size={isCompact ? 16 : 20} /> Salvar {selectedWorkout}
                   </>
                 )}
               </button>

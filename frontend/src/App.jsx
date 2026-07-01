@@ -8,6 +8,7 @@ import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import WorkoutTemplates from './pages/WorkoutTemplates';
+import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 
@@ -54,6 +55,7 @@ const AdminRoute = ({ children }) => {
 
 const AppContent = () => {
   useDynamicTitle();
+  const { isGracePeriod } = useAuth();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
 
@@ -75,8 +77,10 @@ const AppContent = () => {
         color: isTrainingRoute
           ? "var(--text-on-treino)"
           : "var(--text-on-gestao)",
+        paddingTop: isGracePeriod && !isTrainingRoute ? "40px" : "0px",
       }}
     >
+      {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route

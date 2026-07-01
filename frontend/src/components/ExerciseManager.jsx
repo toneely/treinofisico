@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { Plus, Trash2, Edit2, Check, X, Search } from "lucide-react";
 import { useToast } from "../context/ToastContext";
@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 const ExerciseManager = ({
   overrideUserId = null,
   targetTable = "exercicios",
+  isCompact = false,
 }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
@@ -22,10 +23,7 @@ const ExerciseManager = ({
     depende_peso_corporal: false,
     descanso_passivo_segundos: 60,
   });
-  useEffect(() => {
-    fetchExercises();
-  }, [targetTable]);
-  const fetchExercises = async () => {
+  const fetchExercises = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from(targetTable)
@@ -45,7 +43,13 @@ const ExerciseManager = ({
       setExercises(data);
     }
     setLoading(false);
-  };
+  }, [authUser.id, overrideUserId, targetTable]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchExercises();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchExercises]);
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
@@ -133,26 +137,28 @@ const ExerciseManager = ({
       ex.alvo_principal.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${isCompact ? 'text-xs' : ''}`}>
       {" "}
-      <div className="p-6 border-b border-slate-100 bg-slate-50">
-        {" "}
-        <h2 className="text-xl font-bold  flex items-center gap-2">
+      {!isCompact && (
+        <div className="p-6 border-b border-slate-100 bg-slate-50">
           {" "}
-          <Search size={20} style={{ color: "var(--color-primary)" }} />{" "}
-          Gerenciar Exercícios{" "}
-        </h2>{" "}
-      </div>{" "}
-      <div className="p-6">
+          <h2 className="text-xl font-bold  flex items-center gap-2">
+            {" "}
+            <Search size={20} style={{ color: "var(--color-primary)" }} />{" "}
+            Gerenciar Exercícios{" "}
+          </h2>{" "}
+        </div>
+      )}
+      <div className={isCompact ? "p-3" : "p-6"}>
         {" "}
         <form
           onSubmit={handleSubmit}
-          className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200"
+          className={`${isCompact ? 'mb-4 gap-2 p-3' : 'mb-8 gap-4 p-4'} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-slate-50 rounded-xl border border-slate-200`}
         >
           {" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Nome
             </label>{" "}
             <input
@@ -160,13 +166,13 @@ const ExerciseManager = ({
               name="nome"
               value={formData.nome}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
               required
             />{" "}
           </div>{" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Alvo Principal
             </label>{" "}
             <input
@@ -174,20 +180,20 @@ const ExerciseManager = ({
               name="alvo_principal"
               value={formData.alvo_principal}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
               required
             />{" "}
           </div>{" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Tipo de Fibra
             </label>{" "}
             <select
               name="tipo_fibra"
               value={formData.tipo_fibra}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
             >
               {" "}
               <option value="Tipo I">Tipo I (Resistência)</option>{" "}
@@ -197,14 +203,14 @@ const ExerciseManager = ({
           </div>{" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Categoria
             </label>{" "}
             <select
               name="categoria"
               value={formData.categoria}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
             >
               {" "}
               <option value="Empurrar">Empurrar</option>{" "}
@@ -215,14 +221,14 @@ const ExerciseManager = ({
           </div>{" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Modalidade
             </label>{" "}
             <select
               name="modalidade"
               value={formData.modalidade}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
             >
               {" "}
               <option value="Musculação">Musculação</option>{" "}
@@ -238,7 +244,7 @@ const ExerciseManager = ({
           </div>{" "}
           <div className="flex flex-col gap-1">
             {" "}
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Descanso (seg)
             </label>{" "}
             <input
@@ -246,10 +252,10 @@ const ExerciseManager = ({
               name="descanso_passivo_segundos"
               value={formData.descanso_passivo_segundos}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
             />{" "}
           </div>{" "}
-          <div className="flex items-center gap-2 mt-4">
+          <div className={`flex items-center gap-2 ${isCompact ? 'mt-1' : 'mt-4'}`}>
             {" "}
             <input
               type="checkbox"
@@ -267,44 +273,43 @@ const ExerciseManager = ({
               Depende de Peso Corporal
             </label>{" "}
           </div>{" "}
-          <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2">
+          <div className={`md:col-span-2 lg:col-span-3 flex justify-end gap-2 ${isCompact ? 'mt-1' : ''}`}>
             {" "}
             {isEditing && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 bg-slate-200  rounded-lg font-medium hover:bg-slate-300 transition flex items-center gap-2"
+                className={`${isCompact ? 'px-3 py-1.5 text-[10px]' : 'px-4 py-2'} bg-slate-200 rounded-lg font-medium hover:bg-slate-300 transition flex items-center gap-2`}
               >
                 {" "}
-                <X size={18} /> Cancelar{" "}
+                <X size={isCompact ? 14 : 18} /> Cancelar{" "}
               </button>
             )}{" "}
             <button
               type="submit"
-              className="px-4 py-2  rounded-lg font-medium transition flex items-center gap-2"
+              className={`${isCompact ? 'px-3 py-1.5 text-[10px]' : 'px-4 py-2'} rounded-lg font-medium transition flex items-center gap-2`}
               style={{
                 backgroundColor: "var(--color-primary)",
                 color: "var(--text-on-primary)",
               }}
             >
               {" "}
-              {isEditing ? <Check size={18} /> : <Plus size={18} />}{" "}
-              {isEditing ? "Atualizar Exercício" : "Adicionar Exercício"}{" "}
+              {isEditing ? <Check size={isCompact ? 14 : 18} /> : <Plus size={isCompact ? 14 : 18} />} {isEditing ? "Atualizar" : "Adicionar"}{" "}
             </button>{" "}
           </div>{" "}
         </form>{" "}
-        <div className="mb-4 relative">
+        <div className={`${isCompact ? 'mb-2' : 'mb-4'} relative`}>
           {" "}
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            size={18}
+            size={isCompact ? 14 : 18}
           />{" "}
           <input
             type="text"
-            placeholder="Pesquisar exercícios..."
+            placeholder="Pesquisar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+            className={`w-full pl-10 pr-4 ${isCompact ? 'py-1.5 text-xs' : 'py-2'} border border-slate-200 rounded-xl outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
           />{" "}
         </div>{" "}
         {loading ? (
@@ -318,14 +323,14 @@ const ExerciseManager = ({
               {" "}
               <thead>
                 {" "}
-                <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wider">
+                <tr className={`border-b border-slate-100 text-slate-400 ${isCompact ? 'text-[9px]' : 'text-xs'} uppercase tracking-tight`}>
                   {" "}
-                  <th className="py-3 px-4 font-bold">Nome</th>{" "}
-                  <th className="py-3 px-4 font-bold">Alvo</th>{" "}
-                  <th className="py-3 px-4 font-bold">Fibra</th>{" "}
-                  <th className="py-3 px-4 font-bold">Cat.</th>{" "}
-                  <th className="py-3 px-4 font-bold">Mod.</th>{" "}
-                  <th className="py-3 px-4 font-bold text-center">
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Nome</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Alvo</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Fibra</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Cat.</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Mod.</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2 text-right' : 'py-3 px-4 text-center'} font-bold`}>
                     Ações
                   </th>{" "}
                 </tr>{" "}
@@ -338,45 +343,45 @@ const ExerciseManager = ({
                     className="hover:bg-slate-50 transition"
                   >
                     {" "}
-                    <td className="py-3 px-4 font-medium ">
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'} font-medium`}>
                       {exercise.nome}
                     </td>{" "}
-                    <td className="py-3 px-4 text-slate-500 text-sm">
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
                       {exercise.alvo_principal}
                     </td>{" "}
-                    <td className="py-3 px-4">
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'}`}>
                       {" "}
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${exercise.tipo_fibra === "Tipo IIx" ? "bg-red-100 text-red-600" : exercise.tipo_fibra === "Tipo IIa" ? " " : " "}`}
+                        className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${exercise.tipo_fibra === "Tipo IIx" ? "bg-red-100 text-red-600" : exercise.tipo_fibra === "Tipo IIa" ? " " : " "}`}
                       >
                         {" "}
                         {exercise.tipo_fibra}{" "}
                       </span>{" "}
                     </td>{" "}
-                    <td className="py-3 px-4 text-slate-500 text-sm">
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
                       {exercise.categoria}
                     </td>{" "}
-                    <td className="py-3 px-4 text-slate-500 text-sm">
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
                       {exercise.modalidade}
                     </td>{" "}
-                    <td className="py-3 px-4">
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'}`}>
                       {" "}
-                      <div className="flex justify-center gap-2">
+                      <div className={`flex ${isCompact ? 'justify-end' : 'justify-center'} gap-1`}>
                         {" "}
                         <button
                           onClick={() => handleEdit(exercise)}
-                          className="p-1.5 text-slate-400 transition hover:opacity-70"
+                          className="p-1 text-slate-400 transition hover:opacity-70"
                           style={{ color: "var(--color-primary)" }}
                         >
                           {" "}
-                          <Edit2 size={16} />{" "}
+                          <Edit2 size={isCompact ? 12 : 16} />{" "}
                         </button>{" "}
                         <button
                           onClick={() => handleDelete(exercise.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                         >
                           {" "}
-                          <Trash2 size={16} />{" "}
+                          <Trash2 size={isCompact ? 12 : 16} />{" "}
                         </button>{" "}
                       </div>{" "}
                     </td>{" "}
