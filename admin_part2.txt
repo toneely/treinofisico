@@ -1,0 +1,200 @@
+                  <h2 className="text-base font-black uppercase tracking-tight flex items-center gap-1">
+                    <LayoutGrid
+                      style={{ color: "var(--color-primary)" }}
+                      size={18}
+                    />{" "}
+                    Treinos Padrão
+                  </h2>
+                </div>
+                <WorkoutManager overrideUserId={moldeUserId} isCompact={true} />
+              </section>
+            )}
+
+            {subTab === "exercises" && (
+              <section className="animate-in slide-in-from-bottom-4 duration-500">
+                <div className="mb-3">
+                  <h2 className="text-base font-black uppercase tracking-tight flex items-center gap-1">
+                    <Dumbbell
+                      style={{ color: "var(--color-primary)" }}
+                      size={18}
+                    />{" "}
+                    Exercícios Globais
+                  </h2>
+                </div>
+                <ExerciseManager targetTable="exercicios_padrao" isCompact={true} />
+              </section>
+            )}
+
+            {subTab === "blocks" && (
+              <section className="animate-in slide-in-from-bottom-4 duration-500">
+                <div className="mb-3">
+                  <h2 className="text-base font-black uppercase tracking-tight flex items-center gap-1">
+                    <Settings
+                      style={{ color: "var(--color-primary)" }}
+                      size={18}
+                    />{" "}
+                    Estrutura de Blocos
+                  </h2>
+                </div>
+                <BlockConfigurator overrideUserId={moldeUserId} isCompact={true} />
+              </section>
+            )}
+          </div>
+        )}
+
+        {activeTab === "users" && (
+          <div className="space-y-3 animate-in fade-in duration-500">
+            <div className="relative">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={14}
+              />
+              <input
+                type="text"
+                placeholder="Buscar usuário..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm text-xs"
+              />
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
+                        Usuário
+                      </th>
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
+                        Status
+                      </th>
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400 text-right">
+                        Ação
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredUsers.map((user) => {
+                      const status = getUserStatus(user);
+                      return (
+                        <tr key={user.id} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-1.5">
+                            <div className="font-bold text-slate-900 text-xs">
+                              {user.nome || "Sem Nome"}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {user.email}
+                            </div>
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tight ${
+                                status === "Premium"
+                                  ? "bg-emerald-100 text-emerald-600"
+                                  : status === "Em Atraso"
+                                  ? "bg-amber-100 text-amber-600"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1.5 text-right">
+                            <button className="p-1 text-slate-400 hover:text-orange-500 transition-colors">
+                              <ArrowRight size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "billing" && (
+          <div className="space-y-3 animate-in fade-in duration-500">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-1 text-emerald-500 mb-0.5">
+                  <TrendingUp size={12} />
+                  <span className="text-[8px] font-black uppercase tracking-tight">
+                    Receitas
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-slate-900 leading-tight">
+                  R$ {totals.receitas.toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-1 text-red-500 mb-0.5">
+                  <TrendingDown size={12} />
+                  <span className="text-[8px] font-black uppercase tracking-tight">
+                    Custos
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-slate-900 leading-tight">
+                  R$ {totals.custos.toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-1 text-blue-500 mb-0.5">
+                  <Wallet size={12} />
+                  <span className="text-[8px] font-black uppercase tracking-tight">
+                    Saldo
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-slate-900 leading-tight">
+                  R$ {totals.saldo.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center px-1">
+              <h3 className="text-[10px] font-black uppercase tracking-tight text-slate-400">
+                Histórico
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-1 bg-slate-900 text-white px-3 py-1 rounded-full text-[10px] font-bold hover:bg-slate-800 transition-all shadow-md active:scale-95"
+              >
+                <Plus size={12} /> Novo
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
+                        Data
+                      </th>
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
+                        Descrição
+                      </th>
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400 text-right">
+                        Valor
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {transactions.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-1.5 text-[10px] text-slate-400">
+                          {new Date(t.data_transacao).toLocaleDateString(
+                            "pt-BR"
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <div className="font-bold text-slate-900 text-xs">
+                            {t.descricao}
+                          </div>
+                          <div className="text-[8px] font-black uppercase tracking-tight opacity-40">
+                            {t.tipo}
+                          </div>
+                        </td>
+                        <td

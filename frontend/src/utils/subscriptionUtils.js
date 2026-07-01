@@ -5,6 +5,10 @@
  * @returns {Object} { status: 'Free' | 'Premium' | 'Em Atraso', isPremium: boolean, isGracePeriod: boolean }
  */
 export const calculateSubscriptionStatus = (statusAssinatura, dataVencimento) => {
+  if (statusAssinatura === "grace_period") {
+    return { status: "Em Atraso", isPremium: true, isGracePeriod: true };
+  }
+
   if (statusAssinatura !== "premium") {
     return { status: "Free", isPremium: false, isGracePeriod: false };
   }

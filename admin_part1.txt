@@ -1,0 +1,200 @@
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
+import {
+  ChevronLeft,
+  Dumbbell,
+  LayoutGrid,
+  Settings,
+  Users,
+  CreditCard,
+  Sparkles,
+  Search,
+  ArrowRight,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Plus,
+  X,
+} from "lucide-react";
+import { supabase } from "../supabaseClient";
+import ExerciseManager from "../components/ExerciseManager";
+import BlockConfigurator from "../components/BlockConfigurator";
+import WorkoutManager from "../components/WorkoutManager";
+import LoadingScreen from "../components/LoadingScreen";
+
+const Admin = () => {
+  const [activeTab, setActiveTab] = useState("onboarding");
+  const [subTab, setSubTab] = useState("workouts");
+  // moldeUserId set to null represents global templates (where user_id is NULL)
+  const [moldeUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [transactions, setTransactions] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    tipo: "receita",
+    valor: "",
+    descricao: "",
+    data_transacao: new Date().toISOString().split("T")[0],
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    if (activeTab === "users") {
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("*")
+        .order("nome");
+      if (!error) setUsers(data);
+    } else if (activeTab === "billing") {
+      const { data, error } = await supabase
+        .from("transacoes_financeiras")
+        .select("*")
+        .order("data_transacao", { ascending: false });
+      if (!error) setTransactions(data);
+    }
+    setLoading(false);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchData]);
+
+  const filteredUsers = users.filter(
+    (u) =>
+      u.nome?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  const getUserStatus = (user) => {
+    return calculateSubscriptionStatus(user.status_assinatura, user.data_vencimento).status;
+  };
+
+  const handleAddTransaction = async (e) => {
+    e.preventDefault();
+    const { error } = await supabase.from("transacoes_financeiras").insert([
+      {
+        ...formData,
+        valor: parseFloat(formData.valor),
+      },
+    ]);
+
+    if (!error) {
+      setIsModalOpen(false);
+      setFormData({
+        tipo: "receita",
+        valor: "",
+        descricao: "",
+        data_transacao: new Date().toISOString().split("T")[0],
+      });
+      fetchData();
+    }
+  };
+
+  const totals = transactions.reduce(
+    (acc, t) => {
+      if (t.tipo === "receita") acc.receitas += t.valor;
+      else acc.custos += t.valor;
+      acc.saldo = acc.receitas - acc.custos;
+      return acc;
+    },
+    { receitas: 0, custos: 0, saldo: 0 }
+  );
+
+  if (loading && activeTab === "onboarding")
+    return <LoadingScreen message="Carregando Admin..." />;
+
+  return (
+    <div className="p-3 max-w-6xl mx-auto text-sm">
+      <header className="mb-3">
+        <Link
+          to="/inicio"
+          className="text-slate-500 flex items-center gap-1 mb-1 hover: transition w-fit text-xs"
+        >
+          <ChevronLeft size={14} /> Voltar
+        </Link>
+        <h1 className="text-lg font-bold tracking-tight">
+          Painel Administrativo
+        </h1>
+      </header>
+
+      <div className="flex gap-1 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+        <TabButton
+          active={activeTab === "onboarding"}
+          onClick={() => setActiveTab("onboarding")}
+          icon={<Sparkles size={14} />}
+          label="Onboarding"
+        />
+        <TabButton
+          active={activeTab === "users"}
+          onClick={() => setActiveTab("users")}
+          icon={<Users size={14} />}
+          label="Usuários"
+        />
+        <TabButton
+          active={activeTab === "billing"}
+          onClick={() => setActiveTab("billing")}
+          icon={<CreditCard size={14} />}
+          label="Financeiro"
+        />
+      </div>
+
+      <main className="animate-in fade-in duration-500">
+        {activeTab === "onboarding" && (
+          <div className="space-y-4">
+            <div className="flex gap-1 p-0.5 bg-slate-100 rounded-lg w-fit mb-4">
+              <button
+                onClick={() => setSubTab("workouts")}
+                className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight transition-all"
+                style={
+                  subTab === "workouts"
+                    ? {
+                        backgroundColor: "white",
+                        color: "var(--color-primary)",
+                        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                      }
+                    : { color: "#64748b" }
+                }
+              >
+                Treinos Padrão
+              </button>
+              <button
+                onClick={() => setSubTab("blocks")}
+                className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                style={
+                  subTab === "blocks"
+                    ? {
+                        backgroundColor: "white",
+                        color: "var(--color-primary)",
+                        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                      }
+                    : { color: "#64748b" }
+                }
+              >
+                Blocos Padrão
+              </button>
+              <button
+                onClick={() => setSubTab("exercises")}
+                className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                style={
+                  subTab === "exercises"
+                    ? {
+                        backgroundColor: "white",
+                        color: "var(--color-primary)",
+                        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                      }
+                    : { color: "#64748b" }
+                }
+              >
+                Exercícios Globais
+              </button>
+            </div>
+
+            {subTab === "workouts" && (
+              <section className="animate-in slide-in-from-bottom-4 duration-500">
+                <div className="mb-3">
