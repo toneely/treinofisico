@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { Plus, Trash2, Edit2, Check, X, LayoutGrid } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 
-const WorkoutManager = ({ overrideUserId = null }) => {
+const WorkoutManager = ({ overrideUserId = null, isCompact = false }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
   const [workouts, setWorkouts] = useState([]);
@@ -16,11 +16,7 @@ const WorkoutManager = ({ overrideUserId = null }) => {
     subtitulo: "",
   });
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, []);
-
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
     setLoading(true);
     let query = supabase.from("treinos").select("*").order("letra", { ascending: true });
 
@@ -37,7 +33,14 @@ const WorkoutManager = ({ overrideUserId = null }) => {
       setWorkouts(data);
     }
     setLoading(false);
-  };
+  }, [authUser.id, overrideUserId, showToast]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchWorkouts();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchWorkouts]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -139,20 +142,22 @@ const WorkoutManager = ({ overrideUserId = null }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-100 bg-slate-50">
-        <h2 className="text-xl font-bold  flex items-center gap-2">
-          <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
-          Gerenciar Treinos (Categorias)
-        </h2>
-      </div>
-      <div className="p-6">
+    <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${isCompact ? 'text-xs' : ''}`}>
+      {!isCompact && (
+        <div className="p-6 border-b border-slate-100 bg-slate-50">
+          <h2 className="text-xl font-bold  flex items-center gap-2">
+            <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
+            Gerenciar Treinos (Categorias)
+          </h2>
+        </div>
+      )}
+      <div className={isCompact ? "p-3" : "p-6"}>
         <form
           onSubmit={handleSubmit}
-          className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200"
+          className={`${isCompact ? 'mb-4 gap-2 p-3' : 'mb-8 gap-4 p-4'} grid grid-cols-1 md:grid-cols-2 bg-slate-50 rounded-xl border border-slate-200`}
         >
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Letra (ex: A, B, C)
             </label>
             <input
@@ -160,13 +165,13 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="letra"
               value={formData.letra}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
               maxLength={2}
               required
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Nome do Treino
             </label>
             <input
@@ -174,12 +179,12 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="nome"
               value={formData.nome}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
               required
             />
           </div>
           <div className="md:col-span-2 flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-500 uppercase">
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
               Subtítulo / Descrição
             </label>
             <input
@@ -187,10 +192,10 @@ const WorkoutManager = ({ overrideUserId = null }) => {
               name="subtitulo"
               value={formData.subtitulo}
               onChange={handleInputChange}
-              className="p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
             />
           </div>
-          <div className="md:col-span-2 flex justify-end gap-2">
+          <div className={`md:col-span-2 flex justify-end gap-2 ${isCompact ? 'mt-1' : ''}`}>
             {isEditing && (
               <button
                 type="button"
@@ -202,14 +207,14 @@ const WorkoutManager = ({ overrideUserId = null }) => {
             )}
             <button
               type="submit"
-              className="px-4 py-2  rounded-lg font-medium transition flex items-center gap-2 shadow-lg"
+              className={`${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2'} rounded-lg font-medium transition flex items-center gap-2 shadow-lg`}
               style={{
                 backgroundColor: "var(--color-primary)",
                 color: "var(--text-on-primary)",
               }}
             >
-              {isEditing ? <Check size={18} /> : <Plus size={18} />}
-              {isEditing ? "Atualizar Treino" : "Adicionar Treino"}
+              {isEditing ? <Check size={isCompact ? 14 : 18} /> : <Plus size={isCompact ? 14 : 18} />}
+              {isEditing ? "Atualizar" : "Adicionar"}
             </button>
           </div>
         </form>
@@ -218,15 +223,15 @@ const WorkoutManager = ({ overrideUserId = null }) => {
             Carregando categorias...
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className={isCompact ? "space-y-1.5" : "space-y-3"}>
             {workouts.map((workout) => (
               <div
                 key={workout.id}
-                className="p-4 rounded-xl border flex items-center justify-between transition bg-white border-slate-100 hover:border-slate-200"
+                className={`${isCompact ? 'p-2' : 'p-4'} rounded-xl border flex items-center justify-between transition bg-white border-slate-100 hover:border-slate-200`}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg"
+                    className={`${isCompact ? 'w-7 h-7 text-sm' : 'w-10 h-10 text-lg'} rounded-lg flex items-center justify-center font-black`}
                     style={{
                       backgroundColor: "rgba(0,0,0,0.05)",
                       color: "var(--color-secondary)",
@@ -235,23 +240,23 @@ const WorkoutManager = ({ overrideUserId = null }) => {
                     {workout.letra}
                   </div>
                   <div>
-                    <h4 className="font-bold ">{workout.nome}</h4>
-                    <p className="text-xs text-slate-500">{workout.subtitulo}</p>
+                    <h4 className="font-bold">{workout.nome}</h4>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-xs'} text-slate-500`}>{workout.subtitulo}</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   <button
                     onClick={() => handleEdit(workout)}
-                    className="p-2 text-slate-400 transition hover:opacity-70"
+                    className="p-1.5 text-slate-400 transition hover:opacity-70"
                     style={{ color: "var(--color-primary)" }}
                   >
-                    <Edit2 size={18} />
+                    <Edit2 size={isCompact ? 14 : 18} />
                   </button>
                   <button
                     onClick={() => handleDelete(workout.id)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={isCompact ? 14 : 18} />
                   </button>
                 </div>
               </div>
