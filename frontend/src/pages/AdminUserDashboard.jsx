@@ -28,6 +28,13 @@ const AdminUserDashboard = () => {
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [measurements, setMeasurements] = useState([]);
   const [stats, setStats] = useState({ totalWorkouts: 0, lastWorkout: null });
+  const [tabErrors, setTabErrors] = useState({
+    user: false,
+    stats: false,
+    financeiro: false,
+    treinos: false,
+    evolucao: false,
+  });
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -38,6 +45,15 @@ const AdminUserDashboard = () => {
 
   const fetchUserData = useCallback(async () => {
     setLoading(true);
+    setTabErrors({
+      user: false,
+      stats: false,
+      financeiro: false,
+      treinos: false,
+      evolucao: false,
+    });
+
+    // 1. Fetch User Base Data
     try {
       const { data: userData, error: userError } = await supabase
         .from("usuarios")
@@ -53,54 +69,82 @@ const AdminUserDashboard = () => {
         status_assinatura: userData.status_assinatura || "free",
         data_vencimento: userData.data_vencimento ? userData.data_vencimento.split("T")[0] : "",
       });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      setTabErrors(prev => ({ ...prev, user: true }));
+    }
 
-      // Stats
-      const { count } = await supabase
+    // 2. Fetch Stats
+    try {
+      const { count, error: countError } = await supabase
         .from("historico_cargas")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId);
 
-      const { data: lastW } = await supabase
+      if (countError) throw countError;
+
+      const { data: lastW, error: lastError } = await supabase
         .from("historico_cargas")
         .select("data_treino")
         .eq("user_id", userId)
         .order("data_treino", { ascending: false })
         .limit(1);
 
+      if (lastError) throw lastError;
+
       setStats({
         totalWorkouts: count || 0,
         lastWorkout: lastW?.[0]?.data_treino || null,
       });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      setTabErrors(prev => ({ ...prev, stats: true }));
+    }
 
-      // Tab data
-      if (activeTab === "financeiro") {
-        const { data: trans } = await supabase
+    // 3. Tab-specific data
+    if (activeTab === "financeiro") {
+      try {
+        const { data: trans, error: transError } = await supabase
           .from("transacoes_financeiras")
           .select("*")
           .eq("usuario_id", userId)
           .order("data_transacao", { ascending: false });
+        if (transError) throw transError;
         setTransactions(trans || []);
-      } else if (activeTab === "treinos") {
-        const { data: history } = await supabase
+      } catch (error) {
+        console.error("Error fetching financeiro:", error);
+        setTabErrors(prev => ({ ...prev, financeiro: true }));
+      }
+    } else if (activeTab === "treinos") {
+      try {
+        const { data: history, error: historyError } = await supabase
           .from("historico_cargas")
           .select("*, exercicios(nome)")
           .eq("user_id", userId)
           .order("data_treino", { ascending: false });
+        if (historyError) throw historyError;
         setWorkoutHistory(history || []);
-      } else if (activeTab === "evolucao") {
-        const { data: meas } = await supabase
+      } catch (error) {
+        console.error("Error fetching treinos:", error);
+        setTabErrors(prev => ({ ...prev, treinos: true }));
+      }
+    } else if (activeTab === "evolucao") {
+      try {
+        const { data: meas, error: measError } = await supabase
           .from("historico_medidas")
           .select("*, tipos_medida(nome, unidade)")
           .eq("user_id", userId)
           .order("data_medida", { ascending: false });
+        if (measError) throw measError;
         setMeasurements(meas || []);
+      } catch (error) {
+        console.error("Error fetching evolucao:", error);
+        setTabErrors(prev => ({ ...prev, evolucao: true }));
       }
-    } catch (error) {
-      showToast("Erro ao carregar dados: " + error.message, "error");
-    } finally {
-      setLoading(false);
     }
-  }, [userId, activeTab, showToast]);
+
+    setLoading(false);
+  }, [userId, activeTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -110,39 +154,49 @@ const AdminUserDashboard = () => {
   }, [fetchUserData]);
 
   const handleSaveProfile = async () => {
-    const { error } = await supabase
-      .from("usuarios")
-      .update({
-        nome: formData.nome,
-        status_assinatura: formData.status_assinatura,
-        data_vencimento: formData.data_vencimento || null,
-      })
-      .eq("id", userId);
+    try {
+      const { error } = await supabase
+        .from("usuarios")
+        .update({
+          nome: formData.nome,
+          status_assinatura: formData.status_assinatura,
+          data_vencimento: formData.data_vencimento || null,
+        })
+        .eq("id", userId);
 
-    if (error) showToast("Erro ao salvar: " + error.message, "error");
-    else showToast("Perfil atualizado!", "success");
+      if (error) throw error;
+      showToast("Perfil atualizado!", "success");
+    } catch (error) {
+      showToast("Erro ao salvar: " + error.message, "error");
+    }
   };
 
   const markExclusionPending = async (id) => {
-    const { error } = await supabase
-      .from("historico_cargas")
-      .update({ exclusao_pendente: true })
-      .eq("id", id);
+    try {
+      const { error } = await supabase
+        .from("historico_cargas")
+        .update({ exclusao_pendente: true })
+        .eq("id", id);
 
-    if (error) showToast("Erro: " + error.message, "error");
-    else {
+      if (error) throw error;
       showToast("Solicitação de exclusão enviada para aprovação do usuário", "info");
       setWorkoutHistory(prev => prev.map(h => h.id === id ? { ...h, exclusao_pendente: true } : h));
+    } catch (error) {
+      showToast("Erro: " + error.message, "error");
     }
   };
 
   const updateWorkoutRecord = async (item, field, val) => {
-     setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, [field]: val } : h));
-     const { error } = await supabase
-       .from("historico_cargas")
-       .update({ [field]: val })
-       .eq("id", item.id);
-     if (error) showToast("Erro ao salvar: " + error.message, "error");
+    try {
+      setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, [field]: val } : h));
+      const { error } = await supabase
+        .from("historico_cargas")
+        .update({ [field]: val })
+        .eq("id", item.id);
+      if (error) throw error;
+    } catch (error) {
+      showToast("Erro ao salvar: " + error.message, "error");
+    }
   };
 
   const updateSeriesValue = async (item, type, sIdx, val, part = "all") => {
@@ -168,12 +222,16 @@ const AdminUserDashboard = () => {
       updatedFields.tempo_execucao_segundos = arr;
     }
 
-    setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, ...updatedFields } : h));
-    const { error } = await supabase
-      .from("historico_cargas")
-      .update(updatedFields)
-      .eq("id", item.id);
-    if (error) showToast("Erro ao salvar: " + error.message, "error");
+    try {
+      setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, ...updatedFields } : h));
+      const { error } = await supabase
+        .from("historico_cargas")
+        .update(updatedFields)
+        .eq("id", item.id);
+      if (error) throw error;
+    } catch (error) {
+      showToast("Erro ao salvar: " + error.message, "error");
+    }
   };
 
   if (loading && !user) return <LoadingScreen message="Carregando Dashboard..." />;
@@ -190,27 +248,31 @@ const AdminUserDashboard = () => {
               <ChevronLeft size={20} />
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold truncate leading-tight">{user?.nome || "Carregando..."}</h1>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              <h1 className="text-lg font-bold truncate leading-tight">
+                {tabErrors.user ? "Usuário Indisponível" : (user?.nome || "Carregando...")}
+              </h1>
+              <p className="text-xs text-slate-500 truncate">{tabErrors.user ? "Dados protegidos ou erro na consulta" : user?.email}</p>
             </div>
-            <div className="flex flex-col items-end">
-               <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
-                 subStatus.status === 'Premium' ? 'bg-emerald-100 text-emerald-600' :
-                 subStatus.status === 'Em Atraso' ? 'bg-amber-100 text-amber-600' :
-                 'bg-slate-100 text-slate-500'
-               }`}>
-                 {subStatus.status}
-               </span>
-            </div>
+            {!tabErrors.user && (
+              <div className="flex flex-col items-end">
+                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                  subStatus.status === 'Premium' ? 'bg-emerald-100 text-emerald-600' :
+                  subStatus.status === 'Em Atraso' ? 'bg-amber-100 text-amber-600' :
+                  'bg-slate-100 text-slate-500'
+                }`}>
+                  {subStatus.status}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <StatCard label="Total Treinos" value={stats.totalWorkouts} />
+            <StatCard label="Total Treinos" value={tabErrors.stats ? "!" : stats.totalWorkouts} />
             <StatCard
               label="Último Treino"
-              value={stats.lastWorkout ? new Date(stats.lastWorkout).toLocaleDateString('pt-BR') : '-'}
+              value={tabErrors.stats ? "Erro" : (stats.lastWorkout ? new Date(stats.lastWorkout).toLocaleDateString('pt-BR') : '-')}
             />
-            <StatCard label="Início" value={user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-'} />
+            <StatCard label="Início" value={tabErrors.user ? "Erro" : (user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-')} />
           </div>
         </div>
       </header>
@@ -229,6 +291,9 @@ const AdminUserDashboard = () => {
       <main className="p-4 max-w-4xl mx-auto space-y-4">
         {activeTab === "gestao" && (
           <div className="space-y-4 animate-in fade-in duration-300">
+            {tabErrors.user ? (
+               <ErrorFallback />
+            ) : (
             <section className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
                <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Nome Completo</label>
@@ -280,11 +345,16 @@ const AdminUserDashboard = () => {
                  <Save size={16} /> Salvar Alterações
                </button>
             </section>
+            )}
           </div>
         )}
 
         {activeTab === "treinos" && (
           <div className="space-y-3 animate-in slide-in-from-bottom-4 duration-300">
+             {tabErrors.treinos ? (
+               <ErrorFallback />
+             ) : (
+               <>
              {workoutHistory.map((item) => (
                <div key={item.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                  <div className="px-4 py-2 bg-slate-900 text-white flex justify-between items-center">
@@ -368,11 +438,16 @@ const AdminUserDashboard = () => {
                   <p className="text-sm font-bold text-slate-400">Nenhum treino registrado</p>
                </div>
              )}
+               </>
+             )}
           </div>
         )}
 
         {activeTab === "financeiro" && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-300">
+            {tabErrors.financeiro ? (
+               <ErrorFallback />
+            ) : (
              <table className="w-full text-left border-collapse">
                <thead>
                  <tr className="bg-slate-50 border-b border-slate-100">
@@ -396,11 +471,15 @@ const AdminUserDashboard = () => {
                  )}
                </tbody>
              </table>
+            )}
           </div>
         )}
 
         {activeTab === "evolucao" && (
            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-300">
+             {tabErrors.evolucao ? (
+               <ErrorFallback />
+             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
@@ -422,6 +501,7 @@ const AdminUserDashboard = () => {
                   )}
                 </tbody>
               </table>
+             )}
            </div>
         )}
 
@@ -437,6 +517,16 @@ const AdminUserDashboard = () => {
     </div>
   );
 };
+
+const ErrorFallback = () => (
+  <div className="p-10 text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-in zoom-in-95 duration-300">
+    <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-500">
+      <AlertTriangle size={24} />
+    </div>
+    <p className="text-sm font-bold text-slate-600">Dados não disponíveis ou protegidos por privacidade</p>
+    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tight font-black">Restrição de Acesso Backend ativa</p>
+  </div>
+);
 
 const StatCard = ({ label, value }) => (
   <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 flex flex-col items-center">
