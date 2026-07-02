@@ -14,7 +14,8 @@ import {
   Save,
   Trash2,
   Clock,
-  MessageSquare
+  MessageSquare,
+  Layers
 } from "lucide-react";
 
 const AdminUserDashboard = () => {
@@ -117,13 +118,60 @@ const AdminUserDashboard = () => {
       }
     } else if (activeTab === "treinos") {
       try {
+        // Fetch blocks template for reference
+        const { data: blocksTemplate } = await supabase
+          .from("blocos_treino")
+          .select("exercicio_id, numero_bloco, letra_treino")
+          .eq("user_id", userId);
+
         const { data: history, error: historyError } = await supabase
           .from("historico_cargas")
           .select("*, exercicios(nome)")
           .eq("user_id", userId)
           .order("data_treino", { ascending: false });
         if (historyError) throw historyError;
-        setWorkoutHistory(history || []);
+
+        // Group by Session (letra_treino + data_treino rounded to minute)
+        const sessions = (history || []).reduce((acc, curr) => {
+          const date = new Date(curr.data_treino);
+          const dateStr = date.toLocaleDateString('pt-BR');
+          const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          const key = `${curr.letra_treino}_${dateStr}_${timeStr}`;
+
+          if (!acc[key]) {
+            acc[key] = {
+              id: key,
+              letra: curr.letra_treino,
+              data: curr.data_treino,
+              displayDate: dateStr,
+              time: timeStr,
+              blocks: {}
+            };
+          }
+
+          // Find block number for this exercise in this workout letter
+          const templateMatch = (blocksTemplate || []).find(
+            t => t.exercicio_id === curr.exercicio_id && t.letra_treino === curr.letra_treino
+          );
+          const blockNum = templateMatch?.numero_bloco || 999; // 999 for miscellaneous
+
+          if (!acc[key].blocks[blockNum]) {
+            acc[key].blocks[blockNum] = {
+              numero: blockNum,
+              items: []
+            };
+          }
+          acc[key].blocks[blockNum].items.push(curr);
+          return acc;
+        }, {});
+
+        // Convert sessions object to array and blocks object to sorted array
+        const sessionsArray = Object.values(sessions).map(session => ({
+          ...session,
+          blocks: Object.values(session.blocks).sort((a, b) => a.numero - b.numero)
+        }));
+
+        setWorkoutHistory(sessionsArray);
       } catch (error) {
         console.error("Error fetching treinos:", error);
         setTabErrors(prev => ({ ...prev, treinos: true }));
@@ -180,7 +228,14 @@ const AdminUserDashboard = () => {
 
       if (error) throw error;
       showToast("Solicitação de exclusão enviada para aprovação do usuário", "info");
-      setWorkoutHistory(prev => prev.map(h => h.id === id ? { ...h, exclusao_pendente: true } : h));
+
+      setWorkoutHistory(prev => prev.map(session => ({
+        ...session,
+        blocks: session.blocks.map(block => ({
+          ...block,
+          items: block.items.map(item => item.id === id ? { ...item, exclusao_pendente: true } : item)
+        }))
+      })));
     } catch (error) {
       showToast("Erro: " + error.message, "error");
     }
@@ -188,7 +243,14 @@ const AdminUserDashboard = () => {
 
   const updateWorkoutRecord = async (item, field, val) => {
     try {
-      setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, [field]: val } : h));
+      setWorkoutHistory(prev => prev.map(session => ({
+        ...session,
+        blocks: session.blocks.map(block => ({
+          ...block,
+          items: block.items.map(h => h.id === item.id ? { ...h, [field]: val } : h)
+        }))
+      })));
+
       const { error } = await supabase
         .from("historico_cargas")
         .update({ [field]: val })
@@ -223,7 +285,14 @@ const AdminUserDashboard = () => {
     }
 
     try {
-      setWorkoutHistory(prev => prev.map(h => h.id === item.id ? { ...h, ...updatedFields } : h));
+      setWorkoutHistory(prev => prev.map(session => ({
+        ...session,
+        blocks: session.blocks.map(block => ({
+          ...block,
+          items: block.items.map(h => h.id === item.id ? { ...h, ...updatedFields } : h)
+        }))
+      })));
+
       const { error } = await supabase
         .from("historico_cargas")
         .update(updatedFields)
@@ -239,7 +308,7 @@ const AdminUserDashboard = () => {
   const subStatus = calculateSubscriptionStatus(user?.status_assinatura, user?.data_vencimento);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 font-sans">
       {/* Fixed Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 p-4 shadow-sm">
         <div className="max-w-4xl mx-auto">
@@ -256,9 +325,9 @@ const AdminUserDashboard = () => {
             {!tabErrors.user && (
               <div className="flex flex-col items-end">
                 <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
-                  subStatus.status === 'Premium' ? 'bg-emerald-100 text-emerald-600' :
-                  subStatus.status === 'Em Atraso' ? 'bg-amber-100 text-amber-600' :
-                  'bg-slate-100 text-slate-500'
+                  subStatus.status === "Premium" ? "bg-emerald-100 text-emerald-600" :
+                  subStatus.status === "Em Atraso" ? "bg-amber-100 text-amber-600" :
+                  "bg-slate-100 text-slate-500"
                 }`}>
                   {subStatus.status}
                 </span>
@@ -350,85 +419,103 @@ const AdminUserDashboard = () => {
         )}
 
         {activeTab === "treinos" && (
-          <div className="space-y-3 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
              {tabErrors.treinos ? (
                <ErrorFallback />
              ) : (
                <>
-             {workoutHistory.map((item) => (
-               <div key={item.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+             {workoutHistory.map((session) => (
+               <div key={session.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                  <div className="px-4 py-2 bg-slate-900 text-white flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                       <span className="font-black text-sm uppercase">Treino {item.letra_treino}</span>
-                       <span className="text-[8px] opacity-60 font-bold uppercase">{new Date(item.data_treino).toLocaleDateString('pt-BR')}</span>
+                       <span className="font-black text-sm uppercase">Treino {session.letra}</span>
+                       <span className="text-[8px] opacity-60 font-bold uppercase">{session.displayDate} às {session.time}</span>
                     </div>
-                    <button
-                      onClick={() => markExclusionPending(item.id)}
-                      className={`p-1.5 rounded-lg transition-colors ${item.exclusao_pendente ? 'text-amber-500' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-                      disabled={item.exclusao_pendente}
-                    >
-                      <Trash2 size={14} />
-                    </button>
                  </div>
-                 <div className="p-3">
-                    <div className="flex justify-between items-start mb-3">
-                       <div className="flex-1">
-                          <p className="text-xs font-bold text-slate-800 leading-tight">{item.exercicios?.nome}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                             <input
-                               type="number"
-                               value={item.series_executadas || 0}
-                               onChange={e => updateWorkoutRecord(item, 'series_executadas', parseInt(e.target.value))}
-                               className="w-8 text-[10px] font-bold bg-slate-50 border-none p-0 focus:ring-0 text-center"
-                             />
-                             <span className="text-[8px] font-black text-slate-400 uppercase">Séries</span>
-                          </div>
-                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-1.5">
-                       {Array.from({ length: item.series_executadas || 0 }).map((_, i) => (
-                         <div key={i} className="bg-slate-50 rounded-xl p-1.5 flex flex-col items-center border border-slate-100">
-                            <span className="text-[7px] font-black text-slate-300 uppercase mb-0.5">S{i+1}</span>
-                            <div className="flex flex-col items-center gap-1 w-full">
-                               <div className="flex items-center gap-0.5">
-                                  <input
-                                   type="number"
-                                   value={item.carga?.[i] || 0}
-                                   onChange={e => updateSeriesValue(item, 'load', i, e.target.value)}
-                                   className="bg-transparent w-7 text-center font-black text-[10px] outline-none"
-                                  />
-                                  <span className="text-[6px] font-bold text-slate-400 uppercase">kg</span>
-                               </div>
-                               <div className="flex items-center gap-0.5">
-                                  <input
-                                   type="number"
-                                   value={item.repeticoes?.[i] || 0}
-                                   onChange={e => updateSeriesValue(item, 'reps', i, e.target.value)}
-                                   className="bg-transparent w-6 text-center font-bold text-[9px] outline-none text-orange-500"
-                                  />
-                                  <span className="text-[6px] font-bold text-orange-500/60 uppercase">r</span>
-                               </div>
-                               <div className="flex items-center gap-0.5 pt-1 border-t border-slate-200/50 w-full justify-center">
-                                  <Clock size={6} className="text-slate-300" />
-                                  <input
-                                    type="number"
-                                    value={Math.floor((item.tempo_execucao_segundos?.[i] || 0) / 60)}
-                                    onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'mins')}
-                                    className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
-                                  />
-                                  <span className="text-[6px] text-slate-300">:</span>
-                                  <input
-                                    type="number"
-                                    value={(item.tempo_execucao_segundos?.[i] || 0) % 60}
-                                    onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'secs')}
-                                    className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
-                                  />
-                               </div>
-                            </div>
+                 <div className="p-3 space-y-6">
+                    {session.blocks.map((block) => (
+                      <div key={block.numero} className="space-y-3">
+                         <div className="flex items-center gap-2 px-1">
+                            <Layers size={12} className="text-orange-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                               {block.items.length > 1 ? `Conjugado ${block.numero}` : `Bloco ${block.numero}`}
+                            </span>
+                            <div className="h-[1px] flex-1 bg-slate-100"></div>
                          </div>
-                       ))}
-                    </div>
+
+                         <div className="space-y-4">
+                           {block.items.map((item) => (
+                             <div key={item.id} className="pl-2 border-l-2 border-slate-100 ml-1">
+                                <div className="flex justify-between items-start mb-2">
+                                   <div className="flex-1">
+                                      <p className="text-xs font-bold text-slate-800 leading-tight">{item.exercicios?.nome}</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                         <input
+                                           type="number"
+                                           value={item.series_executadas || 0}
+                                           onChange={e => updateWorkoutRecord(item, 'series_executadas', parseInt(e.target.value))}
+                                           className="w-8 text-[10px] font-bold bg-slate-50 border-none p-0 focus:ring-0 text-center"
+                                         />
+                                         <span className="text-[8px] font-black text-slate-400 uppercase">Séries</span>
+                                      </div>
+                                   </div>
+                                   <button
+                                     onClick={() => markExclusionPending(item.id)}
+                                     className={`p-1.5 rounded-lg transition-colors ${item.exclusao_pendente ? 'text-amber-500' : 'text-slate-200 hover:text-red-500 hover:bg-red-50'}`}
+                                     disabled={item.exclusao_pendente}
+                                   >
+                                     <Trash2 size={14} />
+                                   </button>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-1.5">
+                                   {Array.from({ length: item.series_executadas || 0 }).map((_, i) => (
+                                     <div key={i} className="bg-slate-50 rounded-xl p-1.5 flex flex-col items-center border border-slate-100">
+                                        <span className="text-[7px] font-black text-slate-300 uppercase mb-0.5">S{i+1}</span>
+                                        <div className="flex flex-col items-center gap-1 w-full">
+                                           <div className="flex items-center gap-0.5">
+                                              <input
+                                               type="number"
+                                               value={item.carga?.[i] || 0}
+                                               onChange={e => updateSeriesValue(item, 'load', i, e.target.value)}
+                                               className="bg-transparent w-7 text-center font-black text-[10px] outline-none"
+                                              />
+                                              <span className="text-[6px] font-bold text-slate-400 uppercase">kg</span>
+                                           </div>
+                                           <div className="flex items-center gap-0.5">
+                                              <input
+                                               type="number"
+                                               value={item.repeticoes?.[i] || 0}
+                                               onChange={e => updateSeriesValue(item, 'reps', i, e.target.value)}
+                                               className="bg-transparent w-6 text-center font-bold text-[9px] outline-none text-orange-500"
+                                              />
+                                              <span className="text-[6px] font-bold text-orange-500/60 uppercase">r</span>
+                                           </div>
+                                           <div className="flex items-center gap-0.5 pt-1 border-t border-slate-200/50 w-full justify-center">
+                                              <Clock size={6} className="text-slate-300" />
+                                              <input
+                                                type="number"
+                                                value={Math.floor((item.tempo_execucao_segundos?.[i] || 0) / 60)}
+                                                onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'mins')}
+                                                className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
+                                              />
+                                              <span className="text-[6px] text-slate-300">:</span>
+                                              <input
+                                                type="number"
+                                                value={(item.tempo_execucao_segundos?.[i] || 0) % 60}
+                                                onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'secs')}
+                                                className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
+                                              />
+                                           </div>
+                                        </div>
+                                     </div>
+                                   ))}
+                                </div>
+                             </div>
+                           ))}
+                         </div>
+                      </div>
+                    ))}
                  </div>
                </div>
              ))}
@@ -461,7 +548,7 @@ const AdminUserDashboard = () => {
                    <tr key={t.id} className="text-xs">
                      <td className="px-3 py-2 text-slate-400">{new Date(t.data_transacao).toLocaleDateString('pt-BR')}</td>
                      <td className="px-3 py-2 font-medium">{t.descricao}</td>
-                     <td className={`px-3 py-2 text-right font-bold ${t.tipo === 'receita' ? 'text-emerald-500' : 'text-red-500'}`}>
+                     <td className={`px-3 py-2 text-right font-bold ${t.tipo === "receita" ? "text-emerald-500" : "text-red-500"}`}>
                        {t.tipo === 'receita' ? '+' : '-'} R$ {t.valor.toFixed(2)}
                      </td>
                    </tr>
@@ -539,7 +626,7 @@ const TabButton = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-      active ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-white text-slate-400 border border-slate-200'
+      active ? "bg-orange-500 text-white shadow-md shadow-orange-500/20" : "bg-white text-slate-400 border border-slate-200"
     }`}
   >
     {icon}
