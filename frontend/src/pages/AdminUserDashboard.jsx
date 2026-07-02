@@ -45,7 +45,16 @@ const AdminUserDashboard = () => {
   });
 
   const fetchUserData = useCallback(async () => {
+    if (!userId) {
+      console.error("AdminUserDashboard: userId is missing");
+      setTabErrors(prev => ({ ...prev, user: true }));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    console.log(`AdminUserDashboard: Fetching data for user ${userId}...`);
+
     setTabErrors({
       user: false,
       stats: false,
@@ -62,16 +71,20 @@ const AdminUserDashboard = () => {
         .eq("id", userId)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error("AdminUserDashboard: Error fetching user:", userError);
+        throw userError;
+      }
+
+      console.log("AdminUserDashboard: User data received:", userData);
       setUser(userData);
       setFormData({
-        nome: userData.nome || "",
-        email: userData.email || "",
-        status_assinatura: userData.status_assinatura || "free",
-        data_vencimento: userData.data_vencimento ? userData.data_vencimento.split("T")[0] : "",
+        nome: userData?.nome || "",
+        email: userData?.email || "",
+        status_assinatura: userData?.status_assinatura || "free",
+        data_vencimento: userData?.data_vencimento ? userData.data_vencimento.split("T")[0] : "",
       });
-    } catch (error) {
-      console.error("Error fetching user:", error);
+    } catch {
       setTabErrors(prev => ({ ...prev, user: true }));
     }
 
@@ -82,7 +95,10 @@ const AdminUserDashboard = () => {
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId);
 
-      if (countError) throw countError;
+      if (countError) {
+        console.warn("AdminUserDashboard: Error fetching stats count:", countError);
+        throw countError;
+      }
 
       const { data: lastW, error: lastError } = await supabase
         .from("historico_cargas")
@@ -91,14 +107,17 @@ const AdminUserDashboard = () => {
         .order("data_treino", { ascending: false })
         .limit(1);
 
-      if (lastError) throw lastError;
+      if (lastError) {
+        console.warn("AdminUserDashboard: Error fetching last workout:", lastError);
+        throw lastError;
+      }
 
+      console.log("AdminUserDashboard: Stats received:", { count, lastW });
       setStats({
         totalWorkouts: count || 0,
         lastWorkout: lastW?.[0]?.data_treino || null,
       });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
+    } catch {
       setTabErrors(prev => ({ ...prev, stats: true }));
     }
 
@@ -110,14 +129,20 @@ const AdminUserDashboard = () => {
           .select("*")
           .eq("usuario_id", userId)
           .order("data_transacao", { ascending: false });
-        if (transError) throw transError;
+
+        if (transError) {
+          console.error("AdminUserDashboard: Error fetching transactions:", transError);
+          throw transError;
+        }
+
+        console.log(`AdminUserDashboard: Financeiro data (${trans?.length || 0} items)`);
         setTransactions(trans || []);
-      } catch (error) {
-        console.error("Error fetching financeiro:", error);
+      } catch {
         setTabErrors(prev => ({ ...prev, financeiro: true }));
       }
     } else if (activeTab === "treinos") {
       try {
+        console.log("AdminUserDashboard: Fetching workout history...");
         // Fetch blocks template for reference
         const { data: blocksTemplate } = await supabase
           .from("blocos_treino")
@@ -129,7 +154,13 @@ const AdminUserDashboard = () => {
           .select("*, exercicios(nome)")
           .eq("user_id", userId)
           .order("data_treino", { ascending: false });
-        if (historyError) throw historyError;
+
+        if (historyError) {
+          console.error("AdminUserDashboard: Error fetching history:", historyError);
+          throw historyError;
+        }
+
+        console.log(`AdminUserDashboard: History raw data (${history?.length || 0} items)`);
 
         // Group by Session (letra_treino + data_treino rounded to minute)
         const sessions = (history || []).reduce((acc, curr) => {
@@ -168,12 +199,11 @@ const AdminUserDashboard = () => {
         // Convert sessions object to array and blocks object to sorted array
         const sessionsArray = Object.values(sessions).map(session => ({
           ...session,
-          blocks: Object.values(session.blocks).sort((a, b) => a.numero - b.numero)
+          blocks: Object.values(session?.blocks || {}).sort((a, b) => a.numero - b.numero)
         }));
 
         setWorkoutHistory(sessionsArray);
-      } catch (error) {
-        console.error("Error fetching treinos:", error);
+      } catch {
         setTabErrors(prev => ({ ...prev, treinos: true }));
       }
     } else if (activeTab === "evolucao") {
@@ -183,10 +213,15 @@ const AdminUserDashboard = () => {
           .select("*, tipos_medida(nome, unidade)")
           .eq("user_id", userId)
           .order("data_medida", { ascending: false });
-        if (measError) throw measError;
+
+        if (measError) {
+          console.error("AdminUserDashboard: Error fetching measurements:", measError);
+          throw measError;
+        }
+
+        console.log(`AdminUserDashboard: Evolucao data (${meas?.length || 0} items)`);
         setMeasurements(meas || []);
-      } catch (error) {
-        console.error("Error fetching evolucao:", error);
+      } catch {
         setTabErrors(prev => ({ ...prev, evolucao: true }));
       }
     }
@@ -231,9 +266,9 @@ const AdminUserDashboard = () => {
 
       setWorkoutHistory(prev => prev.map(session => ({
         ...session,
-        blocks: session.blocks.map(block => ({
+        blocks: session.blocks?.map(block => ({
           ...block,
-          items: block.items.map(item => item.id === id ? { ...item, exclusao_pendente: true } : item)
+          items: block.items?.map(item => item.id === id ? { ...item, exclusao_pendente: true } : item)
         }))
       })));
     } catch (error) {
@@ -245,9 +280,9 @@ const AdminUserDashboard = () => {
     try {
       setWorkoutHistory(prev => prev.map(session => ({
         ...session,
-        blocks: session.blocks.map(block => ({
+        blocks: session.blocks?.map(block => ({
           ...block,
-          items: block.items.map(h => h.id === item.id ? { ...h, [field]: val } : h)
+          items: block.items?.map(h => h.id === item.id ? { ...h, [field]: val } : h)
         }))
       })));
 
@@ -287,9 +322,9 @@ const AdminUserDashboard = () => {
     try {
       setWorkoutHistory(prev => prev.map(session => ({
         ...session,
-        blocks: session.blocks.map(block => ({
+        blocks: session.blocks?.map(block => ({
           ...block,
-          items: block.items.map(h => h.id === item.id ? { ...h, ...updatedFields } : h)
+          items: block.items?.map(h => h.id === item.id ? { ...h, ...updatedFields } : h)
         }))
       })));
 
@@ -302,6 +337,19 @@ const AdminUserDashboard = () => {
       showToast("Erro ao salvar: " + error.message, "error");
     }
   };
+
+  if (!userId) {
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6 text-center">
+         <div className="max-w-xs">
+           <AlertTriangle className="mx-auto text-red-500 mb-4" size={48} />
+           <h2 className="text-lg font-bold mb-2">Erro de Navegação</h2>
+           <p className="text-sm text-slate-500 mb-6">O ID do usuário não foi identificado na URL.</p>
+           <button onClick={() => navigate("/admin")} className="w-full py-3 bg-slate-900 text-white rounded-2xl font-bold">Voltar ao Painel</button>
+         </div>
+       </div>
+     );
+  }
 
   if (loading && !user) return <LoadingScreen message="Carregando Dashboard..." />;
 
@@ -322,7 +370,7 @@ const AdminUserDashboard = () => {
               </h1>
               <p className="text-xs text-slate-500 truncate">{tabErrors.user ? "Dados protegidos ou erro na consulta" : user?.email}</p>
             </div>
-            {!tabErrors.user && (
+            {!tabErrors.user && user && (
               <div className="flex flex-col items-end">
                 <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
                   subStatus.status === "Premium" ? "bg-emerald-100 text-emerald-600" :
@@ -358,6 +406,12 @@ const AdminUserDashboard = () => {
       </nav>
 
       <main className="p-4 max-w-4xl mx-auto space-y-4">
+        {loading ? (
+           <div className="py-20 flex justify-center">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+           </div>
+        ) : (
+          <>
         {activeTab === "gestao" && (
           <div className="space-y-4 animate-in fade-in duration-300">
             {tabErrors.user ? (
@@ -424,35 +478,35 @@ const AdminUserDashboard = () => {
                <ErrorFallback />
              ) : (
                <>
-             {workoutHistory.map((session) => (
-               <div key={session.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+             {workoutHistory?.map((session) => (
+               <div key={session?.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                  <div className="px-4 py-2 bg-slate-900 text-white flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                       <span className="font-black text-sm uppercase">Treino {session.letra}</span>
-                       <span className="text-[8px] opacity-60 font-bold uppercase">{session.displayDate} às {session.time}</span>
+                       <span className="font-black text-sm uppercase">Treino {session?.letra}</span>
+                       <span className="text-[8px] opacity-60 font-bold uppercase">{session?.displayDate} às {session?.time}</span>
                     </div>
                  </div>
                  <div className="p-3 space-y-6">
-                    {session.blocks.map((block) => (
-                      <div key={block.numero} className="space-y-3">
+                    {session?.blocks?.map((block) => (
+                      <div key={block?.numero} className="space-y-3">
                          <div className="flex items-center gap-2 px-1">
                             <Layers size={12} className="text-orange-500" />
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                               {block.items.length > 1 ? `Conjugado ${block.numero}` : `Bloco ${block.numero}`}
+                               {block?.items?.length > 1 ? `Conjugado ${block?.numero}` : `Bloco ${block?.numero}`}
                             </span>
                             <div className="h-[1px] flex-1 bg-slate-100"></div>
                          </div>
 
                          <div className="space-y-4">
-                           {block.items.map((item) => (
-                             <div key={item.id} className="pl-2 border-l-2 border-slate-100 ml-1">
+                           {block?.items?.map((item) => (
+                             <div key={item?.id} className="pl-2 border-l-2 border-slate-100 ml-1">
                                 <div className="flex justify-between items-start mb-2">
                                    <div className="flex-1">
-                                      <p className="text-xs font-bold text-slate-800 leading-tight">{item.exercicios?.nome}</p>
+                                      <p className="text-xs font-bold text-slate-800 leading-tight">{item?.exercicios?.nome}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                          <input
                                            type="number"
-                                           value={item.series_executadas || 0}
+                                           value={item?.series_executadas || 0}
                                            onChange={e => updateWorkoutRecord(item, 'series_executadas', parseInt(e.target.value))}
                                            className="w-8 text-[10px] font-bold bg-slate-50 border-none p-0 focus:ring-0 text-center"
                                          />
@@ -460,23 +514,23 @@ const AdminUserDashboard = () => {
                                       </div>
                                    </div>
                                    <button
-                                     onClick={() => markExclusionPending(item.id)}
-                                     className={`p-1.5 rounded-lg transition-colors ${item.exclusao_pendente ? 'text-amber-500' : 'text-slate-200 hover:text-red-500 hover:bg-red-50'}`}
-                                     disabled={item.exclusao_pendente}
+                                     onClick={() => markExclusionPending(item?.id)}
+                                     className={`p-1.5 rounded-lg transition-colors ${item?.exclusao_pendente ? 'text-amber-500' : 'text-slate-200 hover:text-red-500 hover:bg-red-50'}`}
+                                     disabled={item?.exclusao_pendente}
                                    >
                                      <Trash2 size={14} />
                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-4 gap-1.5">
-                                   {Array.from({ length: item.series_executadas || 0 }).map((_, i) => (
+                                   {Array.from({ length: item?.series_executadas || 0 }).map((_, i) => (
                                      <div key={i} className="bg-slate-50 rounded-xl p-1.5 flex flex-col items-center border border-slate-100">
                                         <span className="text-[7px] font-black text-slate-300 uppercase mb-0.5">S{i+1}</span>
                                         <div className="flex flex-col items-center gap-1 w-full">
                                            <div className="flex items-center gap-0.5">
                                               <input
                                                type="number"
-                                               value={item.carga?.[i] || 0}
+                                               value={item?.carga?.[i] || 0}
                                                onChange={e => updateSeriesValue(item, 'load', i, e.target.value)}
                                                className="bg-transparent w-7 text-center font-black text-[10px] outline-none"
                                               />
@@ -485,7 +539,7 @@ const AdminUserDashboard = () => {
                                            <div className="flex items-center gap-0.5">
                                               <input
                                                type="number"
-                                               value={item.repeticoes?.[i] || 0}
+                                               value={item?.repeticoes?.[i] || 0}
                                                onChange={e => updateSeriesValue(item, 'reps', i, e.target.value)}
                                                className="bg-transparent w-6 text-center font-bold text-[9px] outline-none text-orange-500"
                                               />
@@ -495,14 +549,14 @@ const AdminUserDashboard = () => {
                                               <Clock size={6} className="text-slate-300" />
                                               <input
                                                 type="number"
-                                                value={Math.floor((item.tempo_execucao_segundos?.[i] || 0) / 60)}
+                                                value={Math.floor((item?.tempo_execucao_segundos?.[i] || 0) / 60)}
                                                 onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'mins')}
                                                 className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
                                               />
                                               <span className="text-[6px] text-slate-300">:</span>
                                               <input
                                                 type="number"
-                                                value={(item.tempo_execucao_segundos?.[i] || 0) % 60}
+                                                value={(item?.tempo_execucao_segundos?.[i] || 0) % 60}
                                                 onChange={e => updateSeriesValue(item, 'exec', i, e.target.value, 'secs')}
                                                 className="bg-transparent w-4 text-center text-[8px] font-bold outline-none"
                                               />
@@ -519,7 +573,7 @@ const AdminUserDashboard = () => {
                  </div>
                </div>
              ))}
-             {workoutHistory.length === 0 && (
+             {workoutHistory?.length === 0 && (
                <div className="p-10 text-center bg-white rounded-2xl border border-slate-100">
                   <Dumbbell className="mx-auto text-slate-200 mb-2" size={32} />
                   <p className="text-sm font-bold text-slate-400">Nenhum treino registrado</p>
@@ -544,16 +598,16 @@ const AdminUserDashboard = () => {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
-                 {transactions.map(t => (
-                   <tr key={t.id} className="text-xs">
-                     <td className="px-3 py-2 text-slate-400">{new Date(t.data_transacao).toLocaleDateString('pt-BR')}</td>
-                     <td className="px-3 py-2 font-medium">{t.descricao}</td>
-                     <td className={`px-3 py-2 text-right font-bold ${t.tipo === "receita" ? "text-emerald-500" : "text-red-500"}`}>
-                       {t.tipo === 'receita' ? '+' : '-'} R$ {t.valor.toFixed(2)}
+                 {transactions?.map(t => (
+                   <tr key={t?.id} className="text-xs">
+                     <td className="px-3 py-2 text-slate-400">{t?.data_transacao ? new Date(t.data_transacao).toLocaleDateString('pt-BR') : '-'}</td>
+                     <td className="px-3 py-2 font-medium">{t?.descricao}</td>
+                     <td className={`px-3 py-2 text-right font-bold ${t?.tipo === "receita" ? "text-emerald-500" : "text-red-500"}`}>
+                       {t?.tipo === 'receita' ? '+' : '-'} R$ {t?.valor?.toFixed(2)}
                      </td>
                    </tr>
                  ))}
-                 {transactions.length === 0 && (
+                 {transactions?.length === 0 && (
                    <tr><td colSpan="3" className="px-3 py-8 text-center text-slate-400 text-xs italic">Nenhuma transação encontrada</td></tr>
                  )}
                </tbody>
@@ -576,14 +630,14 @@ const AdminUserDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {measurements.map(m => (
-                    <tr key={m.id} className="text-xs">
-                      <td className="px-3 py-2 text-slate-400">{new Date(m.data_medida).toLocaleDateString('pt-BR')}</td>
-                      <td className="px-3 py-2 font-medium">{m.tipos_medida?.nome}</td>
-                      <td className="px-3 py-2 text-right font-bold text-blue-600">{m.valor} {m.tipos_medida?.unidade}</td>
+                  {measurements?.map(m => (
+                    <tr key={m?.id} className="text-xs">
+                      <td className="px-3 py-2 text-slate-400">{m?.data_medida ? new Date(m.data_medida).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="px-3 py-2 font-medium">{m?.tipos_medida?.nome}</td>
+                      <td className="px-3 py-2 text-right font-bold text-blue-600">{m?.valor} {m?.tipos_medida?.unidade}</td>
                     </tr>
                   ))}
-                  {measurements.length === 0 && (
+                  {measurements?.length === 0 && (
                     <tr><td colSpan="3" className="px-3 py-8 text-center text-slate-400 text-xs italic">Sem registros de medidas</td></tr>
                   )}
                 </tbody>
@@ -599,6 +653,8 @@ const AdminUserDashboard = () => {
              </div>
              <p className="text-sm font-bold text-slate-400">Histórico de Chamados - Em Breve</p>
           </div>
+        )}
+          </>
         )}
       </main>
     </div>
