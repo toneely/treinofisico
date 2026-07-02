@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useToast } from "../context/ToastContext";
@@ -92,123 +92,126 @@ const AdminUserDashboard = () => {
   }, [userId]);
 
   // Secondary fetch for stats and tab-specific data
-  useEffect(() => {
+  const fetchExtraData = useCallback(async () => {
     if (!userId || !user) return;
 
-    const fetchExtraData = async () => {
-      // Stats
-      try {
-        const { data: sessaoData, error: sessaoError } = await supabase
-          .from("historico_cargas")
-          .select("sessao_treino_id")
-          .eq("user_id", userId);
+    // Stats
+    try {
+      const { data: sessaoData, error: sessaoError } = await supabase
+        .from("historico_cargas")
+        .select("sessao_treino_id")
+        .eq("user_id", userId);
 
-        const uniqueSessions = new Set(
-          (sessaoData || [])
-            .map((s) => s.sessao_treino_id)
-            .filter(Boolean)
-        ).size;
+      const uniqueSessions = new Set(
+        (sessaoData || [])
+          .map((s) => s.sessao_treino_id)
+          .filter(Boolean)
+      ).size;
 
-        const { data: lastW, error: lastError } = await supabase
-          .from("historico_cargas")
-          .select("data_treino")
-          .eq("user_id", userId)
-          .order("data_treino", { ascending: false })
-          .limit(1);
+      const { data: lastW, error: lastError } = await supabase
+        .from("historico_cargas")
+        .select("data_treino")
+        .eq("user_id", userId)
+        .order("data_treino", { ascending: false })
+        .limit(1);
 
-        if (!sessaoError && !lastError) {
-          setStats({
-            totalWorkouts: uniqueSessions,
-            lastWorkout: lastW?.[0]?.data_treino || null,
-          });
-        }
-      } catch (e) {
-        console.warn("Stats fetch failed", e);
+      if (!sessaoError && !lastError) {
+        setStats({
+          totalWorkouts: uniqueSessions,
+          lastWorkout: lastW?.[0]?.data_treino || null,
+        });
       }
+    } catch (e) {
+      console.warn("Stats fetch failed", e);
+    }
 
-      // Tab specific
-      if (activeTab === "financeiro") {
-        const { data } = await supabase.from("transacoes_financeiras").select("*").eq("usuario_id", userId).order("data_transacao", { ascending: false });
-        setTransactions(data || []);
-      } else if (activeTab === "treinos") {
-        const { data: blocksTemplate } = await supabase
-          .from("blocos_treino")
-          .select("exercicio_id, numero_bloco, letra_treino")
-          .eq("user_id", userId);
-        const { data: history } = await supabase
-          .from("historico_cargas")
-          .select("*, exercicios(nome)")
-          .eq("user_id", userId)
-          .order("data_treino", { ascending: false });
+    // Tab specific
+    if (activeTab === "financeiro") {
+      const { data } = await supabase.from("transacoes_financeiras").select("*").eq("usuario_id", userId).order("data_transacao", { ascending: false });
+      setTransactions(data || []);
+    } else if (activeTab === "treinos") {
+      const { data: blocksTemplate } = await supabase
+        .from("blocos_treino")
+        .select("exercicio_id, numero_bloco, letra_treino")
+        .eq("user_id", userId);
+      const { data: history } = await supabase
+        .from("historico_cargas")
+        .select("*, exercicios(nome)")
+        .eq("user_id", userId)
+        .order("data_treino", { ascending: false });
 
-        if (history && history.length > 0) {
-          // Grouping Algorithm Shielding - Now using sessao_treino_id as primary key
-          const sessions = (history || []).reduce((acc, curr) => {
-            try {
-              const date = new Date(curr.data_treino);
-              const dateStr = date.toLocaleDateString("pt-BR");
-              const timeStr = date.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+      if (history && history.length > 0) {
+        // Grouping Algorithm Shielding - Now using sessao_treino_id as primary key
+        const sessions = (history || []).reduce((acc, curr) => {
+          try {
+            const date = new Date(curr.data_treino);
+            const dateStr = date.toLocaleDateString("pt-BR");
+            const timeStr = date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
-              // Fallback key if sessao_treino_id is missing (legacy data)
-              const key =
-                curr.sessao_treino_id ||
-                `${curr.letra_treino || "?"}_${dateStr}_${timeStr}`;
+            // Fallback key if sessao_treino_id is missing (legacy data)
+            const key =
+              curr.sessao_treino_id ||
+              `${curr.letra_treino || "?"}_${dateStr}_${timeStr}`;
 
-              if (!acc[key]) {
-                acc[key] = {
-                  id: key,
-                  letra: curr.letra_treino,
-                  data: curr.data_treino,
-                  displayDate: dateStr,
-                  time: timeStr,
-                  blocks: {},
-                };
-              }
-
-              const templateMatch = (blocksTemplate || []).find(
-                (t) =>
-                  t.exercicio_id === curr.exercicio_id &&
-                  t.letra_treino === curr.letra_treino
-              );
-              const blockNum = templateMatch?.numero_bloco || 999;
-
-              if (!acc[key].blocks[blockNum]) {
-                acc[key].blocks[blockNum] = { numero: blockNum, items: [] };
-              }
-              acc[key].blocks[blockNum].items.push(curr);
-            } catch (e) {
-              console.error("Grouping error for item", curr.id, e);
+            if (!acc[key]) {
+              acc[key] = {
+                id: key,
+                letra: curr.letra_treino,
+                data: curr.data_treino,
+                displayDate: dateStr,
+                time: timeStr,
+                blocks: {},
+              };
             }
-            return acc;
-          }, {});
 
-          setWorkoutHistory(
-            Object.values(sessions).map((s) => ({
-              ...s,
-              blocks: Object.values(s.blocks || {}).sort(
-                (a, b) => a.numero - b.numero
-              ),
-            }))
-          );
-        } else {
-          setWorkoutHistory([]);
-        }
-      } else if (activeTab === "evolucao") {
-        const { data } = await supabase.from("historico_medidas").select("*, tipos_medida(nome, unidade)").eq("user_id", userId).order("data_medida", { ascending: false });
-        setMeasurements(data || []);
+            const templateMatch = (blocksTemplate || []).find(
+              (t) =>
+                t.exercicio_id === curr.exercicio_id &&
+                t.letra_treino === curr.letra_treino
+            );
+            const blockNum = templateMatch?.numero_bloco || 999;
+
+            if (!acc[key].blocks[blockNum]) {
+              acc[key].blocks[blockNum] = { numero: blockNum, items: [] };
+            }
+            acc[key].blocks[blockNum].items.push(curr);
+          } catch (e) {
+            console.error("Grouping error for item", curr.id, e);
+          }
+          return acc;
+        }, {});
+
+        setWorkoutHistory(
+          Object.values(sessions).map((s) => ({
+            ...s,
+            blocks: Object.values(s.blocks || {}).sort(
+              (a, b) => a.numero - b.numero
+            ),
+          }))
+        );
+      } else {
+        setWorkoutHistory([]);
       }
-    };
-
-    fetchExtraData();
+    } else if (activeTab === "evolucao") {
+      const { data } = await supabase.from("historico_medidas").select("*, tipos_medida(nome, unidade)").eq("user_id", userId).order("data_medida", { ascending: false });
+      setMeasurements(data || []);
+    }
   }, [userId, user, activeTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchUserData(), 0);
     return () => clearTimeout(timer);
   }, [fetchUserData]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchExtraData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchExtraData]);
 
   const handleSaveProfile = async () => {
     try {
@@ -219,6 +222,7 @@ const AdminUserDashboard = () => {
       }).eq("id", userId);
       if (error) throw error;
       showToast("Perfil atualizado!", "success");
+      fetchUserData(); // Refresh data
     } catch (error) { showToast("Erro ao salvar: " + error.message, "error"); }
   };
 
@@ -285,6 +289,10 @@ const AdminUserDashboard = () => {
   };
 
   // 4. Render Shields
+  const subStatus = useMemo(() => {
+    return calculateSubscriptionStatus(user?.status_assinatura, user?.data_vencimento);
+  }, [user?.status_assinatura, user?.data_vencimento]);
+
   if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
@@ -301,8 +309,6 @@ const AdminUserDashboard = () => {
   if (loading) return <LoadingScreen message="Sincronizando Dashboard..." />;
 
   if (tabErrors.user || !user) return <div className="p-10"><ErrorFallback /></div>;
-
-  const subStatus = calculateSubscriptionStatus(user?.status_assinatura, user?.data_vencimento);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 font-sans animate-in fade-in duration-500">

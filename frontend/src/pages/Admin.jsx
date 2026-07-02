@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
@@ -42,77 +42,98 @@ const Admin = () => {
     data_transacao: new Date().toISOString().split("T")[0],
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchUsersData = useCallback(async () => {
     setLoading(true);
-    if (activeTab === "users") {
+    try {
       const { data: usersData, error: usersError } = await supabase
         .from("usuarios")
         .select("*")
         .order("nome");
 
-      if (!usersError) {
-        // Fetch session counts from historico_cargas - Strictly using user_id and sessao_treino_id
-        const { data: sessionData, error: sessionError } = await supabase
-          .from("historico_cargas")
-          .select("user_id, sessao_treino_id")
-          .not("user_id", "is", null);
+      if (usersError) throw usersError;
 
-        if (!sessionError) {
-          const sessionCounts = (sessionData || []).reduce((acc, curr) => {
-            if (!curr.sessao_treino_id) return acc;
-            const uid = curr.user_id;
-            if (!acc[uid]) acc[uid] = new Set();
-            acc[uid].add(curr.sessao_treino_id);
-            return acc;
-          }, {});
+      // Fetch session counts from historico_cargas - Strictly using user_id and sessao_treino_id
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("historico_cargas")
+        .select("user_id, sessao_treino_id")
+        .not("user_id", "is", null);
 
-          const usersWithCounts = usersData.map((u) => ({
-            ...u,
-            real_workout_count: sessionCounts[u.id]?.size || 0,
-          }));
-          setUsers(usersWithCounts);
-        } else {
-          setUsers(usersData);
-        }
-      }
-    } else if (activeTab === "billing") {
+      if (sessionError) throw sessionError;
+
+      const sessionCounts = (sessionData || []).reduce((acc, curr) => {
+        if (!curr.sessao_treino_id) return acc;
+        const uid = curr.user_id;
+        if (!acc[uid]) acc[uid] = new Set();
+        acc[uid].add(curr.sessao_treino_id);
+        return acc;
+      }, {});
+
+      const usersWithCounts = (usersData || []).map((u) => ({
+        ...u,
+        real_workout_count: sessionCounts[u.id]?.size || 0,
+      }));
+      setUsers(usersWithCounts);
+    } catch (err) {
+      console.error("Admin: Error fetching users data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchBillingData = useCallback(async () => {
+    setLoading(true);
+    try {
       const { data, error } = await supabase
         .from("transacoes_financeiras")
         .select("*")
         .order("data_transacao", { ascending: false });
-      if (!error) setTransactions(data);
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (err) {
+      console.error("Admin: Error fetching billing data:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchData();
+      if (activeTab === "users") {
+        fetchUsersData();
+      } else if (activeTab === "billing") {
+        fetchBillingData();
+      } else {
+        setLoading(false);
+      }
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchData]);
+  }, [activeTab, fetchUsersData, fetchBillingData]);
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.nome?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    const search = userSearch.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.nome?.toLowerCase().includes(search) ||
+        u.email?.toLowerCase().includes(search)
+    );
+  }, [users, userSearch]);
 
-  const getUserStatus = (user) => {
+  const getUserStatus = useCallback((user) => {
     return calculateSubscriptionStatus(user.status_assinatura, user.data_vencimento).status;
-  };
-
+  }, []);
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from("transacoes_financeiras").insert([
-      {
-        ...formData,
-        valor: parseFloat(formData.valor),
-      },
-    ]);
+    try {
+      const { error } = await supabase.from("transacoes_financeiras").insert([
+        {
+          ...formData,
+          valor: parseFloat(formData.valor),
+        },
+      ]);
 
-    if (!error) {
+      if (error) throw error;
+
       setIsModalOpen(false);
       setFormData({
         tipo: "receita",
@@ -120,19 +141,23 @@ const Admin = () => {
         descricao: "",
         data_transacao: new Date().toISOString().split("T")[0],
       });
-      fetchData();
+      fetchBillingData();
+    } catch (err) {
+      console.error("Error adding transaction:", err);
     }
   };
 
-  const totals = transactions.reduce(
-    (acc, t) => {
-      if (t.tipo === "receita") acc.receitas += t.valor;
-      else acc.custos += t.valor;
-      acc.saldo = acc.receitas - acc.custos;
-      return acc;
-    },
-    { receitas: 0, custos: 0, saldo: 0 }
-  );
+  const totals = useMemo(() => {
+    return transactions.reduce(
+      (acc, t) => {
+        if (t.tipo === "receita") acc.receitas += t.valor;
+        else acc.custos += t.valor;
+        acc.saldo = acc.receitas - acc.custos;
+        return acc;
+      },
+      { receitas: 0, custos: 0, saldo: 0 }
+    );
+  }, [transactions]);
 
   if (loading && activeTab === "onboarding")
     return <LoadingScreen message="Carregando Admin..." />;
