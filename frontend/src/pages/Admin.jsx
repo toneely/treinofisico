@@ -51,16 +51,18 @@ const Admin = () => {
         .order("nome");
 
       if (!usersError) {
-        // Fetch session counts from historico_cargas
+        // Fetch session counts from historico_cargas - Strictly using user_id and sessao_treino_id
         const { data: sessionData, error: sessionError } = await supabase
           .from("historico_cargas")
-          .select("user_id, sessao_treino_id");
+          .select("user_id, sessao_treino_id")
+          .not("user_id", "is", null);
 
         if (!sessionError) {
           const sessionCounts = (sessionData || []).reduce((acc, curr) => {
-            if (!curr.user_id || !curr.sessao_treino_id) return acc;
-            if (!acc[curr.user_id]) acc[curr.user_id] = new Set();
-            acc[curr.user_id].add(curr.sessao_treino_id);
+            if (!curr.sessao_treino_id) return acc;
+            const uid = curr.user_id;
+            if (!acc[uid]) acc[uid] = new Set();
+            acc[uid].add(curr.sessao_treino_id);
             return acc;
           }, {});
 
