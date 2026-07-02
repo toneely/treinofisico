@@ -98,10 +98,16 @@ const AdminUserDashboard = () => {
     const fetchExtraData = async () => {
       // Stats
       try {
-        const { count, error: countError } = await supabase
+        const { data: sessaoData, error: sessaoError } = await supabase
           .from("historico_cargas")
-          .select("*", { count: "exact", head: true })
+          .select("sessao_treino_id")
           .eq("user_id", userId);
+
+        const uniqueSessions = new Set(
+          (sessaoData || [])
+            .map((s) => s.sessao_treino_id)
+            .filter(Boolean)
+        ).size;
 
         const { data: lastW, error: lastError } = await supabase
           .from("historico_cargas")
@@ -110,40 +116,62 @@ const AdminUserDashboard = () => {
           .order("data_treino", { ascending: false })
           .limit(1);
 
-        if (!countError && !lastError) {
+        if (!sessaoError && !lastError) {
           setStats({
-            totalWorkouts: count || 0,
+            totalWorkouts: uniqueSessions,
             lastWorkout: lastW?.[0]?.data_treino || null,
           });
         }
-      } catch (e) { console.warn("Stats fetch failed", e); }
+      } catch (e) {
+        console.warn("Stats fetch failed", e);
+      }
 
       // Tab specific
       if (activeTab === "financeiro") {
         const { data } = await supabase.from("transacoes_financeiras").select("*").eq("usuario_id", userId).order("data_transacao", { ascending: false });
         setTransactions(data || []);
       } else if (activeTab === "treinos") {
-        const { data: blocksTemplate } = await supabase.from("blocos_treino").select("exercicio_id, numero_bloco, letra_treino").eq("user_id", userId);
-        const { data: history } = await supabase.from("historico_cargas").select("*, exercicios(nome)").eq("user_id", userId).order("data_treino", { ascending: false });
+        const { data: blocksTemplate } = await supabase
+          .from("blocos_treino")
+          .select("exercicio_id, numero_bloco, letra_treino")
+          .eq("user_id", userId);
+        const { data: history } = await supabase
+          .from("historico_cargas")
+          .select("*, exercicios(nome)")
+          .eq("user_id", userId)
+          .order("data_treino", { ascending: false });
 
         if (history && history.length > 0) {
-          // Grouping Algorithm Shielding
+          // Grouping Algorithm Shielding - Now using sessao_treino_id as primary key
           const sessions = (history || []).reduce((acc, curr) => {
             try {
               const date = new Date(curr.data_treino);
-              const dateStr = date.toLocaleDateString('pt-BR');
-              const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-              const key = `${curr.letra_treino || '?'}_${dateStr}_${timeStr}`;
+              const dateStr = date.toLocaleDateString("pt-BR");
+              const timeStr = date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+              // Fallback key if sessao_treino_id is missing (legacy data)
+              const key =
+                curr.sessao_treino_id ||
+                `${curr.letra_treino || "?"}_${dateStr}_${timeStr}`;
 
               if (!acc[key]) {
                 acc[key] = {
-                  id: key, letra: curr.letra_treino, data: curr.data_treino,
-                  displayDate: dateStr, time: timeStr, blocks: {}
+                  id: key,
+                  letra: curr.letra_treino,
+                  data: curr.data_treino,
+                  displayDate: dateStr,
+                  time: timeStr,
+                  blocks: {},
                 };
               }
 
               const templateMatch = (blocksTemplate || []).find(
-                t => t.exercicio_id === curr.exercicio_id && t.letra_treino === curr.letra_treino
+                (t) =>
+                  t.exercicio_id === curr.exercicio_id &&
+                  t.letra_treino === curr.letra_treino
               );
               const blockNum = templateMatch?.numero_bloco || 999;
 
@@ -151,14 +179,20 @@ const AdminUserDashboard = () => {
                 acc[key].blocks[blockNum] = { numero: blockNum, items: [] };
               }
               acc[key].blocks[blockNum].items.push(curr);
-            } catch (e) { console.error("Grouping error for item", curr.id, e); }
+            } catch (e) {
+              console.error("Grouping error for item", curr.id, e);
+            }
             return acc;
           }, {});
 
-          setWorkoutHistory(Object.values(sessions).map(s => ({
-            ...s,
-            blocks: Object.values(s.blocks || {}).sort((a, b) => a.numero - b.numero)
-          })));
+          setWorkoutHistory(
+            Object.values(sessions).map((s) => ({
+              ...s,
+              blocks: Object.values(s.blocks || {}).sort(
+                (a, b) => a.numero - b.numero
+              ),
+            }))
+          );
         } else {
           setWorkoutHistory([]);
         }

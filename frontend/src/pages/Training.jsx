@@ -99,7 +99,19 @@ const truncateExecutionData = (state, sessionId, targetSNum) => {
   };
 };
 
+const generateUUID = () => {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    var r = (Math.random() * 16) | 0,
+      v = c == "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 const initialState = {
+  sessaoTreinoId: null,
   currentBlockIndex: 0,
   currentExerciseInBlock: 0,
   currentSerie: 1,
@@ -132,15 +144,22 @@ function trainingReducer(state, action) {
       const activeSeriesMap = { ...action.payload.activeSeriesMap };
       // If not provided (initial fetch), initialize based on existing progress (Smart Default)
       if (action.payload.blocos) {
-        action.payload.blocos.flat().forEach(ex => {
+        action.payload.blocos.flat().forEach((ex) => {
           if (!activeSeriesMap[ex.sessionId]) {
             // Rule: Smart Default Selection (Last executed or Series 1)
-            const doneCount = action.payload.exerciseTimes?.[ex.sessionId]?.length || 0;
+            const doneCount =
+              action.payload.exerciseTimes?.[ex.sessionId]?.length || 0;
             activeSeriesMap[ex.sessionId] = Math.max(1, doneCount);
           }
         });
       }
-      let nextState = { ...state, ...action.payload, activeSeriesMap, status: "IDLE" };
+      let nextState = {
+        ...state,
+        ...action.payload,
+        activeSeriesMap,
+        status: "IDLE",
+        sessaoTreinoId: action.payload.sessaoTreinoId || generateUUID(),
+      };
       // Rule 2 & 3: Smart default focus on init, but NO data mutation (read-only transition)
       if (nextState.blocos.length > 0) {
         const firstEx = nextState.blocos[nextState.currentBlockIndex][nextState.currentExerciseInBlock];
@@ -1405,12 +1424,17 @@ const Training = () => {
             exercicio_id: ex.exercicio_id,
             carga: exLoads,
             repeticoes: exReps,
-            series_executadas: Math.max(execTimes.length, exLoads.length, exReps.length),
+            series_executadas: Math.max(
+              execTimes.length,
+              exLoads.length,
+              exReps.length
+            ),
             tempo_total_segundos: totalExec + totalRest,
             tempo_execucao_segundos: execTimes,
             tempo_descanso_segundos: rests,
             letra_treino: displayLetra,
             data_treino: workoutTimestamp,
+            sessao_treino_id: state.sessaoTreinoId,
           });
         }
       });
@@ -1437,7 +1461,7 @@ const Training = () => {
         navigate("/inicio");
       }
     }
-  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, navigate]);
+  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
