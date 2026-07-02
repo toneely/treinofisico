@@ -45,11 +45,34 @@ const Admin = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     if (activeTab === "users") {
-      const { data, error } = await supabase
+      const { data: usersData, error: usersError } = await supabase
         .from("usuarios")
         .select("*")
         .order("nome");
-      if (!error) setUsers(data);
+
+      if (!usersError) {
+        // Fetch session counts from historico_cargas
+        const { data: sessionData, error: sessionError } = await supabase
+          .from("historico_cargas")
+          .select("user_id, sessao_treino_id");
+
+        if (!sessionError) {
+          const sessionCounts = (sessionData || []).reduce((acc, curr) => {
+            if (!curr.user_id || !curr.sessao_treino_id) return acc;
+            if (!acc[curr.user_id]) acc[curr.user_id] = new Set();
+            acc[curr.user_id].add(curr.sessao_treino_id);
+            return acc;
+          }, {});
+
+          const usersWithCounts = usersData.map((u) => ({
+            ...u,
+            real_workout_count: sessionCounts[u.id]?.size || 0,
+          }));
+          setUsers(usersWithCounts);
+        } else {
+          setUsers(usersData);
+        }
+      }
     } else if (activeTab === "billing") {
       const { data, error } = await supabase
         .from("transacoes_financeiras")
@@ -312,7 +335,7 @@ const Admin = () => {
                                 {status}
                               </span>
                               <div className="text-[10px] text-slate-500">
-                                Treinos: {user.contador_treino_livre || 0}
+                                Treinos: {user.real_workout_count || 0}
                               </div>
                             </div>
                           </td>

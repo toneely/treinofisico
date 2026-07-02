@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
 import Admin from './pages/Admin';
+import AdminUserDashboard from './pages/AdminUserDashboard';
 import History from './pages/History';
 import Training from './pages/Training';
 import Login from './pages/Login';
@@ -100,6 +101,14 @@ const AppContent = () => {
           element={
             <AdminRoute>
               <Admin />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/user/:userId"
+          element={
+            <AdminRoute>
+              <AdminUserDashboard />
             </AdminRoute>
           }
         />
