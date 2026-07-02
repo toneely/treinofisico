@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
   ChevronLeft,
@@ -16,6 +16,7 @@ import {
   Wallet,
   Plus,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import ExerciseManager from "../components/ExerciseManager";
@@ -24,6 +25,7 @@ import WorkoutManager from "../components/WorkoutManager";
 import LoadingScreen from "../components/LoadingScreen";
 
 const Admin = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("onboarding");
   const [subTab, setSubTab] = useState("workouts");
   // moldeUserId set to null represents global templates (where user_id is NULL)
@@ -74,6 +76,7 @@ const Admin = () => {
   const getUserStatus = (user) => {
     return calculateSubscriptionStatus(user.status_assinatura, user.data_vencimento).status;
   };
+
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
@@ -267,7 +270,10 @@ const Admin = () => {
                         Usuário
                       </th>
                       <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
-                        Status
+                        Engajamento
+                      </th>
+                      <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400">
+                        Financeiro
                       </th>
                       <th className="px-3 py-2 text-[10px] font-black uppercase tracking-tight text-slate-400 text-right">
                         Ação
@@ -279,29 +285,56 @@ const Admin = () => {
                       const status = getUserStatus(user);
                       return (
                         <tr key={user.id} className="hover:bg-slate-50/50">
-                          <td className="px-3 py-1.5">
-                            <div className="font-bold text-slate-900 text-xs">
-                              {user.nome || "Sem Nome"}
+                          <td className="px-3 py-1">
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-slate-900 text-sm">
+                                {user.nome || "Sem Nome"}
+                              </span>
+                              {user.solicitou_exclusao && (
+                                <AlertTriangle size={14} className="text-red-500" />
+                              )}
                             </div>
-                            <div className="text-[10px] text-slate-400">
+                            <div className="text-[10px] text-slate-400 leading-tight">
                               {user.email}
                             </div>
                           </td>
-                          <td className="px-3 py-1.5">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tight ${
-                                status === "Premium"
-                                  ? "bg-emerald-100 text-emerald-600"
-                                  : status === "Em Atraso"
-                                  ? "bg-amber-100 text-amber-600"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
-                            >
-                              {status}
-                            </span>
+                          <td className="px-3 py-1">
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                className={`w-fit px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tight ${
+                                  status === "Premium"
+                                    ? "bg-emerald-100 text-emerald-600"
+                                    : status === "Em Atraso"
+                                    ? "bg-amber-100 text-amber-600"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                {status}
+                              </span>
+                              <div className="text-[10px] text-slate-500">
+                                Treinos: {user.contador_treino_livre || 0}
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-3 py-1.5 text-right">
-                            <button className="p-1 text-slate-400 hover:text-orange-500 transition-colors">
+                          <td className="px-3 py-1 text-[10px] text-slate-500">
+                            {status === "Premium" || status === "Em Atraso" ? (
+                              <div className="flex flex-col">
+                                <span>Vence:</span>
+                                <span className="font-medium">
+                                  {user.data_vencimento
+                                    ? new Date(user.data_vencimento).toLocaleDateString("pt-BR")
+                                    : "-"}
+                                </span>
+                              </div>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-1 text-right">
+                            <button
+                              onClick={() => navigate(`/admin/user/${user.id}`)}
+                              className="p-1 text-slate-400 hover:text-orange-500 transition-colors"
+                            >
                               <ArrowRight size={14} />
                             </button>
                           </td>
@@ -416,6 +449,7 @@ const Admin = () => {
           </div>
         )}
       </main>
+
       {isModalOpen && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl animate-in zoom-in-95 duration-200 relative">
