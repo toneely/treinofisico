@@ -11,31 +11,54 @@ export const AuthProvider = ({ children }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
 
-  const fetchProfile = async (userId) => {
+  const fetchUserProfile = async (authUser) => {
+    if (!authUser) return;
     try {
       const { data, error } = await supabase
         .from("usuarios")
         .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+        .eq("id", authUser.id)
+        .single();
+
+      if (error && error.code === "PGRST116") {
+        // Primeiro login: Criar registro na tabela usuarios
+        const { data: newUser, error: insertError } = await supabase
+          .from("usuarios")
+          .insert([
+            {
+              id: authUser.id,
+              nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
+              email: authUser.email,
+              avatar_url: authUser.user_metadata?.avatar_url || null,
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        setProfile(newUser);
+        updateSubscriptionFlags(newUser);
+        return;
+      }
 
       if (error) throw error;
 
       if (data) {
         setProfile(data);
-        const { isPremium: premium, isGracePeriod: grace } =
-          calculateSubscriptionStatus(data.status_assinatura, data.data_vencimento);
-
-        setIsPremium(premium);
-        setIsGracePeriod(grace);
-      } else {
-        setProfile(null);
-        setIsPremium(false);
-        setIsGracePeriod(false);
+        updateSubscriptionFlags(data);
       }
     } catch (error) {
-      console.error("Erro ao buscar perfil:", error);
+      console.error("Erro ao buscar/criar perfil:", error);
     }
+  };
+
+  const updateSubscriptionFlags = (userData) => {
+    const { isPremium: premium, isGracePeriod: grace } =
+      calculateSubscriptionStatus(userData.status_assinatura, userData.data_vencimento);
+
+    setIsPremium(premium);
+    setIsGracePeriod(grace);
   };
 
   useEffect(() => {
@@ -44,7 +67,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
+        fetchUserProfile(currentUser).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -59,8 +82,9 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       if (currentUser) {
         setLoading(true);
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
+        fetchUserProfile(currentUser).finally(() => setLoading(false));
       } else {
+        setProfile(null);
         setIsPremium(false);
         setIsGracePeriod(false);
         setLoading(false);
@@ -87,7 +111,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         profile,
-        refreshProfile: () => user && fetchProfile(user.id),
+        refreshProfile: () => user && fetchUserProfile(user),
         loading,
         signUp,
         signIn,

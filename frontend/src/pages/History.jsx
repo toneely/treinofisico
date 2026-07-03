@@ -81,19 +81,16 @@ const History = () => {
     setWorkoutsMetadata(data || []);
   }, []);
 
+  const { profile } = useAuth();
+
   const fetchUser = useCallback(async () => {
-    const { data } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", authUser.id)
-      .maybeSingle();
     setUserData(
-      data || {
+      profile || {
         id: authUser.id,
-        nome: authUser.user_metadata?.full_name || authUser.email,
+        nome: authUser.email,
       },
     );
-  }, [authUser]);
+  }, [authUser, profile]);
 
   const fetchExercises = useCallback(async () => {
     const { data } = await supabase
