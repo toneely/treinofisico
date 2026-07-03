@@ -21,15 +21,13 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (error && error.code === "PGRST116") {
-        // Primeiro login: Criar registro na tabela usuarios
+        // Primeiro login: Criar registro na tabela usuarios (Apenas colunas seguras)
         const { data: newUser, error: insertError } = await supabase
           .from("usuarios")
           .insert([
             {
               id: authUser.id,
               nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
-              email: authUser.email,
-              avatar_url: authUser.user_metadata?.avatar_url || null,
             },
           ])
           .select()
@@ -49,8 +47,7 @@ export const AuthProvider = ({ children }) => {
         updateSubscriptionFlags(data);
       }
     } catch (error) {
-      console.error("Erro ao buscar/criar perfil:", error);
-      alert("Erro Critico no Perfil: " + (error.message || JSON.stringify(error)));
+      console.error("Erro silencioso ao buscar/criar perfil:", error);
     }
   };
 
@@ -77,17 +74,23 @@ export const AuthProvider = ({ children }) => {
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) {
-        setLoading(true);
-        fetchUserProfile(currentUser).finally(() => setLoading(false));
-      } else {
-        setProfile(null);
-        setIsPremium(false);
-        setIsGracePeriod(false);
+
+      try {
+        if (currentUser) {
+          setLoading(true);
+          await fetchUserProfile(currentUser);
+        } else {
+          setProfile(null);
+          setIsPremium(false);
+          setIsGracePeriod(false);
+        }
+      } catch (err) {
+        console.error("Erro na transição de auth:", err);
+      } finally {
         setLoading(false);
       }
     });
