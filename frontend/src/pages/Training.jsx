@@ -1164,6 +1164,8 @@ const Training = () => {
   const isFreeTraining = letra === "LIVRE";
 
   const [loading, setLoading] = useState(true);
+  const [isTimeout, setIsTimeout] = useState(false);
+  const [globalError, setGlobalError] = useState(null);
   const [savingSession, setSavingSession] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
@@ -1190,11 +1192,57 @@ const Training = () => {
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
+  useEffect(() => {
+    const handleError = (event) => {
+      const errorMsg = event.error?.message || event.message || "Erro desconhecido";
+      setGlobalError(`Global Error: ${errorMsg}`);
+    };
+
+    const handleRejection = (event) => {
+      const reason = event.reason?.message || event.reason || "Rejeição desconhecida";
+      setGlobalError(`Unhandled Rejection: ${reason}`);
+    };
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, []);
+
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setIsTimeout(false);
+
+    // Chrome Mobile Safety Timeout (7 seconds)
+    const safetyTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn("Chrome Mobile Safety Timeout: Fetching data taking too long.");
+          setIsTimeout(true);
+          return false;
+        }
+        return prev;
+      });
+    }, 7000);
+
     try {
+      // Robust session check
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession().catch(err => {
+        console.error("Session check critical failure:", err);
+        return { data: { session: null }, error: err };
+      });
+
+      if (sessionError) {
+        console.warn("Recovering from corrupted session state...");
+        // If session is problematic on mobile, we can't proceed reliably
+        // but we'll try to use what we have or let the error bubble.
+      }
+
       // Automatic restoration logic for refresh/resume
       const saved = localStorage.getItem("active_training_session");
       if (saved) {
@@ -1351,8 +1399,10 @@ const Training = () => {
       }
     } catch (error) {
       console.error("Erro ao buscar dados do treino:", error);
+      setGlobalError(`Fetch Data Error: ${error.message || JSON.stringify(error)}`);
       showToast("Não foi possível carregar o treino. Tente novamente.", "error");
     } finally {
+      clearTimeout(safetyTimeout);
       setLoading(false);
     }
   }, [authUser.id, letra, isFreeTraining, showToast]);
@@ -1738,6 +1788,48 @@ const Training = () => {
       }
     }
   }, [state.status, state.isCatchupPhase, state.originalBlocos, state.exerciseTimes, finishWorkout]);
+
+  if (globalError) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-red-600 text-white p-6 overflow-auto font-mono text-xs flex flex-col items-center justify-center text-center">
+        <AlertTriangle size={48} className="mb-4" />
+        <h1 className="text-lg font-black mb-4 uppercase">Erro Crítico (Mobile Diagnostic)</h1>
+        <div className="bg-black/20 p-4 rounded-xl border border-white/20 mb-6 w-full text-left">
+          {globalError}
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-white text-red-600 rounded-2xl font-black uppercase shadow-xl active:scale-95 transition-all"
+        >
+          Recarregar App
+        </button>
+      </div>
+    );
+  }
+
+  if (isTimeout) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#121212] flex flex-col items-center justify-center p-8 text-center">
+        <Clock size={64} className="text-amber-500 mb-6 animate-pulse" />
+        <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">O servidor demorou a responder</h2>
+        <p className="text-slate-400 mb-8 text-sm">A conexão parece lenta ou instável no momento.</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={() => fetchData()}
+            className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+          >
+            Tentar Novamente
+          </button>
+          <button
+            onClick={() => navigate("/inicio")}
+            className="w-full py-4 bg-white/5 text-slate-400 rounded-2xl font-bold active:scale-95 transition-all"
+          >
+            Voltar ao Início
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <LoadingScreen message="Iniciando treino..." />;
   if (!isFreeTraining && !state.blocos.length)
