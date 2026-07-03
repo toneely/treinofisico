@@ -19,14 +19,22 @@ import {
   History as HistoryIcon,
   ShieldCheck,
   Zap,
+  Lock,
+  Loader2,
+  Check,
+  ChevronLeft,
+  User,
+  Mail,
+  LogOut,
+  Camera,
+  Save,
+  Image as ImageIcon,
+  Palette,
+  Dumbbell,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
-import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
-
-// Initialize Mercado Pago with Test Public Key
-initMercadoPago("TEST-5be85552-f707-4d90-941b-e101b69bba4c", { locale: "pt-BR" });
 
 const Profile = () => {
   const { user, signOut, isPremium } = useAuth();
