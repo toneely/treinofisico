@@ -19,18 +19,6 @@ import {
   History as HistoryIcon,
   ShieldCheck,
   Zap,
-  Lock,
-  Loader2,
-  Check,
-  ChevronLeft,
-  User,
-  Mail,
-  LogOut,
-  Camera,
-  Save,
-  Image as ImageIcon,
-  Palette,
-  Dumbbell,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";

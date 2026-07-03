@@ -27,24 +27,6 @@ import {
   Edit2,
   AlertTriangle,
   Loader2,
-  Clock,
-  RotateCcw,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Flame,
-  X,
-  MoreVertical,
-  Square,
-  CircleX,
-  Plus,
-  MoreHorizontal,
-  Trash2,
-  Layers,
-  Play,
-  Pause,
-  Dumbbell,
-  Save,
 } from "lucide-react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -1330,7 +1312,7 @@ const Training = () => {
         .from("blocos_treino")
         .select("*, exercicios(*)")
         .eq("letra_treino", letra)
-      .eq("user_id", user.id)
+        .eq("user_id", user.id)
         .order("numero_bloco", { ascending: true })
         .order("ordem_execucao", { ascending: true });
 
@@ -1494,7 +1476,7 @@ const Training = () => {
             const totalRest = rests.reduce((a, b) => a + b, 0);
 
             historyData.push({
-            user_id: user.id,
+              user_id: user.id,
               exercicio_id: ex.exercicio_id,
               carga: exLoads,
               repeticoes: exReps,
