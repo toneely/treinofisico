@@ -25,7 +25,7 @@ import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
 
 const Profile = () => {
-  const { user, signOut, isPremium } = useAuth();
+  const { user, profile, refreshProfile, signOut, isPremium } = useAuth();
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -52,39 +52,24 @@ const Profile = () => {
     confirmPassword: "",
   });
 
-  const fetchUserData = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      showToast("Erro ao buscar perfil: " + error.message, "error");
-    } else if (data) {
+  useEffect(() => {
+    if (profile) {
       setFormData({
-        nome: data.nome || user.user_metadata?.full_name || "",
-        foco_treino: data.foco_treino || "",
-        atividade_alternativa: data.atividade_alternativa || "Capoeira",
-        avatar_url: data.avatar_url || user.user_metadata?.avatar_url || null,
-        testador_pagamento: data.testador_pagamento || false,
-        status_assinatura: data.status_assinatura || "free",
+        nome: profile.nome || user?.user_metadata?.full_name || "",
+        foco_treino: profile.foco_treino || "",
+        atividade_alternativa: profile.atividade_alternativa || "Capoeira",
+        avatar_url: profile.avatar_url || user?.user_metadata?.avatar_url || null,
+        testador_pagamento: profile.testador_pagamento || false,
+        status_assinatura: profile.status_assinatura || "free",
       });
-    } else {
-      setFormData((prev) => ({
+    } else if (user) {
+       setFormData(prev => ({
         ...prev,
         nome: user.user_metadata?.full_name || "",
         avatar_url: user.user_metadata?.avatar_url || null,
       }));
     }
-  }, [showToast, user]);
-
-  useEffect(() => {
-    if (user) {
-      const t = setTimeout(() => fetchUserData(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [user, fetchUserData]);
+  }, [profile, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -117,8 +102,8 @@ const Profile = () => {
       showToast("Erro ao salvar: " + error.message, "error");
     } else {
       showToast("Perfil atualizado!", "success");
-      // Fetch updated data to ensure context sync
-      fetchUserData();
+      // Synchronize context immediately
+      refreshProfile();
     }
     setSaving(false);
   };
