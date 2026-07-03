@@ -26,6 +26,7 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -1157,7 +1158,7 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
 
 const Training = () => {
   const { showToast } = useToast();
-  const { user: authUser, isPremium } = useAuth();
+  const { user, isPremium } = useAuth();
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
@@ -1311,7 +1312,7 @@ const Training = () => {
         .from("blocos_treino")
         .select("*, exercicios(*)")
         .eq("letra_treino", letra)
-        .eq("user_id", authUser.id)
+      .eq("user_id", user.id)
         .order("numero_bloco", { ascending: true })
         .order("ordem_execucao", { ascending: true });
 
@@ -1407,7 +1408,7 @@ const Training = () => {
       clearTimeout(safetyTimeout);
       setLoading(false);
     }
-  }, [authUser.id, letra, isFreeTraining, showToast]);
+  }, [user.id, letra, isFreeTraining, showToast]);
 
   const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
@@ -1415,7 +1416,7 @@ const Training = () => {
         .from("treinos")
         .select("letra, nome, subtitulo")
         .eq("letra", letra)
-        .eq("user_id", authUser.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (data) {
         setSaveAsData({
@@ -1427,7 +1428,7 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  }, [authUser.id, isFreeTraining, letra]);
+  }, [user.id, isFreeTraining, letra]);
 
   const finishWorkout = useCallback(async () => {
     setSavingSession(true);
@@ -1440,7 +1441,7 @@ const Training = () => {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("contador_treino_livre")
-          .eq("id", authUser.id)
+          .eq("id", user.id)
           .single();
 
         if (userError) throw userError;
@@ -1450,7 +1451,7 @@ const Training = () => {
         const { error: updateError } = await supabase
           .from("usuarios")
           .update({ contador_treino_livre: novoContador })
-          .eq("id", authUser.id);
+          .eq("id", user.id);
 
         if (updateError) throw updateError;
 
@@ -1475,7 +1476,7 @@ const Training = () => {
             const totalRest = rests.reduce((a, b) => a + b, 0);
 
             historyData.push({
-              user_id: authUser.id,
+            user_id: user.id,
               exercicio_id: ex.exercicio_id,
               carga: exLoads,
               repeticoes: exReps,
@@ -1521,7 +1522,7 @@ const Training = () => {
     } finally {
       setSavingSession(false);
     }
-  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
+  }, [user.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
@@ -1650,7 +1651,7 @@ const Training = () => {
       const { data: existing } = await supabase
         .from("treinos")
         .select("id")
-        .eq("user_id", authUser.id)
+        .eq("user_id", user.id)
         .eq("letra", targetLetra)
         .maybeSingle();
 
@@ -1666,7 +1667,7 @@ const Training = () => {
             await supabase
               .from("blocos_treino")
               .delete()
-              .eq("user_id", authUser.id)
+              .eq("user_id", user.id)
               .eq("letra_treino", targetLetra);
 
             // Update the training entry
@@ -1689,7 +1690,7 @@ const Training = () => {
         const { error: insertError } = await supabase
           .from("treinos")
           .insert([{
-            user_id: authUser.id,
+            user_id: user.id,
             letra: targetLetra,
             nome: saveAsData.nome || `Treino ${targetLetra}`,
             subtitulo: saveAsData.subtitulo || "Treino personalizado"
@@ -1709,7 +1710,7 @@ const Training = () => {
     state.blocos.forEach((block, bIdx) => {
       block.forEach((ex, eIdx) => {
         newBlocks.push({
-          user_id: authUser.id,
+          user_id: user.id,
           letra_treino: targetLetra,
           exercicio_id: ex.exercicio_id,
           numero_bloco: bIdx + 1,
@@ -2974,7 +2975,7 @@ const Training = () => {
                     try {
                       const { data: history } = await supabase.rpc('get_ultima_performance', {
                         p_exercicio_id: exerciseData.id,
-                        p_user_id: authUser.id
+                        p_user_id: user.id
                       });
 
                       const lastPerf = history?.[0];

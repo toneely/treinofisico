@@ -53,7 +53,7 @@ serve(async (req) => {
 
     // 2. Handle Authorized Payment
     else if (type === "authorized_payment") {
-      const response = await fetch(`https://api.mercadopago.com/authorized_payments/${resourceId}`, {
+      const response = await fetch(`https://api.mercadopago.com/v1/authorized_payments/${resourceId}`, {
         headers: {
           Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
         },

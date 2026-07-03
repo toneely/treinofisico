@@ -17,10 +17,16 @@ import {
   Palette,
   Dumbbell,
   History as HistoryIcon,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
+import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
+
+// Initialize Mercado Pago with Test Public Key
+initMercadoPago("TEST-5be85552-f707-4d90-941b-e101b69bba4c", { locale: "pt-BR" });
 
 const Profile = () => {
   const { user, signOut, isPremium } = useAuth();
@@ -31,6 +37,7 @@ const Profile = () => {
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [creatingPreference, setCreatingPreference] = useState(false);
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -40,6 +47,8 @@ const Profile = () => {
     foco_treino: "",
     atividade_alternativa: "Capoeira",
     avatar_url: null,
+    testador_pagamento: false,
+    status_assinatura: "free",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -62,6 +71,8 @@ const Profile = () => {
         foco_treino: data.foco_treino || "",
         atividade_alternativa: data.atividade_alternativa || "Capoeira",
         avatar_url: data.avatar_url || user.user_metadata?.avatar_url || null,
+        testador_pagamento: data.testador_pagamento || false,
+        status_assinatura: data.status_assinatura || "free",
       });
     } else {
       setFormData((prev) => ({
@@ -176,6 +187,32 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
+  const handleCreateTestPreference = async () => {
+    setCreatingPreference(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
+        body: {
+          planId: 'default_premium',
+          external_reference: user.id,
+          email: user.email
+        }
+      });
+
+      if (error) throw error;
+      if (data?.init_point) {
+        showToast("Redirecionando para o Sandbox...", "info");
+        window.location.href = data.init_point;
+      } else {
+        throw new Error("Link de pagamento não retornado.");
+      }
+    } catch (e) {
+      console.error("Erro ao criar assinatura:", e);
+      showToast("Erro ao carregar checkout de teste.", "error");
+    } finally {
+      setCreatingPreference(false);
+    }
+  };
+
   // if (loading && !user)
   //   return (
   //     <div className="p-10 text-center text-slate-400">
@@ -248,6 +285,49 @@ const Profile = () => {
           </Link>
         )}
       </section>
+
+      {/* Mercado Pago Test Section (Hidden for normal users) */}
+      {formData.testador_pagamento && (
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] overflow-hidden shadow-xl border border-white/10 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-400">
+              <Lock size={18} />
+              <h3 className="font-black uppercase text-xs tracking-widest">
+                Gerenciar Assinatura (TESTE)
+              </h3>
+            </div>
+            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${formData.status_assinatura === 'premium' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/40'}`}>
+              {formData.status_assinatura === 'premium' ? 'Premium Ativo' : 'Plano Free'}
+            </span>
+          </div>
+
+          <div className="p-8 text-center">
+            {formData.status_assinatura !== 'premium' ? (
+              <>
+                <p className="text-slate-400 text-xs mb-6 leading-relaxed">
+                  Você está visualizando esta seção porque é um <b>testador autorizado</b>. Use este botão para testar a jornada de compra no Sandbox.
+                </p>
+
+                <button
+                  onClick={handleCreateTestPreference}
+                  disabled={creatingPreference}
+                  className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {creatingPreference ? <Loader2 className="animate-spin" /> : 'Seja Premium (Sandbox)'}
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500">
+                  <Check size={24} />
+                </div>
+                <p className="text-white font-bold">Assinatura Premium Ativa</p>
+                <p className="text-slate-500 text-[10px] uppercase font-black">Ambiente de Testes</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="space-y-6">
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
