@@ -283,45 +283,53 @@ const Profile = () => {
       </section>
 
       {/* Mercado Pago Test Section (Hidden for normal users) */}
-      {formData.testador_pagamento && (
+      {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
         <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] overflow-hidden shadow-xl border border-white/10 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2 text-amber-400">
-              <Lock size={18} />
+              <Zap size={18} fill="currentColor" />
               <h3 className="font-black uppercase text-xs tracking-widest">
-                Gerenciar Assinatura (TESTE)
+                Área de Testes - Seja Premium
               </h3>
             </div>
-            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${formData.status_assinatura === 'premium' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/40'}`}>
-              {formData.status_assinatura === 'premium' ? 'Premium Ativo' : 'Plano Free'}
+            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-white/10 text-white/40">
+              Plano Free
             </span>
           </div>
 
           <div className="p-8 text-center">
-            {formData.status_assinatura !== 'premium' ? (
-              <>
-                <p className="text-slate-400 text-xs mb-6 leading-relaxed">
-                  Você está visualizando esta seção porque é um <b>testador autorizado</b>. Use este botão para testar a jornada de compra no Sandbox.
-                </p>
+            <p className="text-slate-400 text-xs mb-6 leading-relaxed">
+              Você está visualizando esta seção porque é um <b>testador autorizado</b>. Use este botão para validar a jornada de compra no Sandbox do Mercado Pago.
+            </p>
 
-                <button
-                  onClick={handleCreateTestPreference}
-                  disabled={creatingPreference}
-                  className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  {creatingPreference ? <Loader2 className="animate-spin" /> : 'Seja Premium (Sandbox)'}
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500">
-                  <Check size={24} />
-                </div>
-                <p className="text-white font-bold">Assinatura Premium Ativa</p>
-                <p className="text-slate-500 text-[10px] uppercase font-black">Ambiente de Testes</p>
-              </div>
-            )}
+            <button
+              onClick={handleCreateTestPreference}
+              disabled={creatingPreference}
+              className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {creatingPreference ? <Loader2 className="animate-spin" /> : (
+                <>
+                  <Zap size={16} fill="currentColor" /> Assinar com Mercado Pago
+                </>
+              )}
+            </button>
           </div>
+        </section>
+      )}
+
+      {/* Status for Premium Testers */}
+      {formData.testador_pagamento && formData.status_assinatura === 'premium' && (
+        <section className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h3 className="text-emerald-500 font-black uppercase text-[10px] tracking-widest">Status da Conta</h3>
+              <p className="text-slate-900 font-bold">Assinatura Premium Ativa</p>
+            </div>
+          </div>
+          <span className="px-2 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-lg">Sandbox</span>
         </section>
       )}
 
