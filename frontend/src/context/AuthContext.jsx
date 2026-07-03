@@ -21,19 +21,24 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (error && error.code === "PGRST116") {
-        // Primeiro login: Criar registro na tabela usuarios (Apenas colunas seguras)
-        const { data: newUser, error: insertError } = await supabase
+        // Primeiro login: Criar registro na tabela usuarios (Usando upsert para evitar race conditions)
+        const { data: newUser, error: upsertError } = await supabase
           .from("usuarios")
-          .insert([
-            {
-              id: authUser.id,
-              nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
-            },
-          ])
+          .upsert(
+            [
+              {
+                id: authUser.id,
+                nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
+                email: authUser.email,
+                avatar_url: authUser.user_metadata?.avatar_url || null,
+              },
+            ],
+            { onConflict: "id" }
+          )
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (upsertError) throw upsertError;
 
         setProfile(newUser);
         updateSubscriptionFlags(newUser);
