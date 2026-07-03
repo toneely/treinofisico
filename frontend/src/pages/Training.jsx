@@ -1166,6 +1166,8 @@ const Training = () => {
   const [loading, setLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
   const [globalError, setGlobalError] = useState(null);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [inspectedData, setInspectedData] = useState("");
   const [savingSession, setSavingSession] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
@@ -1523,8 +1525,17 @@ const Training = () => {
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
-    return () => clearTimeout(t);
-  }, [fetchData]);
+
+    // Show diagnostic panel if loading for more than 3 seconds
+    const diagnosticTimer = setTimeout(() => {
+      if (loading) setShowDiagnostic(true);
+    }, 3000);
+
+    return () => {
+      clearTimeout(t);
+      clearTimeout(diagnosticTimer);
+    };
+  }, [fetchData, loading]);
 
 
   useEffect(() => {
@@ -1831,7 +1842,38 @@ const Training = () => {
     );
   }
 
-  if (loading) return <LoadingScreen message="Iniciando treino..." />;
+  if (loading) {
+    return (
+      <div className="relative">
+        <LoadingScreen message="Iniciando treino..." />
+        {showDiagnostic && (
+          <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
+            <div className="flex gap-3">
+              <button
+                onClick={handleInspectCache}
+                className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Inspecionar Cache Local
+              </button>
+              <button
+                onClick={handleForceClear}
+                className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Forçar Limpeza e Desconectar
+              </button>
+            </div>
+            {inspectedData && (
+              <textarea
+                readOnly
+                value={inspectedData}
+                className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (!isFreeTraining && !state.blocos.length)
     return (
       <div className="p-10 text-center text-slate-500">
@@ -1844,6 +1886,30 @@ const Training = () => {
 
 
   const dismissRestTimer = (sessionId) => dispatch({ type: "DISMISS_REST", sessionId });
+
+  const handleInspectCache = () => {
+    let output = "=== LOCAL CACHE INSPECTION ===\n\n";
+    const targetKeys = ["active_training_session", "treino_em_andamento"];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || targetKeys.includes(key))) {
+        const val = localStorage.getItem(key);
+        output += `[${key}]:\n${val}\n\n`;
+      }
+    }
+
+    if (output === "=== LOCAL CACHE INSPECTION ===\n\n") {
+      output += "No relevant keys found in localStorage.";
+    }
+
+    setInspectedData(output);
+  };
+
+  const handleForceClear = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
 
   return (
     <div
