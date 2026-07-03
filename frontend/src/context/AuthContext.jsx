@@ -50,6 +50,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Erro ao buscar/criar perfil:", error);
+      alert("Erro Critico no Perfil: " + (error.message || JSON.stringify(error)));
     }
   };
 
