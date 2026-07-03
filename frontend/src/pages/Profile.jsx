@@ -97,16 +97,29 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    const { error } = await supabase.from("usuarios").upsert({
-      id: user.id,
-      nome: formData.nome,
-      foco_treino: formData.foco_treino,
-      atividade_alternativa: formData.atividade_alternativa,
-    });
+    if (!user?.id) {
+      showToast("Erro: Usuário não identificado.", "error");
+      return;
+    }
 
-    if (error) showToast("Erro ao salvar: " + error.message, "error");
-    else showToast("Perfil atualizado!", "success");
+    setSaving(true);
+    const { error } = await supabase
+      .from("usuarios")
+      .update({
+        nome: formData.nome,
+        foco_treino: formData.foco_treino,
+        atividade_alternativa: formData.atividade_alternativa,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Erro no RLS/Update:", error);
+      showToast("Erro ao salvar: " + error.message, "error");
+    } else {
+      showToast("Perfil atualizado!", "success");
+      // Fetch updated data to ensure context sync
+      fetchUserData();
+    }
     setSaving(false);
   };
 

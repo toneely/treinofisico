@@ -1218,6 +1218,11 @@ const Training = () => {
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
   const fetchData = useCallback(async () => {
+    if (!user?.id) {
+      console.warn("FetchData cancelado: User ID ausente.");
+      return;
+    }
+
     setLoading(true);
     setIsTimeout(false);
 

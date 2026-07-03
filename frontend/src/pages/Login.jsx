@@ -35,8 +35,9 @@ const Login = () => {
         showToast(error.message, "error");
       } else {
         showToast("Bem-vindo de volta!", "success");
-        console.log("Login efetuado, redirecionando para /inicio...");
-        window.location.href = "/inicio";
+        console.log("Login efetuado, aguardando carregamento do perfil...");
+        // Non-destructive navigate to allow AuthContext to update gracefully
+        navigate("/inicio");
       }
     }
     setLoading(false);

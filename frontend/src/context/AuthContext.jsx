@@ -38,9 +38,10 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        fetchProfile(currentUser.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Listen for changes on auth state (logged in, signed out, etc.)
@@ -51,12 +52,13 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        setLoading(true);
+        fetchProfile(currentUser.id).finally(() => setLoading(false));
       } else {
         setIsPremium(false);
         setIsGracePeriod(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();

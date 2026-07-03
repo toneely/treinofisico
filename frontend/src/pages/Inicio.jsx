@@ -103,19 +103,29 @@ const Inicio = () => {
   };
 
   const fetchData = async () => {
+    if (!authUser?.id) return;
+
     setLoading(true);
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("usuarios")
       .select("*")
       .eq("id", authUser.id)
       .maybeSingle();
 
-    setUser(
-      userData || {
+    if (userError) {
+      console.error("Erro ao carregar dados do usuário:", userError);
+    }
+
+    if (userData) {
+      setUser(userData);
+    } else {
+      // Fallback display name
+      const fallbackName = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta";
+      setUser({
         id: authUser.id,
-        nome: authUser.user_metadata?.full_name || authUser.email,
-      },
-    );
+        nome: fallbackName,
+      });
+    }
 
     const { data: workoutsData } = await supabase
       .from("treinos")
@@ -220,7 +230,7 @@ const Inicio = () => {
 
   return (
     <div
-      className="p-6 max-w-md mx-auto"
+      className="p-6 max-w-md mx-auto min-h-screen flex flex-col"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       <header className="mb-8">
@@ -235,7 +245,7 @@ const Inicio = () => {
           <div className="flex items-center gap-3">
             <div>
               <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
-                Olá, {user?.nome?.split(" ")[0]}
+                Olá, {user?.nome ? (user.nome.split(" ")[0]) : "Atleta"}
               </h1>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
             </div>
