@@ -75,8 +75,7 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
 const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user: authUser, isPremium } = useAuth();
-  const [user, setUser] = useState(null);
+  const { user: authUser, profile, isPremium } = useAuth();
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -86,7 +85,7 @@ const Inicio = () => {
 
   useEffect(() => {
     if (authUser) {
-      fetchData();
+      fetchWorkouts();
       checkSavedTraining();
     }
   }, [authUser]);
@@ -102,21 +101,10 @@ const Inicio = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchWorkouts = async () => {
+    if (!authUser?.id) return;
+
     setLoading(true);
-    const { data: userData } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", authUser.id)
-      .maybeSingle();
-
-    setUser(
-      userData || {
-        id: authUser.id,
-        nome: authUser.user_metadata?.full_name || authUser.email,
-      },
-    );
-
     const { data: workoutsData } = await supabase
       .from("treinos")
       .select("*")
@@ -216,11 +204,13 @@ const Inicio = () => {
 
   if (loading) return <LoadingScreen message="Carregando painel..." />;
 
-  const atividadeAlt = user?.atividade_alternativa || "Capoeira";
+  // Display Name Priority: public.usuarios (nome) > Google Metadata (full_name) > Email prefix > 'Atleta'
+  const displayName = profile?.nome || authUser?.user_metadata?.full_name || authUser?.email?.split("@")[0] || "Atleta";
+  const atividadeAlt = profile?.atividade_alternativa || "Capoeira";
 
   return (
     <div
-      className="p-6 max-w-md mx-auto"
+      className="p-6 max-w-md mx-auto min-h-screen flex flex-col"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
       <header className="mb-8">
@@ -235,7 +225,7 @@ const Inicio = () => {
           <div className="flex items-center gap-3">
             <div>
               <h1 className="text-xl font-black leading-tight" style={{ color: "var(--text-on-gestao)" }}>
-                Olá, {user?.nome?.split(" ")[0]}
+                Olá, {displayName.split(" ")[0]}
               </h1>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Pronto para superar limites?</p>
             </div>

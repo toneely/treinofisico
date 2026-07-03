@@ -26,6 +26,7 @@ import {
   ArrowDown,
   Edit2,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
@@ -1157,13 +1158,17 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
 
 const Training = () => {
   const { showToast } = useToast();
-  const { user: authUser, isPremium } = useAuth();
+  const { user, isPremium } = useAuth();
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
   const isFreeTraining = letra === "LIVRE";
 
   const [loading, setLoading] = useState(true);
+  const [isTimeout, setIsTimeout] = useState(false);
+  const [globalError, setGlobalError] = useState(null);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [inspectedData, setInspectedData] = useState("");
   const [savingSession, setSavingSession] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
   const [openMenuExId, setOpenMenuExId] = useState(null);
@@ -1190,166 +1195,225 @@ const Training = () => {
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
+  useEffect(() => {
+    const handleError = (event) => {
+      const errorMsg = event.error?.message || event.message || "Erro desconhecido";
+      setGlobalError(`Global Error: ${errorMsg}`);
+    };
+
+    const handleRejection = (event) => {
+      const reason = event.reason?.message || event.reason || "Rejeição desconhecida";
+      setGlobalError(`Unhandled Rejection: ${reason}`);
+    };
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, []);
+
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    // Automatic restoration logic for refresh/resume
-    const saved = localStorage.getItem("active_training_session");
-    if (saved) {
-      const stateData = JSON.parse(saved);
-      if (stateData.letra === letra) {
-        const now = Date.now();
-        // Recalculate timer if it was active
-        if (stateData.isTimerActive && stateData.timerStartedAt) {
-          stateData.timer = Math.floor((now - stateData.timerStartedAt) / 1000);
-        }
-        // Recalculate rest timers
-        if (stateData.activeRestTimers) {
-          Object.keys(stateData.activeRestTimers).forEach(id => {
-            if (stateData.activeRestTimers[id].startedAt) {
-              stateData.activeRestTimers[id].seconds = Math.floor(
-                (now - stateData.activeRestTimers[id].startedAt) / 1000
-              );
-            }
-          });
-        }
-        dispatch({ type: "INIT_SESSION", payload: stateData });
-        setLoading(false);
+    if (!user?.id) {
+      console.warn("FetchData cancelado: User ID ausente.");
+      return;
+    }
 
-        const data = (stateData.originalBlocos || []).flat();
-        const exerciseIds = data.map((ex) => ex.exercicio_id);
+    setLoading(true);
+    setIsTimeout(false);
+
+    // Chrome Mobile Safety Timeout (7 seconds)
+    const safetyTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn("Chrome Mobile Safety Timeout: Fetching data taking too long.");
+          setIsTimeout(true);
+          return false;
+        }
+        return prev;
+      });
+    }, 7000);
+
+    try {
+      // Robust session check
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession().catch(err => {
+        console.error("Session check critical failure:", err);
+        return { data: { session: null }, error: err };
+      });
+
+      if (sessionError) {
+        console.warn("Recovering from corrupted session state...");
+        // If session is problematic on mobile, we can't proceed reliably
+        // but we'll try to use what we have or let the error bubble.
+      }
+
+      // Automatic restoration logic for refresh/resume
+      const saved = localStorage.getItem("active_training_session");
+      if (saved) {
+        const stateData = JSON.parse(saved);
+        if (stateData.letra === letra) {
+          const now = Date.now();
+          // Recalculate timer if it was active
+          if (stateData.isTimerActive && stateData.timerStartedAt) {
+            stateData.timer = Math.floor((now - stateData.timerStartedAt) / 1000);
+          }
+          // Recalculate rest timers
+          if (stateData.activeRestTimers) {
+            Object.keys(stateData.activeRestTimers).forEach(id => {
+              if (stateData.activeRestTimers[id].startedAt) {
+                stateData.activeRestTimers[id].seconds = Math.floor(
+                  (now - stateData.activeRestTimers[id].startedAt) / 1000
+                );
+              }
+            });
+          }
+          dispatch({ type: "INIT_SESSION", payload: stateData });
+
+          const data = (stateData.originalBlocos || []).flat();
+          const exerciseIds = data.map((ex) => ex.exercicio_id);
+          const { data: lastHistory } = await supabase
+            .from("historico_cargas")
+            .select("exercicio_id, tempo_total_segundos")
+            .in("exercicio_id", exerciseIds)
+            .order("data_treino", { ascending: false });
+
+          const lastTimes = {};
+          if (lastHistory) {
+            lastHistory.forEach((h) => {
+              if (!lastTimes[h.exercicio_id])
+                lastTimes[h.exercicio_id] = h.tempo_total_segundos;
+            });
+          }
+          setLastExecutionTimes(lastTimes);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (isFreeTraining) {
+        dispatch({
+          type: "INIT_SESSION",
+          payload: {
+            letra: "LIVRE",
+            blocos: [],
+            originalBlocos: [],
+            cargas: {},
+            repsFeitas: {},
+            exerciseTimes: {},
+            restTimes: {},
+            exerciseLoads: {},
+            exerciseReps: {},
+          },
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("blocos_treino")
+        .select("*, exercicios(*)")
+        .eq("letra_treino", letra)
+        .eq("user_id", user.id)
+        .order("numero_bloco", { ascending: true })
+        .order("ordem_execucao", { ascending: true });
+
+      if (error) {
+        throw error;
+      } else {
+        const exerciseIds = [...new Set(data.map((ex) => ex.exercicio_id))];
         const { data: lastHistory } = await supabase
           .from("historico_cargas")
-          .select("exercicio_id, tempo_total_segundos")
+          .select(
+            "exercicio_id, tempo_total_segundos, carga, repeticoes, data_treino",
+          )
           .in("exercicio_id", exerciseIds)
           .order("data_treino", { ascending: false });
 
         const lastTimes = {};
+        const lastLoadsArr = {};
+        const lastRepsArr = {};
         if (lastHistory) {
           lastHistory.forEach((h) => {
-            if (!lastTimes[h.exercicio_id])
+            if (!lastTimes[h.exercicio_id]) {
               lastTimes[h.exercicio_id] = h.tempo_total_segundos;
+              lastLoadsArr[h.exercicio_id] = Array.isArray(h.carga) ? h.carga : [h.carga];
+              lastRepsArr[h.exercicio_id] = Array.isArray(h.repeticoes) ? h.repeticoes : [h.repeticoes];
+            }
           });
         }
+
         setLastExecutionTimes(lastTimes);
-        return;
-      }
-    }
 
-    if (isFreeTraining) {
-      dispatch({
-        type: "INIT_SESSION",
-        payload: {
-          letra: "LIVRE",
-          blocos: [],
-          originalBlocos: [],
-          cargas: {},
-          repsFeitas: {},
-          exerciseTimes: {},
-          restTimes: {},
-          exerciseLoads: {},
-          exerciseReps: {},
-        },
-      });
-      setLoading(false);
-      return;
-    }
+        const grouped = data.reduce((acc, curr) => {
+          if (!acc[curr.numero_bloco]) acc[curr.numero_bloco] = [];
+          acc[curr.numero_bloco].push(curr);
+          return acc;
+        }, {});
 
-    const { data, error } = await supabase
-      .from("blocos_treino")
-      .select("*, exercicios(*)")
-      .eq("letra_treino", letra)
-      .eq("user_id", authUser.id)
-      .order("numero_bloco", { ascending: true })
-      .order("ordem_execucao", { ascending: true });
+        const blocksArray = Object.values(grouped);
+        const initialCargas = {};
+        const initialReps = {};
+        const initialTimes = {};
+        const initialRests = {};
+        const initialExLoads = {};
+        const initialExReps = {};
+        const initialHistoryLoads = {};
+        const initialHistoryReps = {};
 
-    if (error) {
-      console.error("Erro ao buscar treino:", error);
-    } else {
-      const exerciseIds = [...new Set(data.map((ex) => ex.exercicio_id))];
-      const { data: lastHistory } = await supabase
-        .from("historico_cargas")
-        .select(
-          "exercicio_id, tempo_total_segundos, carga, repeticoes, data_treino",
-        )
-        .in("exercicio_id", exerciseIds)
-        .order("data_treino", { ascending: false });
+        data.forEach((ex) => {
+          const sessionId = ex.sessionId || String(ex.id) || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
+          ex.sessionId = sessionId;
 
-      const lastTimes = {};
-      const lastLoadsArr = {};
-      const lastRepsArr = {};
-      if (lastHistory) {
-        lastHistory.forEach((h) => {
-          if (!lastTimes[h.exercicio_id]) {
-            lastTimes[h.exercicio_id] = h.tempo_total_segundos;
-            lastLoadsArr[h.exercicio_id] = Array.isArray(h.carga) ? h.carga : [h.carga];
-            lastRepsArr[h.exercicio_id] = Array.isArray(h.repeticoes) ? h.repeticoes : [h.repeticoes];
-          }
+          const histLoads = lastLoadsArr[ex.exercicio_id] || [];
+          const histReps = lastRepsArr[ex.exercicio_id] || [];
+
+          // Pre-fill the input fields with the last value from history
+          initialCargas[sessionId] = histLoads.length > 0 ? histLoads[histLoads.length - 1] : 0;
+          initialReps[sessionId] = histReps.length > 0
+            ? histReps[histReps.length - 1]
+            : ex.reps_alvo.includes("-")
+              ? parseInt(ex.reps_alvo.split("-")[1])
+              : parseInt(ex.reps_alvo) || 10;
+
+          initialTimes[sessionId] = [];
+          initialRests[sessionId] = [];
+          // Store full history arrays separately
+          initialHistoryLoads[sessionId] = histLoads;
+          initialHistoryReps[sessionId] = histReps;
+          // Start with empty performance data; meta/history will be shown via fallbacks
+          initialExLoads[sessionId] = [];
+          initialExReps[sessionId] = [];
+        });
+
+        dispatch({
+          type: "INIT_SESSION",
+          payload: {
+            blocos: blocksArray,
+            originalBlocos: blocksArray,
+            cargas: initialCargas,
+            repsFeitas: initialReps,
+            exerciseTimes: initialTimes,
+            restTimes: initialRests,
+            exerciseLoads: initialExLoads,
+            historyLoads: initialHistoryLoads,
+            exerciseReps: initialExReps,
+            historyReps: initialHistoryReps,
+          },
         });
       }
-
-      setLastExecutionTimes(lastTimes);
-
-      const grouped = data.reduce((acc, curr) => {
-        if (!acc[curr.numero_bloco]) acc[curr.numero_bloco] = [];
-        acc[curr.numero_bloco].push(curr);
-        return acc;
-      }, {});
-
-      const blocksArray = Object.values(grouped);
-      const initialCargas = {};
-      const initialReps = {};
-      const initialTimes = {};
-      const initialRests = {};
-      const initialExLoads = {};
-      const initialExReps = {};
-      const initialHistoryLoads = {};
-      const initialHistoryReps = {};
-
-      data.forEach((ex) => {
-        const sessionId = ex.sessionId || String(ex.id) || `init-${ex.exercicio_id}-${Math.random().toString(36).substr(2, 5)}`;
-        ex.sessionId = sessionId;
-
-        const histLoads = lastLoadsArr[ex.exercicio_id] || [];
-        const histReps = lastRepsArr[ex.exercicio_id] || [];
-
-        // Pre-fill the input fields with the last value from history
-        initialCargas[sessionId] = histLoads.length > 0 ? histLoads[histLoads.length - 1] : 0;
-        initialReps[sessionId] = histReps.length > 0
-          ? histReps[histReps.length - 1]
-          : ex.reps_alvo.includes("-")
-            ? parseInt(ex.reps_alvo.split("-")[1])
-            : parseInt(ex.reps_alvo) || 10;
-
-        initialTimes[sessionId] = [];
-        initialRests[sessionId] = [];
-        // Store full history arrays separately
-        initialHistoryLoads[sessionId] = histLoads;
-        initialHistoryReps[sessionId] = histReps;
-        // Start with empty performance data; meta/history will be shown via fallbacks
-        initialExLoads[sessionId] = [];
-        initialExReps[sessionId] = [];
-      });
-
-      dispatch({
-        type: "INIT_SESSION",
-        payload: {
-          blocos: blocksArray,
-          originalBlocos: blocksArray,
-          cargas: initialCargas,
-          repsFeitas: initialReps,
-          exerciseTimes: initialTimes,
-          restTimes: initialRests,
-          exerciseLoads: initialExLoads,
-          historyLoads: initialHistoryLoads,
-          exerciseReps: initialExReps,
-          historyReps: initialHistoryReps,
-        },
-      });
+    } catch (error) {
+      console.error("Erro ao buscar dados do treino:", error);
+      setGlobalError(`Fetch Data Error: ${error.message || JSON.stringify(error)}`);
+      showToast("Não foi possível carregar o treino. Tente novamente.", "error");
+    } finally {
+      clearTimeout(safetyTimeout);
+      setLoading(false);
     }
-    setLoading(false);
-  }, [authUser.id, letra, isFreeTraining]);
+  }, [user.id, letra, isFreeTraining, showToast]);
 
   const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
@@ -1357,7 +1421,7 @@ const Training = () => {
         .from("treinos")
         .select("letra, nome, subtitulo")
         .eq("letra", letra)
-        .eq("user_id", authUser.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (data) {
         setSaveAsData({
@@ -1369,20 +1433,20 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  }, [authUser.id, isFreeTraining, letra]);
+  }, [user.id, isFreeTraining, letra]);
 
   const finishWorkout = useCallback(async () => {
     setSavingSession(true);
-    const historyData = [];
-    const workoutTimestamp = new Date().toISOString();
-    let displayLetra = letra;
+    try {
+      const historyData = [];
+      const workoutTimestamp = new Date().toISOString();
+      let displayLetra = letra;
 
-    if (letra === "LIVRE") {
-      try {
+      if (letra === "LIVRE") {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("contador_treino_livre")
-          .eq("id", authUser.id)
+          .eq("id", user.id)
           .single();
 
         if (userError) throw userError;
@@ -1392,81 +1456,92 @@ const Training = () => {
         const { error: updateError } = await supabase
           .from("usuarios")
           .update({ contador_treino_livre: novoContador })
-          .eq("id", authUser.id);
+          .eq("id", user.id);
 
         if (updateError) throw updateError;
 
         displayLetra = `Livre ${novoContador}`;
-      } catch (err) {
-        console.error("Erro ao atualizar contador de treino livre:", err);
       }
-    }
 
-    state.originalBlocos.forEach((block) => {
-      block.forEach((ex) => {
-        const sessionId = ex.sessionId;
-        const val = state.cargas[sessionId];
-        const execTimes = state.exerciseTimes[sessionId] || [];
-        const rests = state.restTimes[sessionId] || [];
-        const exLoads = state.exerciseLoads[sessionId] || [];
-        const exReps = state.exerciseReps[sessionId] || [];
+      state.originalBlocos.forEach((block) => {
+        block.forEach((ex) => {
+          const sessionId = ex.sessionId;
+          const val = state.cargas[sessionId];
+          const execTimes = state.exerciseTimes[sessionId] || [];
+          const rests = state.restTimes[sessionId] || [];
+          const exLoads = state.exerciseLoads[sessionId] || [];
+          const exReps = state.exerciseReps[sessionId] || [];
 
-        if (
-          (val !== "" && parseFloat(val) >= 0) ||
-          execTimes.length > 0 ||
-          rests.length > 0
-        ) {
-          const totalExec = execTimes.reduce((a, b) => a + b, 0);
-          const totalRest = rests.reduce((a, b) => a + b, 0);
+          if (
+            (val !== "" && parseFloat(val) >= 0) ||
+            execTimes.length > 0 ||
+            rests.length > 0
+          ) {
+            const totalExec = execTimes.reduce((a, b) => a + b, 0);
+            const totalRest = rests.reduce((a, b) => a + b, 0);
 
-          historyData.push({
-            user_id: authUser.id,
-            exercicio_id: ex.exercicio_id,
-            carga: exLoads,
-            repeticoes: exReps,
-            series_executadas: Math.max(
-              execTimes.length,
-              exLoads.length,
-              exReps.length
-            ),
-            tempo_total_segundos: totalExec + totalRest,
-            tempo_execucao_segundos: execTimes,
-            tempo_descanso_segundos: rests,
-            letra_treino: displayLetra,
-            data_treino: workoutTimestamp,
-            sessao_treino_id: state.sessaoTreinoId,
-          });
-        }
+            historyData.push({
+              user_id: user.id,
+              exercicio_id: ex.exercicio_id,
+              carga: exLoads,
+              repeticoes: exReps,
+              series_executadas: Math.max(
+                execTimes.length,
+                exLoads.length,
+                exReps.length
+              ),
+              tempo_total_segundos: totalExec + totalRest,
+              tempo_execucao_segundos: execTimes,
+              tempo_descanso_segundos: rests,
+              letra_treino: displayLetra,
+              data_treino: workoutTimestamp,
+              sessao_treino_id: state.sessaoTreinoId,
+            });
+          }
+        });
       });
-    });
 
-    if (historyData.length === 0) {
-      showToast("Nenhum exercício registrado.", "info");
-      navigate("/inicio");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("historico_cargas")
-      .insert(historyData);
-    if (error) {
-      showToast("Erro ao salvar histórico: " + error.message, "error");
-      setSavingSession(false);
-    } else {
-      localStorage.removeItem("active_training_session");
-      showToast("Treino concluído!", "success");
-      if (!isPremium) {
-        setShowInterstitial(true);
-      } else {
+      if (historyData.length === 0) {
+        showToast("Nenhum exercício registrado.", "info");
         navigate("/inicio");
+        return;
       }
+
+      const { error } = await supabase
+        .from("historico_cargas")
+        .insert(historyData);
+      if (error) {
+        throw error;
+      } else {
+        localStorage.removeItem("active_training_session");
+        showToast("Treino concluído!", "success");
+        if (!isPremium) {
+          setShowInterstitial(true);
+        } else {
+          navigate("/inicio");
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao salvar treino:", error);
+      showToast("Erro ao salvar histórico: " + error.message, "error");
+    } finally {
+      setSavingSession(false);
     }
-  }, [authUser.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
+  }, [user.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
-    return () => clearTimeout(t);
-  }, [fetchData]);
+
+    // Show diagnostic panel if loading for more than 3 seconds
+    const diagnosticTimer = setTimeout(() => {
+      if (loading) setShowDiagnostic(true);
+    }, 3000);
+
+    return () => {
+      clearTimeout(t);
+      clearTimeout(diagnosticTimer);
+    };
+  }, [fetchData, loading]);
 
 
   useEffect(() => {
@@ -1581,7 +1656,7 @@ const Training = () => {
       const { data: existing } = await supabase
         .from("treinos")
         .select("id")
-        .eq("user_id", authUser.id)
+        .eq("user_id", user.id)
         .eq("letra", targetLetra)
         .maybeSingle();
 
@@ -1597,7 +1672,7 @@ const Training = () => {
             await supabase
               .from("blocos_treino")
               .delete()
-              .eq("user_id", authUser.id)
+              .eq("user_id", user.id)
               .eq("letra_treino", targetLetra);
 
             // Update the training entry
@@ -1620,7 +1695,7 @@ const Training = () => {
         const { error: insertError } = await supabase
           .from("treinos")
           .insert([{
-            user_id: authUser.id,
+            user_id: user.id,
             letra: targetLetra,
             nome: saveAsData.nome || `Treino ${targetLetra}`,
             subtitulo: saveAsData.subtitulo || "Treino personalizado"
@@ -1640,7 +1715,7 @@ const Training = () => {
     state.blocos.forEach((block, bIdx) => {
       block.forEach((ex, eIdx) => {
         newBlocks.push({
-          user_id: authUser.id,
+          user_id: user.id,
           letra_treino: targetLetra,
           exercicio_id: ex.exercicio_id,
           numero_bloco: bIdx + 1,
@@ -1731,7 +1806,80 @@ const Training = () => {
     }
   }, [state.status, state.isCatchupPhase, state.originalBlocos, state.exerciseTimes, finishWorkout]);
 
-  if (loading) return <LoadingScreen message="Iniciando treino..." />;
+  if (globalError) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-red-600 text-white p-6 overflow-auto font-mono text-xs flex flex-col items-center justify-center text-center">
+        <AlertTriangle size={48} className="mb-4" />
+        <h1 className="text-lg font-black mb-4 uppercase">Erro Crítico (Mobile Diagnostic)</h1>
+        <div className="bg-black/20 p-4 rounded-xl border border-white/20 mb-6 w-full text-left">
+          {globalError}
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-white text-red-600 rounded-2xl font-black uppercase shadow-xl active:scale-95 transition-all"
+        >
+          Recarregar App
+        </button>
+      </div>
+    );
+  }
+
+  if (isTimeout) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#121212] flex flex-col items-center justify-center p-8 text-center">
+        <Clock size={64} className="text-amber-500 mb-6 animate-pulse" />
+        <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">O servidor demorou a responder</h2>
+        <p className="text-slate-400 mb-8 text-sm">A conexão parece lenta ou instável no momento.</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={() => fetchData()}
+            className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+          >
+            Tentar Novamente
+          </button>
+          <button
+            onClick={() => navigate("/inicio")}
+            className="w-full py-4 bg-white/5 text-slate-400 rounded-2xl font-bold active:scale-95 transition-all"
+          >
+            Voltar ao Início
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="relative">
+        <LoadingScreen message="Iniciando treino..." />
+        {showDiagnostic && (
+          <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
+            <div className="flex gap-3">
+              <button
+                onClick={handleInspectCache}
+                className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Inspecionar Cache Local
+              </button>
+              <button
+                onClick={handleForceClear}
+                className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Forçar Limpeza e Desconectar
+              </button>
+            </div>
+            {inspectedData && (
+              <textarea
+                readOnly
+                value={inspectedData}
+                className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (!isFreeTraining && !state.blocos.length)
     return (
       <div className="p-10 text-center text-slate-500">
@@ -1744,6 +1892,30 @@ const Training = () => {
 
 
   const dismissRestTimer = (sessionId) => dispatch({ type: "DISMISS_REST", sessionId });
+
+  const handleInspectCache = () => {
+    let output = "=== LOCAL CACHE INSPECTION ===\n\n";
+    const targetKeys = ["active_training_session", "treino_em_andamento"];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || targetKeys.includes(key))) {
+        const val = localStorage.getItem(key);
+        output += `[${key}]:\n${val}\n\n`;
+      }
+    }
+
+    if (output === "=== LOCAL CACHE INSPECTION ===\n\n") {
+      output += "No relevant keys found in localStorage.";
+    }
+
+    setInspectedData(output);
+  };
+
+  const handleForceClear = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
 
   return (
     <div
@@ -2808,7 +2980,7 @@ const Training = () => {
                     try {
                       const { data: history } = await supabase.rpc('get_ultima_performance', {
                         p_exercicio_id: exerciseData.id,
-                        p_user_id: authUser.id
+                        p_user_id: user.id
                       });
 
                       const lastPerf = history?.[0];

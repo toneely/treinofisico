@@ -17,13 +17,15 @@ import {
   Palette,
   Dumbbell,
   History as HistoryIcon,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
 
 const Profile = () => {
-  const { user, signOut, isPremium } = useAuth();
+  const { user, profile, refreshProfile, signOut, isPremium } = useAuth();
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -31,6 +33,7 @@ const Profile = () => {
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [creatingPreference, setCreatingPreference] = useState(false);
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -40,6 +43,8 @@ const Profile = () => {
     foco_treino: "",
     atividade_alternativa: "Capoeira",
     avatar_url: null,
+    testador_pagamento: false,
+    status_assinatura: "free",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -47,37 +52,24 @@ const Profile = () => {
     confirmPassword: "",
   });
 
-  const fetchUserData = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      showToast("Erro ao buscar perfil: " + error.message, "error");
-    } else if (data) {
+  useEffect(() => {
+    if (profile) {
       setFormData({
-        nome: data.nome || user.user_metadata?.full_name || "",
-        foco_treino: data.foco_treino || "",
-        atividade_alternativa: data.atividade_alternativa || "Capoeira",
-        avatar_url: data.avatar_url || user.user_metadata?.avatar_url || null,
+        nome: profile.nome || user?.user_metadata?.full_name || "",
+        foco_treino: profile.foco_treino || "",
+        atividade_alternativa: profile.atividade_alternativa || "Capoeira",
+        avatar_url: profile.avatar_url || user?.user_metadata?.avatar_url || null,
+        testador_pagamento: profile.testador_pagamento || false,
+        status_assinatura: profile.status_assinatura || "free",
       });
-    } else {
-      setFormData((prev) => ({
+    } else if (user) {
+       setFormData(prev => ({
         ...prev,
         nome: user.user_metadata?.full_name || "",
         avatar_url: user.user_metadata?.avatar_url || null,
       }));
     }
-  }, [showToast, user]);
-
-  useEffect(() => {
-    if (user) {
-      const t = setTimeout(() => fetchUserData(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [user, fetchUserData]);
+  }, [profile, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -90,16 +82,29 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    const { error } = await supabase.from("usuarios").upsert({
-      id: user.id,
-      nome: formData.nome,
-      foco_treino: formData.foco_treino,
-      atividade_alternativa: formData.atividade_alternativa,
-    });
+    if (!user?.id) {
+      showToast("Erro: Usuário não identificado.", "error");
+      return;
+    }
 
-    if (error) showToast("Erro ao salvar: " + error.message, "error");
-    else showToast("Perfil atualizado!", "success");
+    setSaving(true);
+    const { error } = await supabase
+      .from("usuarios")
+      .update({
+        nome: formData.nome,
+        foco_treino: formData.foco_treino,
+        atividade_alternativa: formData.atividade_alternativa,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Erro no RLS/Update:", error);
+      showToast("Erro ao salvar: " + error.message, "error");
+    } else {
+      showToast("Perfil atualizado!", "success");
+      // Synchronize context immediately
+      refreshProfile();
+    }
     setSaving(false);
   };
 
@@ -176,6 +181,32 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
+  const handleCreateTestPreference = async () => {
+    setCreatingPreference(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
+        body: {
+          planId: 'default_premium',
+          external_reference: user.id,
+          email: user.email
+        }
+      });
+
+      if (error) throw error;
+      if (data?.init_point) {
+        showToast("Redirecionando para o Sandbox...", "info");
+        window.location.href = data.init_point;
+      } else {
+        throw new Error("Link de pagamento não retornado.");
+      }
+    } catch (e) {
+      console.error("Erro ao criar assinatura:", e);
+      showToast("Erro ao carregar checkout de teste.", "error");
+    } finally {
+      setCreatingPreference(false);
+    }
+  };
+
   // if (loading && !user)
   //   return (
   //     <div className="p-10 text-center text-slate-400">
@@ -248,6 +279,57 @@ const Profile = () => {
           </Link>
         )}
       </section>
+
+      {/* Mercado Pago Test Section (Hidden for normal users) */}
+      {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] overflow-hidden shadow-xl border border-white/10 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-400">
+              <Zap size={18} fill="currentColor" />
+              <h3 className="font-black uppercase text-xs tracking-widest">
+                Área de Testes - Seja Premium
+              </h3>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-white/10 text-white/40">
+              Plano Free
+            </span>
+          </div>
+
+          <div className="p-8 text-center">
+            <p className="text-slate-400 text-xs mb-6 leading-relaxed">
+              Você está visualizando esta seção porque é um <b>testador autorizado</b>. Use este botão para validar a jornada de compra no Sandbox do Mercado Pago.
+            </p>
+
+            <button
+              onClick={handleCreateTestPreference}
+              disabled={creatingPreference}
+              className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {creatingPreference ? <Loader2 className="animate-spin" /> : (
+                <>
+                  <Zap size={16} fill="currentColor" /> Assinar com Mercado Pago
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Status for Premium Testers */}
+      {formData.testador_pagamento && formData.status_assinatura === 'premium' && (
+        <section className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h3 className="text-emerald-500 font-black uppercase text-[10px] tracking-widest">Status da Conta</h3>
+              <p className="text-slate-900 font-bold">Assinatura Premium Ativa</p>
+            </div>
+          </div>
+          <span className="px-2 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-lg">Sandbox</span>
+        </section>
+      )}
 
       <div className="space-y-6">
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">

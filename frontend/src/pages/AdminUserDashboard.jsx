@@ -44,6 +44,7 @@ const AdminUserDashboard = () => {
     email: "",
     status_assinatura: "free",
     data_vencimento: "",
+    testador_pagamento: false,
   });
 
   // 3. Defensive Fetch Logic
@@ -81,6 +82,7 @@ const AdminUserDashboard = () => {
           email: userData.email || "",
           status_assinatura: userData.status_assinatura || "free",
           data_vencimento: userData.data_vencimento ? userData.data_vencimento.split("T")[0] : "",
+          testador_pagamento: userData.testador_pagamento || false,
         });
       }
     } catch (err) {
@@ -219,6 +221,7 @@ const AdminUserDashboard = () => {
         nome: formData.nome,
         status_assinatura: formData.status_assinatura,
         data_vencimento: formData.data_vencimento || null,
+        testador_pagamento: formData.testador_pagamento,
       }).eq("id", userId);
       if (error) throw error;
       showToast("Perfil atualizado!", "success");
@@ -364,6 +367,20 @@ const AdminUserDashboard = () => {
                 <input type="date" value={formData.data_vencimento} onChange={e => setFormData({...formData, data_vencimento: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none"/>
               </div>
             </div>
+
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase text-slate-500">Testador de Pagamentos</span>
+                <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tight">Habilita botões Sandbox MP no Perfil</span>
+              </div>
+              <button
+                onClick={() => setFormData({...formData, testador_pagamento: !formData.testador_pagamento})}
+                className={`w-10 h-5 rounded-full transition-all duration-300 flex items-center px-1 ${formData.testador_pagamento ? "bg-orange-500 justify-end" : "bg-slate-300 justify-start"}`}
+              >
+                <div className="w-3 h-3 bg-white rounded-full shadow-sm" />
+              </button>
+            </div>
+
             {user?.solicitou_exclusao && (
               <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex gap-3">
                 <AlertTriangle className="text-red-500 shrink-0" size={20} />

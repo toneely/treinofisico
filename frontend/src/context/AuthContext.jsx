@@ -6,6 +6,7 @@ const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
@@ -14,18 +15,23 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data, error } = await supabase
         .from("usuarios")
-        .select("status_assinatura, data_vencimento")
+        .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
       if (data) {
+        setProfile(data);
         const { isPremium: premium, isGracePeriod: grace } =
           calculateSubscriptionStatus(data.status_assinatura, data.data_vencimento);
 
         setIsPremium(premium);
         setIsGracePeriod(grace);
+      } else {
+        setProfile(null);
+        setIsPremium(false);
+        setIsGracePeriod(false);
       }
     } catch (error) {
       console.error("Erro ao buscar perfil:", error);
@@ -38,9 +44,10 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        fetchProfile(currentUser.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Listen for changes on auth state (logged in, signed out, etc.)
@@ -51,12 +58,13 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        setLoading(true);
+        fetchProfile(currentUser.id).finally(() => setLoading(false));
       } else {
         setIsPremium(false);
         setIsGracePeriod(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -78,6 +86,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        profile,
+        refreshProfile: () => user && fetchProfile(user.id),
         loading,
         signUp,
         signIn,
