@@ -12,6 +12,8 @@ import WorkoutTemplates from './pages/WorkoutTemplates';
 import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
+import { supabase } from "./supabaseClient";
+import { Activity } from "lucide-react";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -68,6 +70,35 @@ const AppContent = () => {
     }
   }, [isTrainingRoute]);
 
+  const runInsertDiagnostic = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      alert("Nenhuma sessao ativa");
+      return;
+    }
+
+    try {
+      const result = await supabase.from("usuarios").insert([
+        {
+          id: session.user.id,
+          nome: "Teste Diagnostico Isolado",
+          email: session.user.email,
+        },
+      ]);
+
+      if (result.error) {
+        alert("ERRO DO BANCO: " + JSON.stringify(result.error));
+      } else {
+        alert("SUCESSO: Usuario inserido!");
+      }
+    } catch (err) {
+      alert("ERRO DE EXECUCAO: " + err.message);
+    }
+  };
+
   return (
     <div
       className="font-sans antialiased transition-colors duration-500 min-h-screen"
@@ -81,6 +112,13 @@ const AppContent = () => {
         paddingTop: isGracePeriod && !isTrainingRoute ? "40px" : "0px",
       }}
     >
+      <button
+        onClick={runInsertDiagnostic}
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl animate-bounce"
+      >
+        <Activity size={14} /> DIAGNOSTICO DE INSERCAO
+      </button>
+
       {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />}
       <Routes>
         <Route path="/login" element={<Login />} />

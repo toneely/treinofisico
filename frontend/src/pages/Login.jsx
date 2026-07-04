@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
-import { LogIn, Mail, Lock, Chrome, Loader2, Activity } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { LogIn, Mail, Lock, Chrome, Loader2 } from "lucide-react";
 
 const Login = () => {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
@@ -49,43 +48,11 @@ const Login = () => {
     if (error) showToast(error.message, "error");
   };
 
-  const runInsertDiagnostic = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      alert("Nenhuma sessao ativa");
-      return;
-    }
-
-    try {
-      const result = await supabase
-        .from('usuarios')
-        .insert([{
-          id: session.user.id,
-          nome: 'Teste Diagnostico Isolado',
-          email: session.user.email
-        }]);
-
-      if (result.error) {
-        alert("ERRO DO BANCO: " + JSON.stringify(result.error));
-      } else {
-        alert("SUCESSO: Usuario inserido!");
-      }
-    } catch (err) {
-      alert("ERRO DE EXECUCAO: " + err.message);
-    }
-  };
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center  p-6">
+      {" "}
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
-        <button
-          onClick={runInsertDiagnostic}
-          className="w-full mb-8 py-3 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-red-200 active:scale-95 transition-all"
-        >
-          <Activity size={16} /> DIAGNOSTICO DE INSERCAO
-        </button>
-
+        {" "}
         <div className="text-center mb-8">
           {" "}
           <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-100 overflow-hidden">
