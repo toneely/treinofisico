@@ -78,16 +78,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <button
-        onClick={runInsertDiagnostic}
-        className="mb-4 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
-      >
-        <Activity size={14} /> DIAGNOSTICO DE INSERCAO
-      </button>
-
-      {" "}
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
-        {" "}
+        <button
+          onClick={runInsertDiagnostic}
+          className="w-full mb-8 py-3 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-red-200 active:scale-95 transition-all"
+        >
+          <Activity size={16} /> DIAGNOSTICO DE INSERCAO
+        </button>
+
         <div className="text-center mb-8">
           {" "}
           <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-100 overflow-hidden">
