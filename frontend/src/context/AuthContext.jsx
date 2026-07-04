@@ -23,7 +23,8 @@ export const AuthProvider = ({ children }) => {
       if (
         !data ||
         (Array.isArray(data) && data.length === 0) ||
-        (error && error.code === "PGRST116")
+        (error && error.code === "PGRST116") ||
+        data.id !== authUser.id
       ) {
         console.log("Criando novo perfil...");
         const nomeSeguro = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta Anonimo";
@@ -86,12 +87,15 @@ export const AuthProvider = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
+
+      // Redefinição preventiva para evitar que telas de fundo usem IDs antigos
+      setProfile(null);
+
       const currentUser = session?.user ?? null;
 
       // Cleanup on sign out
       if (event === "SIGNED_OUT") {
         setUser(null);
-        setProfile(null);
         setIsPremium(false);
         setIsGracePeriod(false);
         localStorage.removeItem("active_training_session");
@@ -107,7 +111,6 @@ export const AuthProvider = ({ children }) => {
           setLoading(true);
           await fetchUserProfile(currentUser);
         } else {
-          setProfile(null);
           setIsPremium(false);
           setIsGracePeriod(false);
         }
