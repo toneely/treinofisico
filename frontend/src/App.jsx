@@ -78,10 +78,10 @@ const AppContent = () => {
         color: isTrainingRoute
           ? "var(--text-on-treino)"
           : "var(--text-on-gestao)",
-        paddingTop: isGracePeriod && !isTrainingRoute ? "40px" : "0px",
+        paddingTop: "0px",
       }}
     >
-      {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />}
+      {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
