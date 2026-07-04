@@ -79,48 +79,30 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     let authTimeout = setTimeout(() => {
-      console.warn("Auth initialization safety timeout reached.");
-      setLoading(false);
+      if (isMounted) {
+        console.warn("Auth initialization safety timeout reached.");
+        setLoading(false);
+      }
     }, 6000);
 
-    const clearAuthTimeout = () => {
+    const handleAuthStateChange = async (event, session) => {
+      if (!isMounted) return;
+
+      console.log("Auth Event:", event, session?.user?.email);
+
       if (authTimeout) {
         clearTimeout(authTimeout);
         authTimeout = null;
       }
-    };
-
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchUserProfile(currentUser).finally(() => {
-          clearAuthTimeout();
-          setLoading(false);
-        });
-      } else {
-        clearAuthTimeout();
-        setLoading(false);
-      }
-    });
-
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth State Change:", event, session?.user?.email);
-      clearAuthTimeout();
-
-      // Redefinição preventiva para evitar que telas de fundo usem IDs antigos
-      setProfile(null);
-      setUser(null);
 
       const currentUser = session?.user ?? null;
 
       // Cleanup on sign out
       if (event === "SIGNED_OUT") {
+        setUser(null);
+        setProfile(null);
         setIsPremium(false);
         setIsGracePeriod(false);
         localStorage.removeItem("active_training_session");
@@ -136,6 +118,7 @@ export const AuthProvider = ({ children }) => {
           setLoading(true);
           await fetchUserProfile(currentUser);
         } else {
+          setProfile(null);
           setIsPremium(false);
           setIsGracePeriod(false);
         }
@@ -144,10 +127,23 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setLoading(false);
       }
+    };
+
+    // Check active sessions
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
+        handleAuthStateChange("INITIAL_SESSION", session);
+      }
     });
 
+    // Listen for changes on auth state
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+
     return () => {
-      clearAuthTimeout();
+      isMounted = false;
+      if (authTimeout) clearTimeout(authTimeout);
       subscription.unsubscribe();
     };
   }, []);
