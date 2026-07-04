@@ -11,31 +11,58 @@ export const AuthProvider = ({ children }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
 
-  const fetchProfile = async (userId) => {
+  async function fetchUserProfile(authUser) {
+    if (!authUser) return;
     try {
-      const { data, error } = await supabase
+      let { data: userProfile, error } = await supabase
         .from("usuarios")
         .select("*")
-        .eq("id", userId)
+        .eq("id", authUser.id)
         .maybeSingle();
 
-      if (error) throw error;
+      if (
+        !userProfile ||
+        (Array.isArray(userProfile) && userProfile.length === 0) ||
+        (error && error.code === "PGRST116") ||
+        userProfile.id !== authUser.id
+      ) {
+        console.log("Sincronizando/Criando perfil...");
+        const { data: newData, error: upsertError } = await supabase
+          .from("usuarios")
+          .upsert(
+            {
+              id: authUser.id,
+              nome:
+                authUser.user_metadata?.full_name ||
+                authUser.email?.split("@")[0] ||
+                "Atleta",
+              email: authUser.email,
+              avatar_url: authUser.user_metadata?.avatar_url || null,
+            },
+            { onConflict: "id" }
+          )
+          .select()
+          .single();
 
-      if (data) {
-        setProfile(data);
-        const { isPremium: premium, isGracePeriod: grace } =
-          calculateSubscriptionStatus(data.status_assinatura, data.data_vencimento);
-
-        setIsPremium(premium);
-        setIsGracePeriod(grace);
-      } else {
-        setProfile(null);
-        setIsPremium(false);
-        setIsGracePeriod(false);
+        if (upsertError) throw upsertError;
+        userProfile = newData;
       }
-    } catch (error) {
-      console.error("Erro ao buscar perfil:", error);
+
+      if (userProfile) {
+        setProfile(userProfile);
+        updateSubscriptionFlags(userProfile);
+      }
+    } catch (err) {
+      console.error("Falha critica no sincronismo:", err);
     }
+  }
+
+  const updateSubscriptionFlags = (userData) => {
+    const { isPremium: premium, isGracePeriod: grace } =
+      calculateSubscriptionStatus(userData.status_assinatura, userData.data_vencimento);
+
+    setIsPremium(premium);
+    setIsGracePeriod(grace);
   };
 
   useEffect(() => {
@@ -44,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
+        fetchUserProfile(currentUser).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -53,16 +80,44 @@ export const AuthProvider = ({ children }) => {
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
+
+      // Redefinição preventiva imediata para evitar ID Leak entre trocas de conta
+      setProfile(null);
+      setUser(null);
+
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        setLoading(true);
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
-      } else {
+
+      // Cleanup on sign out
+      if (event === "SIGNED_OUT") {
         setIsPremium(false);
         setIsGracePeriod(false);
+
+        // Limpeza profunda de cache
+        localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key);
+        });
+
+        setLoading(false);
+        return;
+      }
+
+      setUser(currentUser);
+
+      try {
+        if (currentUser) {
+          setLoading(true);
+          await fetchUserProfile(currentUser);
+        } else {
+          setIsPremium(false);
+          setIsGracePeriod(false);
+        }
+      } catch (err) {
+        console.error("Erro na transição de auth:", err);
+      } finally {
         setLoading(false);
       }
     });
@@ -80,14 +135,28 @@ export const AuthProvider = ({ children }) => {
         redirectTo: window.location.origin + "/inicio",
       },
     });
-  const signOut = () => supabase.auth.signOut();
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setIsPremium(false);
+    setIsGracePeriod(false);
+
+    // Limpeza profunda de cache para evitar ID Leak
+    localStorage.removeItem("active_training_session");
+    localStorage.removeItem("treino_em_andamento");
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-')) localStorage.removeItem(key);
+    });
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
-        refreshProfile: () => user && fetchProfile(user.id),
+        refreshProfile: () => user && fetchUserProfile(user),
         loading,
         signUp,
         signIn,

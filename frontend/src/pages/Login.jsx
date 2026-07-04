@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 import { LogIn, Mail, Lock, Chrome, Loader2 } from "lucide-react";
+
 const Login = () => {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
@@ -46,6 +47,7 @@ const Login = () => {
     const { error } = await signInWithGoogle();
     if (error) showToast(error.message, "error");
   };
+
   return (
     <div className="min-h-screen flex items-center justify-center  p-6">
       {" "}

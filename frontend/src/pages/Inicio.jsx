@@ -204,8 +204,8 @@ const Inicio = () => {
 
   if (loading) return <LoadingScreen message="Carregando painel..." />;
 
-  // Display Name Priority: public.usuarios (nome) > Google Metadata (full_name) > Email prefix > 'Atleta'
-  const displayName = profile?.nome || authUser?.user_metadata?.full_name || authUser?.email?.split("@")[0] || "Atleta";
+  // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
+  const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
   const atividadeAlt = profile?.atividade_alternativa || "Capoeira";
 
   return (

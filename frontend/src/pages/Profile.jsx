@@ -55,21 +55,15 @@ const Profile = () => {
   useEffect(() => {
     if (profile) {
       setFormData({
-        nome: profile.nome || user?.user_metadata?.full_name || "",
+        nome: profile.nome || "",
         foco_treino: profile.foco_treino || "",
         atividade_alternativa: profile.atividade_alternativa || "Capoeira",
-        avatar_url: profile.avatar_url || user?.user_metadata?.avatar_url || null,
+        avatar_url: profile.avatar_url || null,
         testador_pagamento: profile.testador_pagamento || false,
         status_assinatura: profile.status_assinatura || "free",
       });
-    } else if (user) {
-       setFormData(prev => ({
-        ...prev,
-        nome: user.user_metadata?.full_name || "",
-        avatar_url: user.user_metadata?.avatar_url || null,
-      }));
     }
-  }, [profile, user]);
+  }, [profile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -102,8 +96,8 @@ const Profile = () => {
       showToast("Erro ao salvar: " + error.message, "error");
     } else {
       showToast("Perfil atualizado!", "success");
-      // Synchronize context immediately
-      refreshProfile();
+      // Sincroniza o estado global imediatamente invocando o fetchUserProfile do contexto
+      await refreshProfile();
     }
     setSaving(false);
   };
