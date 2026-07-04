@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
 
-  const fetchUserProfile = async (authUser) => {
+  async function fetchUserProfile(authUser) {
     if (!authUser) return;
     try {
       const { data, error } = await supabase
@@ -20,19 +20,24 @@ export const AuthProvider = ({ children }) => {
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (!data || (error && error.code === "PGRST116")) {
-        // Primeiro login ou Registro Inexistente: Criar registro na tabela usuarios
+      if (
+        !data ||
+        (Array.isArray(data) && data.length === 0) ||
+        (error && error.code === "PGRST116")
+      ) {
+        console.log("Criando novo perfil...");
         const { data: newUser, error: upsertError } = await supabase
           .from("usuarios")
           .upsert(
-            [
-              {
-                id: authUser.id,
-                nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
-                email: authUser.email,
-                avatar_url: authUser.user_metadata?.avatar_url || null,
-              },
-            ],
+            {
+              id: authUser.id,
+              nome:
+                authUser.user_metadata?.full_name ||
+                authUser.email?.split("@")[0] ||
+                "Atleta",
+              email: authUser.email,
+              avatar_url: authUser.user_metadata?.avatar_url || null,
+            },
             { onConflict: "id" }
           )
           .select()
@@ -41,7 +46,7 @@ export const AuthProvider = ({ children }) => {
         if (upsertError) throw upsertError;
 
         setProfile(newUser);
-        updateSubscriptionFlags(newUser);
+        updateSubscriptionFlags(newUser || {});
         return;
       }
 
@@ -51,10 +56,10 @@ export const AuthProvider = ({ children }) => {
         setProfile(data);
         updateSubscriptionFlags(data);
       }
-    } catch (error) {
-      console.error("Erro silencioso ao buscar/criar perfil:", error);
+    } catch (err) {
+      console.error("Erro no fluxo do perfil:", err);
     }
-  };
+  }
 
   const updateSubscriptionFlags = (userData) => {
     const { isPremium: premium, isGracePeriod: grace } =
