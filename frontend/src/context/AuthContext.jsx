@@ -108,17 +108,22 @@ export const AuthProvider = ({ children }) => {
 
       setUser(currentUser);
 
-      try {
-        if (currentUser) {
+      if (currentUser) {
+        try {
           setLoading(true);
           await fetchUserProfile(currentUser);
-        } else {
-          setIsPremium(false);
-          setIsGracePeriod(false);
+          // Garantia de encerramento do loading após o sucesso
+          setLoading(false);
+        } catch (err) {
+          console.error("Erro na transição de auth:", err);
+          setLoading(false);
+        } finally {
+          // Força o fechamento do loading independente do resultado
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Erro na transição de auth:", err);
-      } finally {
+      } else {
+        setIsPremium(false);
+        setIsGracePeriod(false);
         setLoading(false);
       }
     });
