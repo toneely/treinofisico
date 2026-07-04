@@ -78,28 +78,38 @@ export const AuthProvider = ({ children }) => {
     setIsGracePeriod(grace);
   };
 
-  useEffect(() => {
+  useEffect(function () {
     let isMounted = true;
-    let authTimeout = setTimeout(() => {
-      if (isMounted) {
-        console.warn("Auth initialization safety timeout reached.");
-        setLoading(false);
-      }
-    }, 6000);
 
-    const handleAuthStateChange = async (event, session) => {
+    async function loadInitialSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          await fetchUserProfile(currentUser);
+        } else {
+          setProfile(null);
+          setIsPremium(false);
+          setIsGracePeriod(false);
+        }
+      } catch (error) {
+        console.error("Erro na inicializacao:", error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async function (event, session) {
       if (!isMounted) return;
 
-      console.log("Auth Event:", event, session?.user?.email);
+      if (event === "INITIAL_SESSION") return;
 
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-        authTimeout = null;
-      }
-
-      const currentUser = session?.user ?? null;
-
-      // Cleanup on sign out
       if (event === "SIGNED_OUT") {
         setUser(null);
         setProfile(null);
@@ -111,39 +121,17 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      const currentUser = session?.user ?? null;
       setUser(currentUser);
 
-      try {
-        if (currentUser) {
-          setLoading(true);
-          await fetchUserProfile(currentUser);
-        } else {
-          setProfile(null);
-          setIsPremium(false);
-          setIsGracePeriod(false);
-        }
-      } catch (err) {
-        console.error("Erro na transição de auth:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Check active sessions
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted) {
-        handleAuthStateChange("INITIAL_SESSION", session);
+      if (currentUser) {
+        setLoading(true);
+        await fetchUserProfile(currentUser);
       }
     });
 
-    // Listen for changes on auth state
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(handleAuthStateChange);
-
-    return () => {
+    return function () {
       isMounted = false;
-      if (authTimeout) clearTimeout(authTimeout);
       subscription.unsubscribe();
     };
   }, []);
