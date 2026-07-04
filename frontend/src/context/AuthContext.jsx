@@ -18,10 +18,10 @@ export const AuthProvider = ({ children }) => {
         .from("usuarios")
         .select("*")
         .eq("id", authUser.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === "PGRST116") {
-        // Primeiro login: Criar registro na tabela usuarios (Usando upsert para evitar race conditions)
+      if (!data || (error && error.code === "PGRST116")) {
+        // Primeiro login ou Registro Inexistente: Criar registro na tabela usuarios
         const { data: newUser, error: upsertError } = await supabase
           .from("usuarios")
           .upsert(
