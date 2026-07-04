@@ -11,15 +11,33 @@ export const AuthProvider = ({ children }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
 
-  const fetchProfile = async (userId) => {
+  const fetchUserProfile = async (authUser) => {
+    if (!authUser) return;
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("usuarios")
         .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+        .eq("id", authUser.id)
+        .single();
 
-      if (error) throw error;
+      if (error && error.code === "PGRST116") {
+        // Registro inexistente (Primeiro Login)
+        const { data: newData, error: insertError } = await supabase
+          .from("usuarios")
+          .insert({
+            id: authUser.id,
+            nome: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta",
+            email_referencia: authUser.email,
+            avatar_url: authUser.user_metadata?.avatar_url || null
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        data = newData;
+      } else if (error) {
+        throw error;
+      }
 
       if (data) {
         setProfile(data);
@@ -28,13 +46,12 @@ export const AuthProvider = ({ children }) => {
 
         setIsPremium(premium);
         setIsGracePeriod(grace);
-      } else {
-        setProfile(null);
-        setIsPremium(false);
-        setIsGracePeriod(false);
       }
     } catch (error) {
-      console.error("Erro ao buscar perfil:", error);
+      console.error("Erro ao buscar/criar perfil:", error);
+      setProfile(null);
+      setIsPremium(false);
+      setIsGracePeriod(false);
     }
   };
 
@@ -44,7 +61,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
+        fetchUserProfile(currentUser).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -59,8 +76,9 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       if (currentUser) {
         setLoading(true);
-        fetchProfile(currentUser.id).finally(() => setLoading(false));
+        fetchUserProfile(currentUser).finally(() => setLoading(false));
       } else {
+        setProfile(null);
         setIsPremium(false);
         setIsGracePeriod(false);
         setLoading(false);
@@ -87,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         profile,
-        refreshProfile: () => user && fetchProfile(user.id),
+        refreshProfile: () => user && fetchUserProfile(user),
         loading,
         signUp,
         signIn,

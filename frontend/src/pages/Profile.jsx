@@ -53,22 +53,28 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    if (profile) {
-      setFormData({
-        nome: profile.nome || user?.user_metadata?.full_name || "",
-        foco_treino: profile.foco_treino || "",
-        atividade_alternativa: profile.atividade_alternativa || "Capoeira",
-        avatar_url: profile.avatar_url || user?.user_metadata?.avatar_url || null,
-        testador_pagamento: profile.testador_pagamento || false,
-        status_assinatura: profile.status_assinatura || "free",
-      });
-    } else if (user) {
-       setFormData(prev => ({
-        ...prev,
-        nome: user.user_metadata?.full_name || "",
-        avatar_url: user.user_metadata?.avatar_url || null,
-      }));
-    }
+    // SSoT: Prioritize database profile. Metadata is only a fallback for new profiles.
+    // Wrap in setTimeout to prevent cascading renders and satisfy linting.
+    const timer = setTimeout(() => {
+      if (profile) {
+        setFormData({
+          nome: profile.nome || "",
+          foco_treino: profile.foco_treino || "",
+          atividade_alternativa: profile.atividade_alternativa || "Capoeira",
+          avatar_url: profile.avatar_url || null,
+          testador_pagamento: profile.testador_pagamento || false,
+          status_assinatura: profile.status_assinatura || "free",
+        });
+      } else if (user) {
+        // Fallback for UI during first creation (metadata as placeholder)
+        setFormData((prev) => ({
+          ...prev,
+          nome: user.user_metadata?.full_name || "",
+          avatar_url: user.user_metadata?.avatar_url || null,
+        }));
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [profile, user]);
 
   const handleInputChange = (e) => {
@@ -88,6 +94,7 @@ const Profile = () => {
     }
 
     setSaving(true);
+    // Explicit restricted update: only fields editable by user
     const { error } = await supabase
       .from("usuarios")
       .update({
@@ -102,8 +109,8 @@ const Profile = () => {
       showToast("Erro ao salvar: " + error.message, "error");
     } else {
       showToast("Perfil atualizado!", "success");
-      // Synchronize context immediately
-      refreshProfile();
+      // Imediatamente após o sucesso, atualiza o contexto global
+      await refreshProfile();
     }
     setSaving(false);
   };
@@ -133,7 +140,7 @@ const Profile = () => {
 
       if (dbError) throw dbError;
 
-      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      await refreshProfile();
       showToast("Foto de perfil atualizada!", "success");
       setShowAvatarModal(false);
     } catch (err) {
