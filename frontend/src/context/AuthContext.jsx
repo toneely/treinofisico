@@ -87,6 +87,19 @@ export const AuthProvider = ({ children }) => {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
       const currentUser = session?.user ?? null;
+
+      // Cleanup on sign out
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setProfile(null);
+        setIsPremium(false);
+        setIsGracePeriod(false);
+        localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        setLoading(false);
+        return;
+      }
+
       setUser(currentUser);
 
       try {
@@ -118,7 +131,16 @@ export const AuthProvider = ({ children }) => {
         redirectTo: window.location.origin + "/inicio",
       },
     });
-  const signOut = () => supabase.auth.signOut();
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setIsPremium(false);
+    setIsGracePeriod(false);
+    localStorage.removeItem("active_training_session");
+    localStorage.removeItem("treino_em_andamento");
+  };
 
   return (
     <AuthContext.Provider
