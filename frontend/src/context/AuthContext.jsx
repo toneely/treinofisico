@@ -14,39 +14,38 @@ export const AuthProvider = ({ children }) => {
   async function fetchUserProfile(authUser) {
     if (!authUser) return;
     try {
-      let { data: userProfile } = await supabase
+      let { data: userProfile, error } = await supabase
         .from("usuarios")
         .select("*")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (!userProfile) {
-        const { data: newData, error: insertError } = await supabase
+      if (
+        !userProfile ||
+        (Array.isArray(userProfile) && userProfile.length === 0) ||
+        (error && error.code === "PGRST116") ||
+        userProfile.id !== authUser.id
+      ) {
+        console.log("Sincronizando/Criando perfil...");
+        const { data: newData, error: upsertError } = await supabase
           .from("usuarios")
-          .insert([
+          .upsert(
             {
               id: authUser.id,
               nome:
                 authUser.user_metadata?.full_name ||
                 authUser.email?.split("@")[0] ||
                 "Atleta",
-              email: authUser.email || "",
+              email: authUser.email,
               avatar_url: authUser.user_metadata?.avatar_url || null,
             },
-          ])
+            { onConflict: "id" }
+          )
           .select()
           .single();
 
-        if (insertError && insertError.code === "23505") {
-          const retry = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("id", authUser.id)
-            .single();
-          userProfile = retry.data;
-        } else if (newData) {
-          userProfile = newData;
-        }
+        if (upsertError) throw upsertError;
+        userProfile = newData;
       }
 
       if (userProfile) {
@@ -84,18 +83,24 @@ export const AuthProvider = ({ children }) => {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
 
-      // Redefinição preventiva para evitar que telas de fundo usem IDs antigos
+      // Redefinição preventiva imediata para evitar ID Leak entre trocas de conta
       setProfile(null);
+      setUser(null);
 
       const currentUser = session?.user ?? null;
 
       // Cleanup on sign out
       if (event === "SIGNED_OUT") {
-        setUser(null);
         setIsPremium(false);
         setIsGracePeriod(false);
+
+        // Limpeza profunda de cache
         localStorage.removeItem("active_training_session");
         localStorage.removeItem("treino_em_andamento");
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key);
+        });
+
         setLoading(false);
         return;
       }
@@ -137,8 +142,13 @@ export const AuthProvider = ({ children }) => {
     setProfile(null);
     setIsPremium(false);
     setIsGracePeriod(false);
+
+    // Limpeza profunda de cache para evitar ID Leak
     localStorage.removeItem("active_training_session");
     localStorage.removeItem("treino_em_andamento");
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-')) localStorage.removeItem(key);
+    });
   };
 
   return (
