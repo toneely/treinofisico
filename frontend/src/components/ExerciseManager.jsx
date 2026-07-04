@@ -1,0 +1,398 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "../supabaseClient";
+import { Plus, Trash2, Edit2, Check, X, Search } from "lucide-react";
+import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
+const ExerciseManager = ({
+  overrideUserId = null,
+  targetTable = "exercicios",
+  isCompact = false,
+}) => {
+  const { user: authUser } = useAuth();
+  const { showToast } = useToast();
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [formData, setFormData] = useState({
+    nome: "",
+    alvo_principal: "",
+    tipo_fibra: "Tipo IIa",
+    categoria: "Empurrar",
+    modalidade: "Musculação",
+    depende_peso_corporal: false,
+    descanso_passivo_segundos: 60,
+  });
+  const fetchExercises = useCallback(async () => {
+    setLoading(true);
+    let query = supabase
+      .from(targetTable)
+      .select("*")
+      .order("nome", { ascending: true });
+    if (targetTable === "exercicios") {
+      if (overrideUserId === null) {
+        query = query.is("user_id", null);
+      } else {
+        query = query.eq("user_id", overrideUserId || authUser.id);
+      }
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("Erro ao buscar exercícios:", error);
+    } else {
+      setExercises(data);
+    }
+    setLoading(false);
+  }, [authUser.id, overrideUserId, targetTable]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchExercises();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchExercises]);
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    const payload = { ...formData };
+    if (targetTable === "exercicios") {
+      payload.user_id = userId;
+    }
+    if (isEditing) {
+      let query = supabase
+        .from(targetTable)
+        .update(payload)
+        .eq("id", isEditing);
+      if (targetTable === "exercicios") {
+        if (userId === null) query = query.is("user_id", null);
+        else query = query.eq("user_id", userId);
+      }
+      const { error } = await query;
+      if (error)
+        showToast("Erro ao atualizar exercício: " + error.message, "error");
+      else {
+        showToast("Exercício atualizado com sucesso!", "success");
+        setIsEditing(null);
+        resetForm();
+        fetchExercises();
+      }
+    } else {
+      const { error } = await supabase.from(targetTable).insert([payload]);
+      if (error)
+        showToast("Erro ao criar exercício: " + error.message, "error");
+      else {
+        showToast("Exercício criado com sucesso!", "success");
+        resetForm();
+        fetchExercises();
+      }
+    }
+  };
+  const resetForm = () => {
+    setFormData({
+      nome: "",
+      alvo_principal: "",
+      tipo_fibra: "Tipo IIa",
+      categoria: "Empurrar",
+      modalidade: "Musculação",
+      depende_peso_corporal: false,
+      descanso_passivo_segundos: 60,
+    });
+    setIsEditing(null);
+  };
+  const handleEdit = (exercise) => {
+    setIsEditing(exercise.id);
+    setFormData({
+      nome: exercise.nome,
+      alvo_principal: exercise.alvo_principal,
+      tipo_fibra: exercise.tipo_fibra,
+      categoria: exercise.categoria,
+      modalidade: exercise.modalidade || "Musculação",
+      depende_peso_corporal: exercise.depende_peso_corporal,
+      descanso_passivo_segundos: exercise.descanso_passivo_segundos || 60,
+    });
+  };
+  const handleDelete = async (id) => {
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    if (window.confirm("Tem certeza que deseja excluir este exercício?")) {
+      let query = supabase.from(targetTable).delete().eq("id", id);
+      if (targetTable === "exercicios") {
+        if (userId === null) query = query.is("user_id", null);
+        else query = query.eq("user_id", userId);
+      }
+      const { error } = await query;
+      if (error)
+        showToast("Erro ao excluir exercício: " + error.message, "error");
+      else {
+        showToast("Exercício excluído!", "success");
+        fetchExercises();
+      }
+    }
+  };
+  const filteredExercises = exercises.filter(
+    (ex) =>
+      ex.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ex.alvo_principal.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+  return (
+    <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${isCompact ? 'text-xs' : ''}`}>
+      {" "}
+      {!isCompact && (
+        <div className="p-6 border-b border-slate-100 bg-slate-50">
+          {" "}
+          <h2 className="text-xl font-bold  flex items-center gap-2">
+            {" "}
+            <Search size={20} style={{ color: "var(--color-primary)" }} />{" "}
+            Gerenciar Exercícios{" "}
+          </h2>{" "}
+        </div>
+      )}
+      <div className={isCompact ? "p-3" : "p-6"}>
+        {" "}
+        <form
+          onSubmit={handleSubmit}
+          className={`${isCompact ? 'mb-4 gap-2 p-3' : 'mb-8 gap-4 p-4'} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-slate-50 rounded-xl border border-slate-200`}
+        >
+          {" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Nome
+            </label>{" "}
+            <input
+              type="text"
+              name="nome"
+              value={formData.nome}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+              required
+            />{" "}
+          </div>{" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Alvo Principal
+            </label>{" "}
+            <input
+              type="text"
+              name="alvo_principal"
+              value={formData.alvo_principal}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+              required
+            />{" "}
+          </div>{" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Tipo de Fibra
+            </label>{" "}
+            <select
+              name="tipo_fibra"
+              value={formData.tipo_fibra}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+            >
+              {" "}
+              <option value="Tipo I">Tipo I (Resistência)</option>{" "}
+              <option value="Tipo IIa">Tipo IIa (Mista)</option>{" "}
+              <option value="Tipo IIx">Tipo IIx (Explosão/Força)</option>{" "}
+            </select>{" "}
+          </div>{" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Categoria
+            </label>{" "}
+            <select
+              name="categoria"
+              value={formData.categoria}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+            >
+              {" "}
+              <option value="Empurrar">Empurrar</option>{" "}
+              <option value="Puxar">Puxar</option>{" "}
+              <option value="Perna">Perna</option>{" "}
+              <option value="Postural">Postural</option>{" "}
+            </select>{" "}
+          </div>{" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Modalidade
+            </label>{" "}
+            <select
+              name="modalidade"
+              value={formData.modalidade}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+            >
+              {" "}
+              <option value="Musculação">Musculação</option>{" "}
+              <option value="Atletismo">Atletismo</option>{" "}
+              <option value="Natação">Natação</option>{" "}
+              <option value="Pilates">Pilates</option>{" "}
+              <option value="Calistenia">Calistenia</option>{" "}
+              <option value="CrossFit">CrossFit</option>{" "}
+              <option value="Mobilidade">Mobilidade</option>{" "}
+              <option value="Cardio">Cardio</option>{" "}
+              <option value="Luta">Luta</option>{" "}
+            </select>{" "}
+          </div>{" "}
+          <div className="flex flex-col gap-1">
+            {" "}
+            <label className={`${isCompact ? 'text-[8px]' : 'text-xs'} font-bold text-slate-500 uppercase`}>
+              Descanso (seg)
+            </label>{" "}
+            <input
+              type="number"
+              name="descanso_passivo_segundos"
+              value={formData.descanso_passivo_segundos}
+              onChange={handleInputChange}
+              className={`${isCompact ? 'p-1.5' : 'p-2'} border border-slate-300 rounded-lg focus:ring-2 outline-none transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+            />{" "}
+          </div>{" "}
+          <div className={`flex items-center gap-2 ${isCompact ? 'mt-1' : 'mt-4'}`}>
+            {" "}
+            <input
+              type="checkbox"
+              name="depende_peso_corporal"
+              id="depende_peso_corporal"
+              checked={formData.depende_peso_corporal}
+              onChange={handleInputChange}
+              className="w-4 h-4 border-slate-300 rounded"
+              style={{ color: "var(--color-primary)" }}
+            />{" "}
+            <label
+              htmlFor="depende_peso_corporal"
+              className="text-sm font-medium "
+            >
+              Depende de Peso Corporal
+            </label>{" "}
+          </div>{" "}
+          <div className={`md:col-span-2 lg:col-span-3 flex justify-end gap-2 ${isCompact ? 'mt-1' : ''}`}>
+            {" "}
+            {isEditing && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className={`${isCompact ? 'px-3 py-1.5 text-[10px]' : 'px-4 py-2'} bg-slate-200 rounded-lg font-medium hover:bg-slate-300 transition flex items-center gap-2`}
+              >
+                {" "}
+                <X size={isCompact ? 14 : 18} /> Cancelar{" "}
+              </button>
+            )}{" "}
+            <button
+              type="submit"
+              className={`${isCompact ? 'px-3 py-1.5 text-[10px]' : 'px-4 py-2'} rounded-lg font-medium transition flex items-center gap-2`}
+              style={{
+                backgroundColor: "var(--color-primary)",
+                color: "var(--text-on-primary)",
+              }}
+            >
+              {" "}
+              {isEditing ? <Check size={isCompact ? 14 : 18} /> : <Plus size={isCompact ? 14 : 18} />} {isEditing ? "Atualizar" : "Adicionar"}{" "}
+            </button>{" "}
+          </div>{" "}
+        </form>{" "}
+        <div className={`${isCompact ? 'mb-2' : 'mb-4'} relative`}>
+          {" "}
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            size={isCompact ? 14 : 18}
+          />{" "}
+          <input
+            type="text"
+            placeholder="Pesquisar..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={`w-full pl-10 pr-4 ${isCompact ? 'py-1.5 text-xs' : 'py-2'} border border-slate-200 rounded-xl outline-none focus:ring-2 transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]`}
+          />{" "}
+        </div>{" "}
+        {loading ? (
+          <div className="text-center py-8 text-slate-500">
+            Carregando catálogo...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            {" "}
+            <table className="w-full text-left">
+              {" "}
+              <thead>
+                {" "}
+                <tr className={`border-b border-slate-100 text-slate-400 ${isCompact ? 'text-[9px]' : 'text-xs'} uppercase tracking-tight`}>
+                  {" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Nome</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Alvo</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Fibra</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Cat.</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2' : 'py-3 px-4'} font-bold`}>Mod.</th>{" "}
+                  <th className={`${isCompact ? 'py-1.5 px-2 text-right' : 'py-3 px-4 text-center'} font-bold`}>
+                    Ações
+                  </th>{" "}
+                </tr>{" "}
+              </thead>{" "}
+              <tbody className="divide-y divide-slate-50">
+                {" "}
+                {filteredExercises.map((exercise) => (
+                  <tr
+                    key={exercise.id}
+                    className="hover:bg-slate-50 transition"
+                  >
+                    {" "}
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'} font-medium`}>
+                      {exercise.nome}
+                    </td>{" "}
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
+                      {exercise.alvo_principal}
+                    </td>{" "}
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'}`}>
+                      {" "}
+                      <span
+                        className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${exercise.tipo_fibra === "Tipo IIx" ? "bg-red-100 text-red-600" : exercise.tipo_fibra === "Tipo IIa" ? " " : " "}`}
+                      >
+                        {" "}
+                        {exercise.tipo_fibra}{" "}
+                      </span>{" "}
+                    </td>{" "}
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
+                      {exercise.categoria}
+                    </td>{" "}
+                    <td className={`${isCompact ? 'py-1 px-2 text-[10px]' : 'py-3 px-4 text-sm'} text-slate-500`}>
+                      {exercise.modalidade}
+                    </td>{" "}
+                    <td className={`${isCompact ? 'py-1 px-2' : 'py-3 px-4'}`}>
+                      {" "}
+                      <div className={`flex ${isCompact ? 'justify-end' : 'justify-center'} gap-1`}>
+                        {" "}
+                        <button
+                          onClick={() => handleEdit(exercise)}
+                          className="p-1 text-slate-400 transition hover:opacity-70"
+                          style={{ color: "var(--color-primary)" }}
+                        >
+                          {" "}
+                          <Edit2 size={isCompact ? 12 : 16} />{" "}
+                        </button>{" "}
+                        <button
+                          onClick={() => handleDelete(exercise.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        >
+                          {" "}
+                          <Trash2 size={isCompact ? 12 : 16} />{" "}
+                        </button>{" "}
+                      </div>{" "}
+                    </td>{" "}
+                  </tr>
+                ))}{" "}
+              </tbody>{" "}
+            </table>{" "}
+          </div>
+        )}{" "}
+      </div>{" "}
+    </div>
+  );
+};
+export default ExerciseManager;
