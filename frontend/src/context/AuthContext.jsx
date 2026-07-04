@@ -26,16 +26,16 @@ export const AuthProvider = ({ children }) => {
         (error && error.code === "PGRST116")
       ) {
         console.log("Criando novo perfil...");
+        const nomeSeguro = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta Anonimo";
+        const emailSeguro = authUser.email || "sem-email@atleta.com";
+
         const { data: newUser, error: upsertError } = await supabase
           .from("usuarios")
           .upsert(
             {
               id: authUser.id,
-              nome:
-                authUser.user_metadata?.full_name ||
-                authUser.email?.split("@")[0] ||
-                "Atleta",
-              email: authUser.email,
+              nome: String(nomeSeguro),
+              email: String(emailSeguro),
               avatar_url: authUser.user_metadata?.avatar_url || null,
             },
             { onConflict: "id" }
