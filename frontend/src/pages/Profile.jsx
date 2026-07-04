@@ -13,6 +13,7 @@ import {
   Lock,
   Loader2,
   Check,
+  CheckCircle2,
   Image as ImageIcon,
   Palette,
   Dumbbell,
@@ -175,12 +176,12 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
-  const handleCreateTestPreference = async () => {
-    setCreatingPreference(true);
+  const handleCreateTestPreference = async (paymentType) => {
+    setCreatingPreference(paymentType);
     try {
       const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
         body: {
-          planId: 'default_premium',
+          paymentType: paymentType,
           external_reference: user.id,
           email: user.email
         }
@@ -188,16 +189,16 @@ const Profile = () => {
 
       if (error) throw error;
       if (data?.init_point) {
-        showToast("Redirecionando para o Sandbox...", "info");
+        showToast("Redirecionando para o Checkout...", "info");
         window.location.href = data.init_point;
       } else {
         throw new Error("Link de pagamento não retornado.");
       }
     } catch (e) {
-      console.error("Erro ao criar assinatura:", e);
-      showToast("Erro ao carregar checkout de teste.", "error");
+      console.error("Erro ao criar preferência:", e);
+      showToast("Erro ao carregar checkout.", "error");
     } finally {
-      setCreatingPreference(false);
+      setCreatingPreference(null);
     }
   };
 
@@ -281,27 +282,59 @@ const Profile = () => {
             <div className="flex items-center gap-2 text-amber-400">
               <Zap size={18} fill="currentColor" />
               <h3 className="font-black uppercase text-xs tracking-widest">
-                Área de Testes - Seja Premium
+                Assinar Premium (Teste)
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-white/10 text-white/40">
-              Plano Free
+              Sandbox
             </span>
           </div>
 
-          <div className="p-8 text-center">
-            <p className="text-slate-400 text-xs mb-6 leading-relaxed">
-              Você está visualizando esta seção porque é um <b>testador autorizado</b>. Use este botão para validar a jornada de compra no Sandbox do Mercado Pago.
-            </p>
+          <div className="p-6 grid grid-cols-1 gap-3">
+            <button
+              onClick={() => handleCreateTestPreference('card_recurring')}
+              disabled={!!creatingPreference}
+              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
+            >
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] uppercase font-black text-amber-400">Recorrente</span>
+                <span>Cartão de Crédito</span>
+              </div>
+              {creatingPreference === 'card_recurring' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+            </button>
 
             <button
-              onClick={handleCreateTestPreference}
-              disabled={creatingPreference}
-              className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+              onClick={() => handleCreateTestPreference('card_one_time')}
+              disabled={!!creatingPreference}
+              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
             >
-              {creatingPreference ? <Loader2 className="animate-spin" /> : (
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] uppercase font-black text-slate-400">Mês Atual</span>
+                <span>Cartão (Avulso)</span>
+              </div>
+              {creatingPreference === 'card_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+            </button>
+
+            <button
+              onClick={() => handleCreateTestPreference('pix_one_time')}
+              disabled={!!creatingPreference}
+              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
+            >
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] uppercase font-black text-emerald-400">Mês Atual</span>
+                <span>Pagamento via PIX</span>
+              </div>
+              {creatingPreference === 'pix_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+            </button>
+
+            <button
+              onClick={() => handleCreateTestPreference('native_subscription')}
+              disabled={!!creatingPreference}
+              className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
+            >
+              {creatingPreference === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
                 <>
-                  <Zap size={16} fill="currentColor" /> Assinar com Mercado Pago
+                  <Zap size={14} fill="currentColor" /> Assinatura Mercado Pago (Nativa)
                 </>
               )}
             </button>
