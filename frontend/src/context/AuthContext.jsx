@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Falha critica no sincronismo:", err);
+      throw err;
     }
   }
 
@@ -66,22 +67,22 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchUserProfile(currentUser).finally(() => setLoading(false));
-      } else {
+    let safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth initialization safety timeout reached.");
         setLoading(false);
       }
-    });
+    }, 6000);
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
+        safetyTimeout = null;
+      }
 
       // Redefinição preventiva imediata para evitar ID Leak entre trocas de conta
       setProfile(null);
@@ -107,22 +108,30 @@ export const AuthProvider = ({ children }) => {
 
       setUser(currentUser);
 
-      try {
-        if (currentUser) {
+      if (currentUser) {
+        try {
           setLoading(true);
           await fetchUserProfile(currentUser);
-        } else {
-          setIsPremium(false);
-          setIsGracePeriod(false);
+          // Garantia de encerramento do loading após o sucesso
+          setLoading(false);
+        } catch (err) {
+          console.error("Erro na transição de auth:", err);
+          setLoading(false);
+        } finally {
+          // Força o fechamento do loading independente do resultado
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Erro na transição de auth:", err);
-      } finally {
+      } else {
+        setIsPremium(false);
+        setIsGracePeriod(false);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (safetyTimeout) clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const signUp = (email, password) => supabase.auth.signUp({ email, password });
