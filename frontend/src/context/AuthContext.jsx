@@ -14,51 +14,47 @@ export const AuthProvider = ({ children }) => {
   async function fetchUserProfile(authUser) {
     if (!authUser) return;
     try {
-      const { data, error } = await supabase
+      let { data: userProfile } = await supabase
         .from("usuarios")
         .select("*")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (
-        !data ||
-        (Array.isArray(data) && data.length === 0) ||
-        (error && error.code === "PGRST116") ||
-        data.id !== authUser.id
-      ) {
-        console.log("Criando novo perfil...");
-        const nomeSeguro = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Atleta Anonimo";
-        const emailSeguro = authUser.email || "sem-email@atleta.com";
-
-        const { data: newUser, error: upsertError } = await supabase
+      if (!userProfile) {
+        const { data: newData, error: insertError } = await supabase
           .from("usuarios")
-          .upsert(
+          .insert([
             {
               id: authUser.id,
-              nome: String(nomeSeguro),
-              email: String(emailSeguro),
+              nome:
+                authUser.user_metadata?.full_name ||
+                authUser.email?.split("@")[0] ||
+                "Atleta",
+              email: authUser.email || "",
               avatar_url: authUser.user_metadata?.avatar_url || null,
             },
-            { onConflict: "id" }
-          )
+          ])
           .select()
           .single();
 
-        if (upsertError) throw upsertError;
-
-        setProfile(newUser);
-        updateSubscriptionFlags(newUser || {});
-        return;
+        if (insertError && insertError.code === "23505") {
+          const retry = await supabase
+            .from("usuarios")
+            .select("*")
+            .eq("id", authUser.id)
+            .single();
+          userProfile = retry.data;
+        } else if (newData) {
+          userProfile = newData;
+        }
       }
 
-      if (error) throw error;
-
-      if (data) {
-        setProfile(data);
-        updateSubscriptionFlags(data);
+      if (userProfile) {
+        setProfile(userProfile);
+        updateSubscriptionFlags(userProfile);
       }
     } catch (err) {
-      console.error("Erro no fluxo do perfil:", err);
+      console.error("Falha critica no sincronismo:", err);
     }
   }
 
