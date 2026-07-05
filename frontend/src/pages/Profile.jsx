@@ -389,90 +389,102 @@ const Profile = () => {
         )}
       </section>
 
-      {/* Mercado Pago Payment Menu - Refactor for Light Theme and Dynamic Pricing */}
+      {/* Mercado Pago Payment Menu - Refactor for Better Conversion and Usability */}
       {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
         <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="p-8 border-b border-slate-50 text-center">
             <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">
               Upgrade para Premium
             </span>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              <span className="text-sm font-bold text-slate-400">R$</span>
-              <span className="text-5xl font-black text-slate-900 leading-none">
-                {Number(appSettings.subscription_price).toFixed(2).split('.')[0]}
+            <div className="flex items-baseline justify-center gap-2 mt-2">
+              <span className="text-6xl font-black text-slate-900 tracking-tighter">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appSettings.subscription_price)}
               </span>
-              <span className="text-lg font-black text-slate-900 mt-auto">
-                ,{Number(appSettings.subscription_price).toFixed(2).split('.')[1]}
-              </span>
-              <span className="text-xs font-bold text-slate-400 ml-1 mt-auto">/mês</span>
+              <span className="text-base font-bold text-slate-400">/ mes</span>
             </div>
 
-            <ul className="mt-8 space-y-3 text-left max-w-[220px] mx-auto">
-              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                Acesso premium ilimitado
+            <ul className="mt-10 space-y-5 text-left max-w-[260px] mx-auto">
+              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                <span>Acesso premium ilimitado e exclusivo</span>
               </li>
-              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                Sem anúncios
+              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                <span>Experiência completa sem anúncios</span>
               </li>
-              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                Acompanhamento de evolução
+              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                <span>Acompanhamento detalhado de evolução</span>
               </li>
             </ul>
           </div>
 
-          <div className="p-8 space-y-3">
-            <button
-              onClick={() => handlePaymentInitiation('card_recurring')}
-              disabled={!!creatingPayment}
-              className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6 border border-slate-100"
-            >
-              <div className="flex flex-col items-start">
-                <span className="text-[9px] uppercase font-black text-orange-500">Recorrente</span>
-                <span>Cartão de Crédito</span>
-              </div>
-              {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <CreditCard size={16} className="text-slate-300" />}
-            </button>
-
-            <div className="grid grid-cols-2 gap-3">
+          <div className="p-8 space-y-6">
+            {/* Section 1: Recurring */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                Assinaturas (Renovação Automática)
+              </h4>
               <button
-                onClick={() => handlePaymentInitiation('card_one_time')}
+                onClick={() => handlePaymentInitiation('card_recurring')}
                 disabled={!!creatingPayment}
-                className="py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border border-slate-100 gap-1"
+                className="w-full py-5 rounded-2xl font-black text-sm transition-all flex items-center justify-between px-8 shadow-xl active:scale-95"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  color: "var(--text-on-primary)",
+                }}
               >
-                <CreditCard size={16} className="text-slate-300" />
-                <span className="text-[9px] font-black text-slate-400 uppercase">Cartão (Avulso)</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-[9px] uppercase opacity-80 mb-0.5">Recomendado</span>
+                  <span>Cartão de Crédito</span>
+                </div>
+                {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={20} /> : <CreditCard size={20} className="opacity-40" />}
               </button>
 
               <button
-                onClick={() => handlePaymentInitiation('pix_one_time')}
+                onClick={() => handlePaymentInitiation('native_subscription')}
                 disabled={!!creatingPayment}
-                className="py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border border-slate-100 gap-1"
+                className="w-full py-5 bg-[#009EE3] text-white rounded-2xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center gap-1.5"
               >
-                <QrCode size={16} className="text-slate-300" />
-                <span className="text-[9px] font-black text-slate-400 uppercase">PIX (Avulso)</span>
+                <div className="flex items-center gap-2">
+                  {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={18} /> : (
+                    <>
+                      <img src="https://www.mercadopago.com/org-img/MP_LOGO.png" alt="MP" className="h-5 brightness-0 invert" />
+                      <span className="text-xs">Assinatura Mercado Pago</span>
+                    </>
+                  )}
+                </div>
+                <span className="text-[9px] opacity-90 normal-case font-bold italic">Assinatura para clientes Mercado Pago</span>
               </button>
             </div>
 
-            <button
-              onClick={() => handlePaymentInitiation('native_subscription')}
-              disabled={!!creatingPayment}
-              className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex flex-col items-center justify-center"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
-                  <>
-                    <img src="https://www.mercadopago.com/org-img/MP_LOGO.png" alt="MP" className="h-4" />
-                    <span>Assinatura Mercado Pago</span>
-                  </>
-                )}
-              </div>
-              <span className="text-[8px] opacity-80 normal-case font-bold italic">Assinatura para clientes Mercado Pago</span>
-            </button>
+            {/* Section 2: One-time */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                Pagamentos Avulsos (30 dias)
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handlePaymentInitiation('pix_one_time')}
+                  disabled={!!creatingPayment}
+                  className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                >
+                  <QrCode size={20} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-tight">PIX (Avulso)</span>
+                </button>
 
-            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-4">
+                <button
+                  onClick={() => handlePaymentInitiation('card_one_time')}
+                  disabled={!!creatingPayment}
+                  className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                >
+                  <CreditCard size={20} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-tight">Cartão (Avulso)</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-2">
               <Lock size={12} /> Pagamento Seguro
             </div>
           </div>
