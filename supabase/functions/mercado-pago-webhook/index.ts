@@ -1,26 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const MP_SUBSCRIPTION_TOKEN = Deno.env.get("MERCADO_PAGO_SUBSCRIPTION_TOKEN") || Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN")
-const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") || Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN")
+const MP_NATIVE_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN")
+const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN")
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
 
 async function fetchFromMP(url: string) {
-  // Try with Checkout Token first (bricks/one-time)
+  // Try with Checkout Token first (bricks/one-time/transparent)
   let response = await fetch(url, {
     headers: { Authorization: `Bearer ${MP_CHECKOUT_TOKEN}` },
   })
 
   let data = await response.json()
 
-  // If not found or unauthorized, try with Subscription Token
+  // If not found or unauthorized, try with Native Token (old app/subscriptions)
   if (!response.ok || data.status === 404 || data.status === 401) {
-    console.log("Retrying with Subscription Token...")
+    console.log("Retrying with Native Token...")
     response = await fetch(url, {
-      headers: { Authorization: `Bearer ${MP_SUBSCRIPTION_TOKEN}` },
+      headers: { Authorization: `Bearer ${MP_NATIVE_TOKEN}` },
     })
     data = await response.json()
   }
@@ -43,10 +43,6 @@ serve(async (req) => {
     if (!resourceId) {
       return new Response("No resource ID found", { status: 200 })
     }
-
-    // Check for duplicate processing (idempotency)
-    // We can use a table to store processed IDs, or check if this payment was already handled.
-    // For now, we'll log it, but in a real scenario, we'd check a `processamento_webhook` table.
 
     let userId: string | null = null
     let status: string = "free"
@@ -76,7 +72,6 @@ serve(async (req) => {
         status = "premium"
         mp_subscription_id = mpData.preapproval_id
 
-        // Get external_reference from preapproval if not in authorized_payment
         if (mpData.external_reference) {
           userId = mpData.external_reference
         } else if (mpData.preapproval_id) {
@@ -87,7 +82,7 @@ serve(async (req) => {
       }
     }
 
-    // 3. Handle Regular Payment (Checkout Bricks / Pix / One-time)
+    // 3. Handle Regular Payment (Checkout Transparente / Pix)
     else if (type === "payment") {
       const { data: mpData } = await fetchFromMP(`https://api.mercadopago.com/v1/payments/${resourceId}`)
       console.log("MP Payment details:", JSON.stringify(mpData, null, 2))
@@ -103,7 +98,6 @@ serve(async (req) => {
     if (userId && status === "premium") {
       console.log(`Processing premium for user ${userId}`)
 
-      // Fetch current user data to extend expiration
       const { data: userProfile } = await supabase
         .from("usuarios")
         .select("data_vencimento")
@@ -118,7 +112,6 @@ serve(async (req) => {
         }
       }
 
-      // Add 30 days
       const newExpiration = new Date(baseDate)
       newExpiration.setDate(newExpiration.getDate() + 30)
 

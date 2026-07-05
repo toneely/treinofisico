@@ -8,6 +8,7 @@ import {
   User,
   Mail,
   LogOut,
+  X,
   Camera,
   Save,
   Lock,
@@ -20,6 +21,10 @@ import {
   History as HistoryIcon,
   ShieldCheck,
   Zap,
+  CreditCard,
+  QrCode,
+  Copy,
+  AlertCircle,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
@@ -34,7 +39,21 @@ const Profile = () => {
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [creatingPreference, setCreatingPreference] = useState(false);
+  const [creatingPayment, setCreatingPayment] = useState(null);
+
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [pixData, setPixData] = useState(null);
+  const mpRef = useRef(null);
+
+  const [cardData, setCardData] = useState({
+    cardNumber: "",
+    cardExpirationMonth: "",
+    cardExpirationYear: "",
+    securityCode: "",
+    cardholderName: "",
+    identificationType: "CPF",
+    identificationNumber: "",
+  });
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -66,14 +85,23 @@ const Profile = () => {
     }
   }, [profile]);
 
+  // Initialize Mercado Pago V2
+  useEffect(() => {
+    if (window.MercadoPago && !mpRef.current) {
+      // Public Key for Checkout Transparente application
+      // Note: Replaced with placeholder. Replace with actual Public Key from MP Panel.
+      mpRef.current = new window.MercadoPago('YOUR_PUBLIC_KEY_HERE');
+    }
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePasswordChange = (e) => {
+  const handleCardInputChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [name]: value }));
+    setCardData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -97,7 +125,6 @@ const Profile = () => {
       showToast("Erro ao salvar: " + error.message, "error");
     } else {
       showToast("Perfil atualizado!", "success");
-      // Sincroniza o estado global imediatamente invocando o fetchUserProfile do contexto
       await refreshProfile();
     }
     setSaving(false);
@@ -176,38 +203,107 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
-  const handleCreateTestPreference = async (paymentType) => {
-    setCreatingPreference(paymentType);
+  const handlePaymentInitiation = async (paymentType) => {
+    if (paymentType === 'card_recurring' || paymentType === 'card_one_time') {
+      setShowCardModal(paymentType);
+      return;
+    }
+
+    setCreatingPayment(paymentType);
     try {
       const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
         body: {
-          paymentType: paymentType,
+          paymentType,
           external_reference: user.id,
           email: user.email
         }
       });
 
       if (error) throw error;
-      if (data?.init_point) {
-        showToast("Redirecionando para o Checkout...", "info");
-        window.location.href = data.init_point;
-      } else {
-        throw new Error("Link de pagamento não retornado.");
+
+      if (paymentType === 'native_subscription') {
+        if (data?.init_point) {
+          showToast("Redirecionando para o Mercado Pago...", "info");
+          window.location.href = data.init_point;
+        } else {
+          throw new Error("Link de assinatura não retornado.");
+        }
+      } else if (paymentType === 'pix_one_time') {
+        if (data?.qr_code) {
+          setPixData(data);
+          showToast("QR Code gerado!", "success");
+        } else {
+          throw new Error("Erro ao gerar Pix.");
+        }
       }
     } catch (e) {
-      console.error("Erro ao criar preferência:", e);
-      showToast("Erro ao carregar checkout.", "error");
+      console.error("Erro no pagamento:", e);
+      showToast("Erro: " + e.message, "error");
     } finally {
-      setCreatingPreference(null);
+      setCreatingPayment(null);
     }
   };
 
-  // if (loading && !user)
-  //   return (
-  //     <div className="p-10 text-center text-slate-400">
-  //       Carregando perfil...
-  //     </div>
-  //   );
+  const handleProcessCardPayment = async (e) => {
+    e.preventDefault();
+    if (!mpRef.current) {
+      showToast("SDK do Mercado Pago não inicializado.", "error");
+      return;
+    }
+
+    setCreatingPayment(showCardModal);
+    try {
+      // 1. Generate Card Token via SDK
+      // Reference: https://www.mercadopago.com.br/developers/pt/docs/checkout-transparente/integration-configuration/card/integrate-via-sdk
+      const tokenResponse = await mpRef.current.createCardToken({
+        cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+        cardholderName: cardData.cardholderName,
+        cardExpirationMonth: cardData.cardExpirationMonth,
+        cardExpirationYear: cardData.cardExpirationYear,
+        securityCode: cardData.securityCode,
+        identificationType: cardData.identificationType,
+        identificationNumber: cardData.identificationNumber,
+      });
+
+      if (tokenResponse.error) {
+        throw new Error(tokenResponse.error[0]?.message || "Erro ao validar cartão.");
+      }
+
+      const cardToken = tokenResponse.id;
+
+      // 2. Call Edge Function with the token
+      const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
+        body: {
+          paymentType: showCardModal,
+          external_reference: user.id,
+          email: user.email,
+          cardToken: cardToken,
+          paymentMethodId: 'visa', // This should be dynamically fetched if needed
+          installments: 1,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.status === 'approved') {
+        showToast("Pagamento aprovado!", "success");
+        setShowCardModal(false);
+        await refreshProfile();
+      } else {
+        showToast(`Status: ${data.status}`, "info");
+      }
+    } catch (e) {
+      console.error("Erro no checkout transparente:", e);
+      showToast("Erro: " + e.message, "error");
+    } finally {
+      setCreatingPayment(null);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    showToast("Código PIX copiado!", "success");
+  };
 
   return (
     <div
@@ -275,7 +371,7 @@ const Profile = () => {
         )}
       </section>
 
-      {/* Mercado Pago Test Section (Hidden for normal users) */}
+      {/* Mercado Pago Payment Menu */}
       {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
         <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] overflow-hidden shadow-xl border border-white/10 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
@@ -286,53 +382,53 @@ const Profile = () => {
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-white/10 text-white/40">
-              Sandbox
+              Checkout Transparente
             </span>
           </div>
 
           <div className="p-6 grid grid-cols-1 gap-3">
             <button
-              onClick={() => handleCreateTestPreference('card_recurring')}
-              disabled={!!creatingPreference}
+              onClick={() => handlePaymentInitiation('card_recurring')}
+              disabled={!!creatingPayment}
               className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
             >
               <div className="flex flex-col items-start">
                 <span className="text-[10px] uppercase font-black text-amber-400">Recorrente</span>
                 <span>Cartão de Crédito</span>
               </div>
-              {creatingPreference === 'card_recurring' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+              {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} className="text-white/20" />}
             </button>
 
             <button
-              onClick={() => handleCreateTestPreference('card_one_time')}
-              disabled={!!creatingPreference}
+              onClick={() => handlePaymentInitiation('card_one_time')}
+              disabled={!!creatingPayment}
               className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
             >
               <div className="flex flex-col items-start">
                 <span className="text-[10px] uppercase font-black text-slate-400">Mês Atual</span>
                 <span>Cartão (Avulso)</span>
               </div>
-              {creatingPreference === 'card_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+              {creatingPayment === 'card_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} className="text-white/20" />}
             </button>
 
             <button
-              onClick={() => handleCreateTestPreference('pix_one_time')}
-              disabled={!!creatingPreference}
+              onClick={() => handlePaymentInitiation('pix_one_time')}
+              disabled={!!creatingPayment}
               className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
             >
               <div className="flex flex-col items-start">
                 <span className="text-[10px] uppercase font-black text-emerald-400">Mês Atual</span>
                 <span>Pagamento via PIX</span>
               </div>
-              {creatingPreference === 'pix_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} className="text-white/20" />}
+              {creatingPayment === 'pix_one_time' ? <Loader2 className="animate-spin" size={16} /> : <QrCode size={16} className="text-white/20" />}
             </button>
 
             <button
-              onClick={() => handleCreateTestPreference('native_subscription')}
-              disabled={!!creatingPreference}
+              onClick={() => handlePaymentInitiation('native_subscription')}
+              disabled={!!creatingPayment}
               className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
             >
-              {creatingPreference === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
+              {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
                 <>
                   <Zap size={14} fill="currentColor" /> Assinatura Mercado Pago (Nativa)
                 </>
@@ -342,7 +438,125 @@ const Profile = () => {
         </section>
       )}
 
-      {/* Status for Premium Testers */}
+      {/* Pix Modal */}
+      {pixData && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-black mb-2 text-center">Pagamento via PIX</h2>
+            <p className="text-slate-400 text-xs text-center mb-6">Escaneie o código abaixo para ativar o Premium</p>
+
+            <div className="bg-slate-50 p-4 rounded-3xl flex justify-center mb-6">
+              <img src={`data:image/png;base64,${pixData.qr_code}`} alt="QR Code" className="w-48 h-48" />
+            </div>
+
+            <button
+              onClick={() => copyToClipboard(pixData.qr_code_copy_paste)}
+              className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 mb-3 shadow-lg shadow-emerald-500/20"
+            >
+              <Copy size={16} /> Copiar Código Pix
+            </button>
+
+            <button
+              onClick={() => setPixData(null)}
+              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Transparent Card Modal */}
+      {showCardModal && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-200 my-8">
+             <div className="flex justify-between items-center mb-6">
+               <div>
+                  <h2 className="text-xl font-black">Dados do Cartão</h2>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    {showCardModal === 'card_recurring' ? 'Assinatura Recorrente' : 'Pagamento Único'}
+                  </p>
+               </div>
+               <button onClick={() => setShowCardModal(false)} className="p-2 bg-slate-100 rounded-xl text-slate-400"><X size={20} /></button>
+             </div>
+
+             <form onSubmit={handleProcessCardPayment} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número do Cartão</label>
+                  <input
+                    type="text" name="cardNumber" value={cardData.cardNumber} onChange={handleCardInputChange}
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                    placeholder="0000 0000 0000 0000" required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mês (MM)</label>
+                    <input
+                      type="text" name="cardExpirationMonth" value={cardData.cardExpirationMonth} onChange={handleCardInputChange}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all text-center"
+                      placeholder="12" required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ano (AA)</label>
+                    <input
+                      type="text" name="cardExpirationYear" value={cardData.cardExpirationYear} onChange={handleCardInputChange}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all text-center"
+                      placeholder="28" required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CVC</label>
+                    <input
+                      type="text" name="securityCode" value={cardData.securityCode} onChange={handleCardInputChange}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all text-center"
+                      placeholder="123" required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CPF</label>
+                    <input
+                      type="text" name="identificationNumber" value={cardData.identificationNumber} onChange={handleCardInputChange}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                      placeholder="000.000.000-00" required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome no Cartão</label>
+                  <input
+                    type="text" name="cardholderName" value={cardData.cardholderName} onChange={handleCardInputChange}
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                    placeholder="JOAO A SILVA" required
+                  />
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-2xl flex gap-3 text-amber-800">
+                   <AlertCircle size={18} className="shrink-0" />
+                   <p className="text-[10px] font-medium leading-relaxed">
+                     Seus dados são criptografados pelo SDK do Mercado Pago. Esta é uma implementação de Checkout Transparente.
+                   </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!!creatingPayment}
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-xl shadow-slate-900/20 active:scale-95 transition-all"
+                >
+                  {creatingPayment ? <Loader2 className="animate-spin" /> : <>Finalizar Pagamento</>}
+                </button>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Status for Premium Users */}
       {formData.testador_pagamento && formData.status_assinatura === 'premium' && (
         <section className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -359,6 +573,7 @@ const Profile = () => {
       )}
 
       <div className="space-y-6">
+        {/* Settings and other profile sections remain unchanged */}
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
             <Palette style={{ color: "var(--color-primary)" }} size={18} />
@@ -401,13 +616,6 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 text-amber-800">
-               <Palette className="shrink-0" size={20} />
-               <p className="text-xs font-medium leading-relaxed">
-                 A interface utiliza tons Claros para gestão e tons Escuros para a execução do treino. As cores acima definem os destaques e botões principais.
-               </p>
             </div>
           </div>
         </section>
@@ -534,7 +742,7 @@ const Profile = () => {
         </section>
       </div>
 
-      {/* Avatar Upload Modal */}
+      {/* Avatar Modal */}
       {showAvatarModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xs rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
