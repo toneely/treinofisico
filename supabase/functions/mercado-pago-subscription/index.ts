@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const MP_NATIVE_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN")
-const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN")
+// Tone confirmed these secrets in the Vault:
+const MP_ACCESS_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") // Old app for native subscriptions
+const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") // New app for Transparent Checkout
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -21,12 +22,12 @@ serve(async (req) => {
   try {
     const { paymentType, external_reference, email, cardToken, paymentMethodId, installments, issuerId } = await req.json()
 
+    // 1. NATIVE SUBSCRIPTION (Uses Old App / Access Token)
     if (paymentType === "native_subscription") {
-      // Native Subscription remains using /preapproval and the old token
       const response = await fetch("https://api.mercadopago.com/preapproval", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${MP_NATIVE_TOKEN}`,
+          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -44,10 +45,17 @@ serve(async (req) => {
         }),
       })
       const data = await response.json()
-      return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } })
+      // Only native_subscription returns init_point for redirection
+      return new Response(JSON.stringify({
+        id: data.id,
+        init_point: data.init_point
+      }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        status: response.status
+      })
     }
 
-    // For all other types, use MP_CHECKOUT_TOKEN and /v1/payments
+    // 2. TRANSPARENT CHECKOUT (Uses New App / Checkout Token)
     let body: any = {
       transaction_amount: 29.90,
       description: "Plano Premium - Treino Físico",
@@ -63,14 +71,11 @@ serve(async (req) => {
 
     if (paymentType === "pix_one_time") {
       body.payment_method_id = "pix"
-      // Pix specific payer info often required
       body.payer.first_name = "Atleta"
       body.payer.last_name = "TreinoFisico"
     }
 
-    // Handle Customer for card_recurring
     if (paymentType === "card_recurring") {
-      // 1. Check if user already has mp_customer_id
       const { data: userData } = await supabase
         .from("usuarios")
         .select("mp_customer_id")
@@ -80,7 +85,6 @@ serve(async (req) => {
       let customerId = userData?.mp_customer_id
 
       if (!customerId) {
-        // Create Customer in MP
         const custResp = await fetch("https://api.mercadopago.com/v1/customers", {
           method: "POST",
           headers: {
@@ -91,12 +95,8 @@ serve(async (req) => {
         })
         const custData = await custResp.json()
         customerId = custData.id
-
-        // Save to Supabase
         await supabase.from("usuarios").update({ mp_customer_id: customerId }).eq("id", external_reference)
       }
-
-      // Associate payment with customer
       body.payer.id = customerId
     }
 
@@ -116,7 +116,6 @@ serve(async (req) => {
       throw new Error(data.message || "Erro no processamento do pagamento")
     }
 
-    // Extract Pix details if applicable
     let result: any = { status: data.status, id: data.id }
     if (paymentType === "pix_one_time") {
       result.qr_code = data.point_of_interaction?.transaction_data?.qr_code_base64
@@ -129,6 +128,7 @@ serve(async (req) => {
     })
 
   } catch (err) {
+    console.error("Subscription Function Error:", err)
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       status: 400,

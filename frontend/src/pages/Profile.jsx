@@ -85,18 +85,22 @@ const Profile = () => {
     }
   }, [profile]);
 
-  // Initialize Mercado Pago V2
+  // Initialize Mercado Pago V2 with Public Key from Netlify/Vite Env
   useEffect(() => {
-    if (window.MercadoPago && !mpRef.current) {
-      // Public Key for Checkout Transparente application
-      // Note: Replaced with placeholder. Replace with actual Public Key from MP Panel.
-      mpRef.current = new window.MercadoPago('YOUR_PUBLIC_KEY_HERE');
+    const publicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY;
+    if (window.MercadoPago && !mpRef.current && publicKey) {
+      mpRef.current = new window.MercadoPago(publicKey);
     }
   }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCardInputChange = (e) => {
@@ -221,6 +225,7 @@ const Profile = () => {
 
       if (error) throw error;
 
+      // Strict Flow: Only native_subscription redirects
       if (paymentType === 'native_subscription') {
         if (data?.init_point) {
           showToast("Redirecionando para o Mercado Pago...", "info");
@@ -253,8 +258,13 @@ const Profile = () => {
 
     setCreatingPayment(showCardModal);
     try {
-      // 1. Generate Card Token via SDK
-      // Reference: https://www.mercadopago.com.br/developers/pt/docs/checkout-transparente/integration-configuration/card/integrate-via-sdk
+      // 1. Get Payment Method (Brand)
+      const paymentMethods = await mpRef.current.getPaymentMethods({
+        bin: cardData.cardNumber.replace(/\s/g, '').substring(0, 6)
+      });
+      const paymentMethodId = paymentMethods.results?.[0]?.id || 'visa';
+
+      // 2. Generate Card Token
       const tokenResponse = await mpRef.current.createCardToken({
         cardNumber: cardData.cardNumber.replace(/\s/g, ''),
         cardholderName: cardData.cardholderName,
@@ -271,14 +281,14 @@ const Profile = () => {
 
       const cardToken = tokenResponse.id;
 
-      // 2. Call Edge Function with the token
+      // 3. Call Edge Function
       const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
         body: {
           paymentType: showCardModal,
           external_reference: user.id,
           email: user.email,
           cardToken: cardToken,
-          paymentMethodId: 'visa', // This should be dynamically fetched if needed
+          paymentMethodId: paymentMethodId,
           installments: 1,
         }
       });
@@ -573,7 +583,6 @@ const Profile = () => {
       )}
 
       <div className="space-y-6">
-        {/* Settings and other profile sections remain unchanged */}
         <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
             <Palette style={{ color: "var(--color-primary)" }} size={18} />

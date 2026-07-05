@@ -1,26 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const MP_NATIVE_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN")
-const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN")
+// Tone confirmed these secrets in the Vault:
+const MP_ACCESS_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") // Old app
+const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") // New app (Transparent Checkout)
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
 
 async function fetchFromMP(url: string) {
-  // Try with Checkout Token first (bricks/one-time/transparent)
+  // Try with Checkout Token first (New app)
   let response = await fetch(url, {
     headers: { Authorization: `Bearer ${MP_CHECKOUT_TOKEN}` },
   })
 
   let data = await response.json()
 
-  // If not found or unauthorized, try with Native Token (old app/subscriptions)
+  // If not found or unauthorized, try with Native Access Token (Old app)
   if (!response.ok || data.status === 404 || data.status === 401) {
-    console.log("Retrying with Native Token...")
+    console.log("Retrying with Native Access Token...")
     response = await fetch(url, {
-      headers: { Authorization: `Bearer ${MP_NATIVE_TOKEN}` },
+      headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
     })
     data = await response.json()
   }
