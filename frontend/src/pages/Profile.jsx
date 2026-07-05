@@ -11,6 +11,7 @@ import {
   X,
   Camera,
   Save,
+  CheckCircle2,
   Lock,
   Loader2,
   Check,
@@ -70,6 +71,16 @@ const Profile = () => {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
+
+  useEffect(() => {
+    async function fetchSettings() {
+      const { data, error } = await supabase.from('config_app').select('*').single();
+      if (data) setAppSettings(data);
+    }
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -221,7 +232,8 @@ const Profile = () => {
         body: {
           paymentType,
           external_reference: user.id,
-          email: user.email
+          email: user.email,
+          transaction_amount: appSettings.subscription_price
         }
       });
 
@@ -282,9 +294,10 @@ const Profile = () => {
           paymentType: showCardModal,
           external_reference: user.id,
           email: user.email,
-          cardToken: cardToken,
-          paymentMethodId: paymentMethodId,
+          token: cardToken,
+          payment_method_id: paymentMethodId,
           installments: 1,
+          transaction_amount: appSettings.subscription_price
         }
       });
 
@@ -376,69 +389,92 @@ const Profile = () => {
         )}
       </section>
 
-      {/* Mercado Pago Payment Menu */}
+      {/* Mercado Pago Payment Menu - Refactor for Light Theme and Dynamic Pricing */}
       {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
-        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] overflow-hidden shadow-xl border border-white/10 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-400">
-              <Zap size={18} fill="currentColor" />
-              <h3 className="font-black uppercase text-xs tracking-widest">
-                Assinar Premium (Teste)
-              </h3>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-white/10 text-white/40">
-              Checkout Transparente
+        <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="p-8 border-b border-slate-50 text-center">
+            <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">
+              Upgrade para Premium
             </span>
+            <div className="flex items-center justify-center gap-1 mt-2">
+              <span className="text-sm font-bold text-slate-400">R$</span>
+              <span className="text-5xl font-black text-slate-900 leading-none">
+                {Number(appSettings.subscription_price).toFixed(2).split('.')[0]}
+              </span>
+              <span className="text-lg font-black text-slate-900 mt-auto">
+                ,{Number(appSettings.subscription_price).toFixed(2).split('.')[1]}
+              </span>
+              <span className="text-xs font-bold text-slate-400 ml-1 mt-auto">/mês</span>
+            </div>
+
+            <ul className="mt-8 space-y-3 text-left max-w-[220px] mx-auto">
+              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                Acesso premium ilimitado
+              </li>
+              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                Sem anúncios
+              </li>
+              <li className="flex items-center gap-3 text-slate-600 text-xs font-bold">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                Acompanhamento de evolução
+              </li>
+            </ul>
           </div>
 
-          <div className="p-6 grid grid-cols-1 gap-3">
+          <div className="p-8 space-y-3">
             <button
               onClick={() => handlePaymentInitiation('card_recurring')}
               disabled={!!creatingPayment}
-              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
+              className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6 border border-slate-100"
             >
               <div className="flex flex-col items-start">
-                <span className="text-[10px] uppercase font-black text-amber-400">Recorrente</span>
+                <span className="text-[9px] uppercase font-black text-orange-500">Recorrente</span>
                 <span>Cartão de Crédito</span>
               </div>
-              {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} className="text-white/20" />}
+              {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <CreditCard size={16} className="text-slate-300" />}
             </button>
 
-            <button
-              onClick={() => handlePaymentInitiation('card_one_time')}
-              disabled={!!creatingPayment}
-              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
-            >
-              <div className="flex flex-col items-start">
-                <span className="text-[10px] uppercase font-black text-slate-400">Mês Atual</span>
-                <span>Cartão (Avulso)</span>
-              </div>
-              {creatingPayment === 'card_one_time' ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} className="text-white/20" />}
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handlePaymentInitiation('card_one_time')}
+                disabled={!!creatingPayment}
+                className="py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border border-slate-100 gap-1"
+              >
+                <CreditCard size={16} className="text-slate-300" />
+                <span className="text-[9px] font-black text-slate-400 uppercase">Cartão (Avulso)</span>
+              </button>
 
-            <button
-              onClick={() => handlePaymentInitiation('pix_one_time')}
-              disabled={!!creatingPayment}
-              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-xs transition-all flex items-center justify-between px-6"
-            >
-              <div className="flex flex-col items-start">
-                <span className="text-[10px] uppercase font-black text-emerald-400">Mês Atual</span>
-                <span>Pagamento via PIX</span>
-              </div>
-              {creatingPayment === 'pix_one_time' ? <Loader2 className="animate-spin" size={16} /> : <QrCode size={16} className="text-white/20" />}
-            </button>
+              <button
+                onClick={() => handlePaymentInitiation('pix_one_time')}
+                disabled={!!creatingPayment}
+                className="py-4 bg-slate-50 hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border border-slate-100 gap-1"
+              >
+                <QrCode size={16} className="text-slate-300" />
+                <span className="text-[9px] font-black text-slate-400 uppercase">PIX (Avulso)</span>
+              </button>
+            </div>
 
             <button
               onClick={() => handlePaymentInitiation('native_subscription')}
               disabled={!!creatingPayment}
-              className="w-full py-4 bg-amber-500 text-black rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
+              className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex flex-col items-center justify-center"
             >
-              {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
-                <>
-                  <Zap size={14} fill="currentColor" /> Assinatura Mercado Pago (Nativa)
-                </>
-              )}
+              <div className="flex items-center gap-2 mb-1">
+                {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={16} /> : (
+                  <>
+                    <img src="https://www.mercadopago.com/org-img/MP_LOGO.png" alt="MP" className="h-4" />
+                    <span>Assinatura Mercado Pago</span>
+                  </>
+                )}
+              </div>
+              <span className="text-[8px] opacity-80 normal-case font-bold italic">Assinatura para clientes Mercado Pago</span>
             </button>
+
+            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-4">
+              <Lock size={12} /> Pagamento Seguro
+            </div>
           </div>
         </section>
       )}
@@ -448,7 +484,7 @@ const Profile = () => {
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-xl font-black mb-2 text-center">Pagamento via PIX</h2>
-            <p className="text-slate-400 text-xs text-center mb-6">Escaneie o código abaixo para ativar o Premium</p>
+            <p className="text-slate-400 text-xs text-center mb-6">Escaneie o código abaixo para ativar o Premium. <span className="block text-amber-500 font-bold">Este código expira em 30 minutos.</span></p>
 
             <div className="bg-slate-50 p-4 rounded-3xl flex justify-center mb-6">
               <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code" className="w-48 h-48" />

@@ -17,6 +17,8 @@ import {
   Plus,
   X,
   AlertTriangle,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import ExerciseManager from "../components/ExerciseManager";
@@ -27,6 +29,8 @@ import LoadingScreen from "../components/LoadingScreen";
 const Admin = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("onboarding");
+  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
+  const [savingSettings, setSavingSettings] = useState(false);
   const [subTab, setSubTab] = useState("workouts");
   // moldeUserId set to null represents global templates (where user_id is NULL)
   const [moldeUserId] = useState(null);
@@ -96,18 +100,37 @@ const Admin = () => {
     }
   }, []);
 
+  const fetchAppSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("config_app")
+        .select("*")
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) setAppSettings(data);
+    } catch (err) {
+      console.error("Admin: Error fetching app settings:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (activeTab === "users") {
         fetchUsersData();
       } else if (activeTab === "billing") {
         fetchBillingData();
+      } else if (activeTab === "settings") {
+        fetchAppSettings();
       } else {
         setLoading(false);
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [activeTab, fetchUsersData, fetchBillingData]);
+  }, [activeTab, fetchUsersData, fetchBillingData, fetchAppSettings]);
 
   const filteredUsers = useMemo(() => {
     const search = userSearch.toLowerCase();
@@ -162,6 +185,24 @@ const Admin = () => {
   if (loading && activeTab === "onboarding")
     return <LoadingScreen message="Carregando Admin..." />;
 
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from("config_app")
+        .upsert({ id: appSettings.id || 1, subscription_price: parseFloat(appSettings.subscription_price) });
+
+      if (error) throw error;
+      alert("Configurações salvas com sucesso!");
+    } catch (err) {
+      console.error("Error saving settings:", err);
+      alert("Erro ao salvar: " + err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   return (
     <div className="p-3 max-w-6xl mx-auto text-sm">
       <header className="mb-3">
@@ -194,6 +235,12 @@ const Admin = () => {
           onClick={() => setActiveTab("billing")}
           icon={<CreditCard size={14} />}
           label="Financeiro"
+        />
+        <TabButton
+          active={activeTab === "settings"}
+          onClick={() => setActiveTab("settings")}
+          icon={<Settings size={14} />}
+          label="Configurações"
         />
       </div>
 
@@ -395,6 +442,44 @@ const Admin = () => {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="space-y-4 animate-in fade-in duration-500">
+            <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <h2 className="text-base font-black uppercase tracking-tight flex items-center gap-2 mb-4">
+                <Settings style={{ color: "var(--color-primary)" }} size={18} />
+                Parâmetros do Sistema
+              </h2>
+
+              <form onSubmit={handleSaveSettings} className="space-y-4 max-w-sm">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
+                    Valor da Assinatura (Mensal)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={appSettings.subscription_price}
+                      onChange={(e) => setAppSettings({ ...appSettings, subscription_price: e.target.value })}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-bold text-xs"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-tight shadow-md shadow-orange-500/20 active:scale-95 transition-all text-xs flex items-center gap-2"
+                >
+                  {savingSettings ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                  Salvar Alterações
+                </button>
+              </form>
+            </section>
           </div>
         )}
 

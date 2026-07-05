@@ -26,6 +26,7 @@ serve(async function (req) {
     const paymentType = reqBody.paymentType;
     const external_reference = reqBody.external_reference;
     const email = reqBody.email;
+    const transaction_amount = reqBody.transaction_amount || 29.90;
 
     let accessToken = MP_CHECKOUT_TOKEN;
     let endpoint = "";
@@ -41,7 +42,7 @@ serve(async function (req) {
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",
-          transaction_amount: 29.90,
+          transaction_amount: transaction_amount,
           currency_id: "BRL",
         },
         back_url: "https://treinofisico.netlify.app/perfil",
@@ -50,7 +51,7 @@ serve(async function (req) {
     } else if (paymentType === "pix_one_time") {
       endpoint = "https://api.mercadopago.com/v1/payments";
       body = {
-        transaction_amount: 29.90,
+        transaction_amount: transaction_amount,
         description: "Plano Premium - Pix",
         payment_method_id: "pix",
         payer: { email: email },
@@ -59,7 +60,7 @@ serve(async function (req) {
     } else if (paymentType === "card_one_time" || paymentType === "card_recurring") {
       endpoint = "https://api.mercadopago.com/v1/payments";
       body = {
-        transaction_amount: 29.90,
+        transaction_amount: transaction_amount,
         token: reqBody.token,
         description: "Plano Premium - Cartao",
         installments: reqBody.installments || 1,
@@ -71,7 +72,7 @@ serve(async function (req) {
       throw new Error("Tipo de pagamento invalido");
     }
 
-    console.log("Enviando para MP:", endpoint);
+    console.log("Enviando para MP:", endpoint, "Valor:", transaction_amount);
 
     const mpResponse = await fetch(endpoint, {
       method: "POST",
@@ -92,6 +93,7 @@ serve(async function (req) {
 
     return new Response(JSON.stringify({
       id: data.id,
+      status: data.status,
       init_point: data.init_point,
       qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
       qr_code: data.point_of_interaction?.transaction_data?.qr_code
