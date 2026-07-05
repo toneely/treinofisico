@@ -419,7 +419,7 @@ const Profile = () => {
             </ul>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-8 px-4 space-y-6">
             {/* Section 1: Recurring */}
             <div className="space-y-3">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
@@ -444,17 +444,14 @@ const Profile = () => {
               <button
                 onClick={() => handlePaymentInitiation('native_subscription')}
                 disabled={!!creatingPayment}
-                className="w-full py-5 bg-[#009EE3] text-white rounded-2xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center gap-1.5"
+                className="w-full py-5 bg-[#009EE3] text-white rounded-2xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center gap-1"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center">
                   {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={18} /> : (
-                    <>
-                      <img src="https://www.mercadopago.com/org-img/MP_LOGO.png" alt="MP" className="h-5 brightness-0 invert" />
-                      <span className="text-xs">Assinatura Mercado Pago</span>
-                    </>
+                    <span className="text-xs">Assinatura Mercado Pago</span>
                   )}
                 </div>
-                <span className="text-[9px] opacity-90 normal-case font-bold italic">Assinatura para clientes Mercado Pago</span>
+                <span className="text-[9px] opacity-90 normal-case font-bold italic">Para clientes com conta Mercado Pago</span>
               </button>
             </div>
 
