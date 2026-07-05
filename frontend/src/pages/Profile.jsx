@@ -328,7 +328,7 @@ const Profile = () => {
       className="p-6 max-w-2xl mx-auto"
       style={{ paddingBottom: isPremium ? "80px" : "148px" }}
     >
-      <header className="mb-8 flex justify-between items-center">
+      <header className="mb-8 flex justify-between items-center px-2">
         <Link
           to="/inicio"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
@@ -345,7 +345,8 @@ const Profile = () => {
         </button>
       </header>
 
-      <section className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-200 mb-6 flex flex-col items-center">
+      {/* 1. Identification Card */}
+      <section className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 mb-6 flex flex-col items-center">
         <div className="relative mb-4">
           <div
             className="w-24 h-24 rounded-3xl flex items-center justify-center overflow-hidden border-4 border-white shadow-lg"
@@ -389,104 +390,303 @@ const Profile = () => {
         )}
       </section>
 
-      {/* Mercado Pago Payment Menu - Refactor for Better Conversion and Usability */}
-      {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
-        <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="p-8 border-b border-slate-50 text-center">
-            <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">
-              Upgrade para Premium
-            </span>
-            <div className="flex items-baseline justify-center gap-2 mt-2">
-              <span className="text-6xl font-black text-slate-900 tracking-tighter">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appSettings.subscription_price)}
-              </span>
-              <span className="text-base font-bold text-slate-400">/ mes</span>
-            </div>
-
-            <ul className="mt-10 space-y-5 text-left max-w-[260px] mx-auto">
-              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
-                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                <span>Acesso premium ilimitado e exclusivo</span>
-              </li>
-              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
-                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                <span>Experiência completa sem anúncios</span>
-              </li>
-              <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
-                <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                <span>Acompanhamento detalhado de evolução</span>
-              </li>
-            </ul>
+      <div className="space-y-6 px-1">
+        {/* 2. Account Data (Dados Pessoais) */}
+        <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
+            <User style={{ color: "var(--color-primary)" }} size={18} />
+            <h3 className="font-bold  uppercase text-xs tracking-widest">
+              Dados da Conta
+            </h3>
           </div>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Nome de Exibição
+              </label>
+              <input
+                type="text"
+                name="nome"
+                value={formData.nome}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              />
+            </div>
+            <div className="flex flex-col gap-1 opacity-60">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                E-mail (Referência)
+              </label>
+              <input
+                type="text"
+                value={user.email}
+                readOnly
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none font-bold cursor-not-allowed"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Foco de Treino
+              </label>
+              <input
+                type="text"
+                name="foco_treino"
+                value={formData.foco_treino}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+                placeholder="Ex: Calistenia / Musculação"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Atividade Alternativa
+              </label>
+              <input
+                type="text"
+                name="atividade_alternativa"
+                value={formData.atividade_alternativa}
+                onChange={handleInputChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
+              />
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                color: "var(--text-on-primary)",
+              }}
+            >
+              {saving ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Save size={18} /> Salvar Dados
+                </>
+              )}
+            </button>
+          </div>
+        </section>
 
-          <div className="p-8 px-4 space-y-6">
-            {/* Section 1: Recurring */}
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
-                Assinaturas (Renovação Automática)
-              </h4>
-              <button
-                onClick={() => handlePaymentInitiation('card_recurring')}
-                disabled={!!creatingPayment}
-                className="w-full py-5 rounded-2xl font-black text-sm transition-all flex items-center justify-between px-8 shadow-xl active:scale-95"
-                style={{
-                  backgroundColor: "var(--color-primary)",
-                  color: "var(--text-on-primary)",
-                }}
-              >
-                <div className="flex flex-col items-start">
-                  <span className="text-[9px] uppercase opacity-80 mb-0.5">Recomendado</span>
-                  <span>Cartão de Crédito</span>
-                </div>
-                {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={20} /> : <CreditCard size={20} className="opacity-40" />}
-              </button>
+        {/* 3. Security (Nova Senha) */}
+        <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
+            <Lock style={{ color: "var(--color-secondary)" }} size={18} />
+            <h3 className="font-bold uppercase text-xs tracking-widest">
+              Segurança
+            </h3>
+          </div>
+          <form onSubmit={handleUpdatePassword} className="p-6 space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Nova Senha
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Confirmar Nova Senha
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={updatingPassword}
+              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
+              style={{
+                backgroundColor: "var(--color-secondary)",
+                color: "var(--text-on-secondary)",
+              }}
+            >
+              {updatingPassword ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Check size={18} /> Atualizar Senha
+                </>
+              )}
+            </button>
+          </form>
+        </section>
 
-              <button
-                onClick={() => handlePaymentInitiation('native_subscription')}
-                disabled={!!creatingPayment}
-                className="w-full py-5 bg-[#009EE3] text-white rounded-2xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center gap-1"
-              >
-                <div className="flex items-center justify-center">
-                  {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={18} /> : (
-                    <span className="text-xs">Assinatura Mercado Pago</span>
-                  )}
-                </div>
-                <span className="text-[9px] opacity-90 normal-case font-bold italic">Para clientes com conta Mercado Pago</span>
-              </button>
+        {/* 4. Mercado Pago Payment Card */}
+        {formData.testador_pagamento && formData.status_assinatura !== 'premium' && (
+          <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="p-8 border-b border-slate-50 text-center">
+              <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">
+                Upgrade para Premium
+              </span>
+              <div className="flex items-baseline justify-center gap-2 mt-2">
+                <span className="text-6xl font-black text-slate-900 tracking-tighter">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appSettings.subscription_price)}
+                </span>
+                <span className="text-base font-bold text-slate-400">/ mes</span>
+              </div>
+
+              <ul className="mt-10 space-y-5 text-left max-w-[260px] mx-auto">
+                <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                  <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Acesso premium ilimitado e exclusivo</span>
+                </li>
+                <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                  <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Experiência completa sem anúncios</span>
+                </li>
+                <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
+                  <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Acompanhamento detalhado de evolução</span>
+                </li>
+              </ul>
             </div>
 
-            {/* Section 2: One-time */}
-            <div className="space-y-3 pt-2">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
-                Pagamentos Avulsos (30 dias)
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-8 px-4 space-y-6">
+              {/* Section 1: Recurring */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                  Assinaturas (Renovação Automática)
+                </h4>
                 <button
-                  onClick={() => handlePaymentInitiation('pix_one_time')}
+                  onClick={() => handlePaymentInitiation('card_recurring')}
                   disabled={!!creatingPayment}
-                  className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                  className="w-full py-5 rounded-2xl font-black text-sm transition-all flex items-center justify-between px-8 shadow-xl active:scale-95"
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    color: "var(--text-on-primary)",
+                  }}
                 >
-                  <QrCode size={20} className="text-slate-400" />
-                  <span className="text-[10px] font-black uppercase tracking-tight">PIX (Avulso)</span>
+                  <div className="flex flex-col items-start">
+                    <span className="text-[9px] uppercase opacity-80 mb-0.5">Recomendado</span>
+                    <span>Cartão de Crédito</span>
+                  </div>
+                  {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={20} /> : <CreditCard size={20} className="opacity-40" />}
                 </button>
 
                 <button
-                  onClick={() => handlePaymentInitiation('card_one_time')}
+                  onClick={() => handlePaymentInitiation('native_subscription')}
                   disabled={!!creatingPayment}
-                  className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                  className="w-full py-5 bg-[#009EE3] text-white rounded-2xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all flex flex-col items-center justify-center gap-1"
                 >
-                  <CreditCard size={20} className="text-slate-400" />
-                  <span className="text-[10px] font-black uppercase tracking-tight">Cartão (Avulso)</span>
+                  <div className="flex items-center justify-center">
+                    {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin" size={18} /> : (
+                      <span className="text-xs">Assinatura Mercado Pago</span>
+                    )}
+                  </div>
+                  <span className="text-[9px] opacity-90 normal-case font-bold italic">Para clientes com conta Mercado Pago</span>
                 </button>
               </div>
-            </div>
 
-            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-2">
-              <Lock size={12} /> Pagamento Seguro
+              {/* Section 2: One-time */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                  Pagamentos Avulsos (30 dias)
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handlePaymentInitiation('pix_one_time')}
+                    disabled={!!creatingPayment}
+                    className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                  >
+                    <QrCode size={20} className="text-slate-400" />
+                    <span className="text-[10px] font-black uppercase tracking-tight">PIX (Avulso)</span>
+                  </button>
+
+                  <button
+                    onClick={() => handlePaymentInitiation('card_one_time')}
+                    disabled={!!creatingPayment}
+                    className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
+                  >
+                    <CreditCard size={20} className="text-slate-400" />
+                    <span className="text-[10px] font-black uppercase tracking-tight">Cartão (Avulso)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-2">
+                <Lock size={12} /> Pagamento Seguro
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 5. Status for Premium Users */}
+        {formData.testador_pagamento && formData.status_assinatura === 'premium' && (
+          <section className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 flex items-center justify-between shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <h3 className="text-emerald-500 font-black uppercase text-[10px] tracking-widest">Status da Conta</h3>
+                <p className="text-slate-900 font-bold">Assinatura Premium Ativa</p>
+              </div>
+            </div>
+            <span className="px-2 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-lg">Sandbox</span>
+          </section>
+        )}
+
+        {/* 6. Appearance Section */}
+        <section className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-slate-200">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
+            <Palette style={{ color: "var(--color-primary)" }} size={18} />
+            <h3 className="font-bold  uppercase text-xs tracking-widest">
+              Aparência
+            </h3>
+          </div>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Cor Primária / Destaque A
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={settings.color_ex_a}
+                    onChange={(e) => handleColorChange("color_ex_a", e.target.value)}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
+                  />
+                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
+                    {settings.color_ex_a}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Cor Secundária / Destaque B
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={settings.color_ex_b}
+                    onChange={(e) => handleColorChange("color_ex_b", e.target.value)}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
+                  />
+                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
+                    {settings.color_ex_b}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
-      )}
+      </div>
 
       {/* Pix Modal */}
       {pixData && (
@@ -615,191 +815,6 @@ const Profile = () => {
           </div>
         </div>
       )}
-
-      {/* Status for Premium Users */}
-      {formData.testador_pagamento && formData.status_assinatura === 'premium' && (
-        <section className="bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] p-6 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <h3 className="text-emerald-500 font-black uppercase text-[10px] tracking-widest">Status da Conta</h3>
-              <p className="text-slate-900 font-bold">Assinatura Premium Ativa</p>
-            </div>
-          </div>
-          <span className="px-2 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-lg">Sandbox</span>
-        </section>
-      )}
-
-      <div className="space-y-6">
-        <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-            <Palette style={{ color: "var(--color-primary)" }} size={18} />
-            <h3 className="font-bold  uppercase text-xs tracking-widest">
-              Aparência
-            </h3>
-          </div>
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Cor Primária / Destaque A
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={settings.color_ex_a}
-                    onChange={(e) => handleColorChange("color_ex_a", e.target.value)}
-                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
-                  />
-                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
-                    {settings.color_ex_a}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Cor Secundária / Destaque B
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={settings.color_ex_b}
-                    onChange={(e) => handleColorChange("color_ex_b", e.target.value)}
-                    className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
-                  />
-                  <div className="flex-1 px-3 py-2 bg-slate-50 rounded-xl font-mono text-xs uppercase font-bold text-slate-500">
-                    {settings.color_ex_b}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-            <User style={{ color: "var(--color-primary)" }} size={18} />
-            <h3 className="font-bold  uppercase text-xs tracking-widest">
-              Dados da Conta
-            </h3>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Nome de Exibição
-              </label>
-              <input
-                type="text"
-                name="nome"
-                value={formData.nome}
-                onChange={handleInputChange}
-                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Foco de Treino
-              </label>
-              <input
-                type="text"
-                name="foco_treino"
-                value={formData.foco_treino}
-                onChange={handleInputChange}
-                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-                placeholder="Ex: Calistenia / Musculação"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Atividade Alternativa
-              </label>
-              <input
-                type="text"
-                name="atividade_alternativa"
-                value={formData.atividade_alternativa}
-                onChange={handleInputChange}
-                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold  transition-all focus:shadow-[0_0_0_2px_var(--color-primary)]"
-              />
-            </div>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
-              style={{
-                backgroundColor: "var(--color-primary)",
-                color: "var(--text-on-primary)",
-              }}
-            >
-              {saving ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <>
-                  <Save size={18} /> Salvar Dados
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-2">
-            <Lock style={{ color: "var(--color-secondary)" }} size={18} />
-            <h3 className="font-bold uppercase text-xs tracking-widest">
-              Segurança
-            </h3>
-          </div>
-          <form onSubmit={handleUpdatePassword} className="p-6 space-y-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Nova Senha
-              </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Confirmar Nova Senha
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                className="p-3 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 font-bold transition-all focus:shadow-[0_0_0_2px_var(--color-secondary)]"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={updatingPassword}
-              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
-              style={{
-                backgroundColor: "var(--color-secondary)",
-                color: "var(--text-on-secondary)",
-              }}
-            >
-              {updatingPassword ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <>
-                  <Check size={18} /> Atualizar Senha
-                </>
-              )}
-            </button>
-          </form>
-        </section>
-      </div>
 
       {/* Avatar Modal */}
       {showAvatarModal && (
