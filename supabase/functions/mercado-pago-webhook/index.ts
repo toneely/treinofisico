@@ -10,9 +10,15 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
 
 async function fetchFromMP(url: string) {
+  // GET requests usually don't strictly require idempotency, but we add it to avoid potential 400s if some endpoints are picky
+  const idempotencyKey = crypto.randomUUID()
+
   // Try with Checkout Token first (New app)
   let response = await fetch(url, {
-    headers: { Authorization: `Bearer ${MP_CHECKOUT_TOKEN}` },
+    headers: {
+      Authorization: `Bearer ${MP_CHECKOUT_TOKEN}`,
+      "X-Idempotency-Key": idempotencyKey
+    },
   })
 
   let data = await response.json()
@@ -21,7 +27,10 @@ async function fetchFromMP(url: string) {
   if (!response.ok || data.status === 404 || data.status === 401) {
     console.log("Retrying with Native Access Token...")
     response = await fetch(url, {
-      headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
+      headers: {
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        "X-Idempotency-Key": idempotencyKey
+      },
     })
     data = await response.json()
   }

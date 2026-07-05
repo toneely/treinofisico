@@ -21,6 +21,7 @@ serve(async (req) => {
 
   try {
     const { paymentType, external_reference, email, cardToken, paymentMethodId, installments, issuerId } = await req.json()
+    const idempotencyKey = crypto.randomUUID()
 
     // 1. NATIVE SUBSCRIPTION (Uses Old App / Access Token)
     if (paymentType === "native_subscription") {
@@ -29,6 +30,7 @@ serve(async (req) => {
         headers: {
           Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           reason: "Assinatura Premium (Nativa) - Treino Físico",
@@ -45,7 +47,6 @@ serve(async (req) => {
         }),
       })
       const data = await response.json()
-      // Only native_subscription returns init_point for redirection
       return new Response(JSON.stringify({
         id: data.id,
         init_point: data.init_point
@@ -90,6 +91,7 @@ serve(async (req) => {
           headers: {
             Authorization: `Bearer ${MP_CHECKOUT_TOKEN}`,
             "Content-Type": "application/json",
+            "X-Idempotency-Key": crypto.randomUUID(),
           },
           body: JSON.stringify({ email: email }),
         })
@@ -105,6 +107,7 @@ serve(async (req) => {
       headers: {
         Authorization: `Bearer ${MP_CHECKOUT_TOKEN}`,
         "Content-Type": "application/json",
+        "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify(body),
     })
