@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -14,7 +14,6 @@ import {
   Lock,
   Loader2,
   Check,
-  CheckCircle2,
   Image as ImageIcon,
   Palette,
   Dumbbell,
@@ -74,14 +73,17 @@ const Profile = () => {
 
   useEffect(() => {
     if (profile) {
-      setFormData({
-        nome: profile.nome || "",
-        foco_treino: profile.foco_treino || "",
-        atividade_alternativa: profile.atividade_alternativa || "Capoeira",
-        avatar_url: profile.avatar_url || null,
-        testador_pagamento: profile.testador_pagamento || false,
-        status_assinatura: profile.status_assinatura || "free",
-      });
+      const timer = setTimeout(() => {
+        setFormData({
+          nome: profile.nome || "",
+          foco_treino: profile.foco_treino || "",
+          atividade_alternativa: profile.atividade_alternativa || "Capoeira",
+          avatar_url: profile.avatar_url || null,
+          testador_pagamento: profile.testador_pagamento || false,
+          status_assinatura: profile.status_assinatura || "free",
+        });
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [profile]);
 
@@ -207,7 +209,7 @@ const Profile = () => {
     if (error) showToast("Erro ao atualizar cor: " + error.message, "error");
   };
 
-  const handlePaymentInitiation = async (paymentType) => {
+  async function handlePaymentInitiation(paymentType) {
     if (paymentType === 'card_recurring' || paymentType === 'card_one_time') {
       setShowCardModal(paymentType);
       return;
@@ -225,21 +227,14 @@ const Profile = () => {
 
       if (error) throw error;
 
-      // Strict Flow: Only native_subscription redirects
-      if (paymentType === 'native_subscription') {
-        if (data?.init_point) {
-          showToast("Redirecionando para o Mercado Pago...", "info");
-          window.location.href = data.init_point;
-        } else {
-          throw new Error("Link de assinatura não retornado.");
-        }
-      } else if (paymentType === 'pix_one_time') {
-        if (data?.qr_code) {
-          setPixData(data);
-          showToast("QR Code gerado!", "success");
-        } else {
-          throw new Error("Erro ao gerar Pix.");
-        }
+      if (data?.init_point) {
+        showToast("Redirecionando para o Mercado Pago...", "info");
+        window.location.href = data.init_point;
+      } else if (data?.qr_code_base64) {
+        setPixData(data);
+        showToast("QR Code gerado!", "success");
+      } else {
+        throw new Error("Resposta inválida do servidor.");
       }
     } catch (e) {
       console.error("Erro no pagamento:", e);
@@ -456,21 +451,31 @@ const Profile = () => {
             <p className="text-slate-400 text-xs text-center mb-6">Escaneie o código abaixo para ativar o Premium</p>
 
             <div className="bg-slate-50 p-4 rounded-3xl flex justify-center mb-6">
-              <img src={`data:image/png;base64,${pixData.qr_code}`} alt="QR Code" className="w-48 h-48" />
+              <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code" className="w-48 h-48" />
+            </div>
+
+            <div className="space-y-2 mb-6">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Código Pix (Copia e Cola)</label>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={pixData.qr_code}
+                  className="flex-1 p-3 bg-slate-50 border-none rounded-xl text-[10px] font-mono text-slate-500 outline-none"
+                />
+                <button
+                  onClick={() => copyToClipboard(pixData.qr_code)}
+                  className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
             </div>
 
             <button
-              onClick={() => copyToClipboard(pixData.qr_code_copy_paste)}
-              className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 mb-3 shadow-lg shadow-emerald-500/20"
-            >
-              <Copy size={16} /> Copiar Código Pix
-            </button>
-
-            <button
               onClick={() => setPixData(null)}
-              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs"
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-slate-900/20 active:scale-95 transition-all"
             >
-              Fechar
+              Concluído
             </button>
           </div>
         </div>
