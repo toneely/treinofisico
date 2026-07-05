@@ -20,17 +20,17 @@ serve(async (req) => {
   }
 
   try {
-    const { paymentType, external_reference, email, cardToken, paymentMethodId, installments, issuerId } = await req.json()
-    const idempotencyKey = crypto.randomUUID()
+    const json = await req.json()
+    const { paymentType, external_reference, email, cardToken, paymentMethodId, installments, issuerId } = json
 
     // 1. NATIVE SUBSCRIPTION (Uses Old App / Access Token)
     if (paymentType === "native_subscription") {
       const response = await fetch("https://api.mercadopago.com/preapproval", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+          "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
-          "X-Idempotency-Key": idempotencyKey,
+          "X-Idempotency-Key": crypto.randomUUID(),
         },
         body: JSON.stringify({
           reason: "Assinatura Premium (Nativa) - Treino Físico",
@@ -89,7 +89,7 @@ serve(async (req) => {
         const custResp = await fetch("https://api.mercadopago.com/v1/customers", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${MP_CHECKOUT_TOKEN}`,
+            "Authorization": `Bearer ${MP_CHECKOUT_TOKEN}`,
             "Content-Type": "application/json",
             "X-Idempotency-Key": crypto.randomUUID(),
           },
@@ -105,9 +105,9 @@ serve(async (req) => {
     const response = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MP_CHECKOUT_TOKEN}`,
+        "Authorization": `Bearer ${MP_CHECKOUT_TOKEN}`,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": idempotencyKey,
+        "X-Idempotency-Key": crypto.randomUUID(),
       },
       body: JSON.stringify(body),
     })
