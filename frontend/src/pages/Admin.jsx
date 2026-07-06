@@ -29,7 +29,11 @@ import LoadingScreen from "../components/LoadingScreen";
 const Admin = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("onboarding");
-  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
+  const [appSettings, setAppSettings] = useState({
+    subscription_price: 29.90,
+    termos_de_uso: "",
+    politicas_privacidade: ""
+  });
   const [savingSettings, setSavingSettings] = useState(false);
   const [subTab, setSubTab] = useState("workouts");
   // moldeUserId set to null represents global templates (where user_id is NULL)
@@ -191,7 +195,12 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from("config_app")
-        .upsert({ id: appSettings.id || 1, subscription_price: parseFloat(appSettings.subscription_price) });
+        .upsert({
+          id: appSettings.id || 1,
+          subscription_price: parseFloat(appSettings.subscription_price),
+          termos_de_uso: appSettings.termos_de_uso,
+          politicas_privacidade: appSettings.politicas_privacidade
+        });
 
       if (error) throw error;
       alert("Configurações salvas com sucesso!");
@@ -453,8 +462,8 @@ const Admin = () => {
                 Parâmetros do Sistema
               </h2>
 
-              <form onSubmit={handleSaveSettings} className="space-y-4 max-w-sm">
-                <div>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="max-w-sm">
                   <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
                     Valor da Assinatura (Mensal)
                   </label>
@@ -466,6 +475,30 @@ const Admin = () => {
                       value={appSettings.subscription_price}
                       onChange={(e) => setAppSettings({ ...appSettings, subscription_price: e.target.value })}
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-bold text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
+                      Termos de Uso (Markdown)
+                    </label>
+                    <textarea
+                      value={appSettings.termos_de_uso}
+                      onChange={(e) => setAppSettings({ ...appSettings, termos_de_uso: e.target.value })}
+                      className="w-full h-64 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-[11px] leading-relaxed resize-none"
+                      placeholder="Use {{VALOR_ASSINATURA}} para o preço dinâmico..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
+                      Políticas de Privacidade (Markdown)
+                    </label>
+                    <textarea
+                      value={appSettings.politicas_privacidade}
+                      onChange={(e) => setAppSettings({ ...appSettings, politicas_privacidade: e.target.value })}
+                      className="w-full h-64 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-[11px] leading-relaxed resize-none"
                     />
                   </div>
                 </div>
