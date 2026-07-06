@@ -18,7 +18,7 @@ const PrivacyPolicy = () => {
           .single();
 
         if (error) throw error;
-        setContent(data.politicas_privacidade || "Conteúdo não disponível.");
+        setContent((data.politicas_privacidade || "Conteúdo não disponível.").replace(/\\n/g, '\n'));
       } catch (err) {
         console.error("Error fetching privacy policy:", err);
       } finally {

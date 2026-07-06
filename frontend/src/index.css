@@ -8,3 +8,23 @@
     color: white;
   }
 }
+
+/* Admin Markdown Editor Custom Styles */
+.admin-editor-container .CodeMirror {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  font-family: inherit !important;
+}
+
+.admin-editor-container .editor-toolbar {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  border-color: #f1f5f9 !important;
+  background: #f8fafc !important;
+}
+
+.admin-editor-container .CodeMirror {
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  border-color: #f1f5f9 !important;
+}

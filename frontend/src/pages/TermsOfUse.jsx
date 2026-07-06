@@ -19,7 +19,7 @@ const TermsOfUse = () => {
 
         if (error) throw error;
 
-        let rawContent = data.termos_de_uso || "Conteúdo não disponível.";
+        let rawContent = (data.termos_de_uso || "Conteúdo não disponível.").replace(/\\n/g, '\n');
         const price = data.subscription_price || 0;
         const formattedPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
 

@@ -115,7 +115,15 @@ const Admin = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      if (data) setAppSettings(data);
+      if (data) {
+        // Sanitize literal \n from DB to real line breaks
+        const sanitized = {
+          ...data,
+          termos_de_uso: (data.termos_de_uso || "").replace(/\\n/g, '\n'),
+          politicas_privacidade: (data.politicas_privacidade || "").replace(/\\n/g, '\n')
+        };
+        setAppSettings(sanitized);
+      }
     } catch (err) {
       console.error("Admin: Error fetching app settings:", err);
     } finally {
@@ -486,7 +494,7 @@ const Admin = () => {
                     <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
                       Termos de Uso
                     </label>
-                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 admin-editor-container">
                       <SimpleMDE
                         value={appSettings.termos_de_uso}
                         onChange={(value) => setAppSettings(prev => ({ ...prev, termos_de_uso: value }))}
@@ -504,7 +512,7 @@ const Admin = () => {
                     <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
                       Políticas de Privacidade
                     </label>
-                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 admin-editor-container">
                       <SimpleMDE
                         value={appSettings.politicas_privacidade}
                         onChange={(value) => setAppSettings(prev => ({ ...prev, politicas_privacidade: value }))}
