@@ -512,12 +512,12 @@ const Profile = () => {
                 <button
                   onClick={() => handlePaymentInitiation('native_subscription')}
                   disabled={!!creatingPayment}
-                  className="w-full h-[88px] bg-white border-2 border-slate-100 rounded-2xl shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center pb-2"
+                  className="w-full h-[88px] bg-white border-2 border-slate-100 rounded-2xl shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center relative overflow-hidden"
                 >
-                  <div className="flex-1 flex items-center justify-center gap-3">
+                  <div className="flex items-center justify-center gap-3">
                     {creatingPayment === 'native_subscription' ? <Loader2 className="animate-spin text-slate-400" size={20} /> : (
                       <>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="150" height="104" fill="none" viewBox="0 0 150 104" className="h-7 w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="150" height="104" fill="none" viewBox="0 0 150 104" className="h-6 w-auto">
                           <path fill="#0A0080" d="M150 49.027c0-26.944-33.685-48.87-75-48.87-41.501 0-75 21.926-75 48.87v2.787c0 28.616 29.404 51.843 75 51.843 45.968 0 75-23.227 75-51.843v-2.787Z"/>
                           <path fill="#2ABCFF" d="M147.022 49.027c0 25.457-32.196 46.083-72.022 46.083-39.826 0-72.022-20.626-72.022-46.083C2.978 23.57 35.174 2.944 75 2.944c39.826.186 72.022 20.626 72.022 46.083Z"/>
                           <path fill="#fff" d="M50.993 34.533s-.745.743-.373 1.487c1.117 1.486 4.653 2.23 8.189 1.486 2.047-.557 4.839-2.601 7.444-4.645 2.792-2.23 5.583-4.46 8.56-5.389 2.979-.93 4.84-.558 6.142-.186 1.49.372 2.978 1.3 5.584 3.345 5.024 3.716 24.751 20.997 28.101 23.97 2.792-1.3 15.075-6.503 31.638-10.22-1.117-8.919-6.514-17.095-14.702-23.784-11.353 4.831-25.31 7.247-39.082.557 0 0-7.444-3.53-14.702-3.345-10.794.186-15.447 5.017-20.472 9.849l-6.327 6.875Z"/>
@@ -529,7 +529,7 @@ const Profile = () => {
                       </>
                     )}
                   </div>
-                  <span className="text-xs text-slate-400 normal-case font-bold italic text-center">Para clientes com conta Mercado Pago</span>
+                  <span className="text-[10px] text-slate-400 normal-case font-bold italic text-center leading-none absolute bottom-1.5 left-0 right-0">Para clientes com conta Mercado Pago</span>
                 </button>
               </div>
 

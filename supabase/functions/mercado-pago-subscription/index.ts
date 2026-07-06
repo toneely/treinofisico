@@ -72,7 +72,7 @@ serve(async function (req) {
       throw new Error("Tipo de pagamento invalido");
     }
 
-    console.log("Enviando para MP:", endpoint, "Valor:", transaction_amount);
+    console.log("Enviando para MP:", endpoint);
 
     const mpResponse = await fetch(endpoint, {
       method: "POST",
