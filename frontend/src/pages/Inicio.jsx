@@ -206,7 +206,7 @@ const Inicio = () => {
 
   // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
   const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
-  const atividadeAlt = profile?.atividade_alternativa || "Capoeira";
+  const atividadeAlt = profile?.atividade_alternativa;
 
   return (
     <div
@@ -332,13 +332,15 @@ const Inicio = () => {
               />
             ))}
 
-            <WorkoutCard
-              title={atividadeAlt}
-              subtitle="Registrar atividade de hoje"
-              icon={<Shield size={24} />}
-              onClick={() => setShowActivityModal(true)}
-              variant="indigo"
-            />
+            {atividadeAlt && (
+              <WorkoutCard
+                title={atividadeAlt}
+                subtitle="Registrar atividade de hoje"
+                icon={<Shield size={24} />}
+                onClick={() => setShowActivityModal(true)}
+                variant="indigo"
+              />
+            )}
           </div>
         </div>
       ) : (

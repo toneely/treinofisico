@@ -61,7 +61,7 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     nome: "",
     foco_treino: "",
-    atividade_alternativa: "Capoeira",
+    atividade_alternativa: "",
     avatar_url: null,
     testador_pagamento: false,
     status_assinatura: "free",
@@ -88,7 +88,7 @@ const Profile = () => {
         setFormData({
           nome: profile.nome || "",
           foco_treino: profile.foco_treino || "",
-          atividade_alternativa: profile.atividade_alternativa || "Capoeira",
+          atividade_alternativa: profile.atividade_alternativa || "",
           avatar_url: profile.avatar_url || null,
           testador_pagamento: profile.testador_pagamento || false,
           status_assinatura: profile.status_assinatura || "free",
