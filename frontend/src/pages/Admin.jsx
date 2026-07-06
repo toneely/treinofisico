@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import SimpleMDE from "react-simplemde-editor";
+import "easymde/dist/easymde.min.css";
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
   ChevronLeft,
@@ -479,27 +481,41 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
-                      Termos de Uso (Markdown)
+                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
+                      Termos de Uso
                     </label>
-                    <textarea
-                      value={appSettings.termos_de_uso}
-                      onChange={(e) => setAppSettings({ ...appSettings, termos_de_uso: e.target.value })}
-                      className="w-full h-64 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-[11px] leading-relaxed resize-none"
-                      placeholder="Use {{VALOR_ASSINATURA}} para o preço dinâmico..."
-                    />
+                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+                      <SimpleMDE
+                        value={appSettings.termos_de_uso}
+                        onChange={(value) => setAppSettings(prev => ({ ...prev, termos_de_uso: value }))}
+                        options={{
+                          spellChecker: false,
+                          status: false,
+                          minHeight: "200px",
+                          placeholder: "Use {{VALOR_ASSINATURA}} para o preço dinâmico...",
+                          toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview", "guide"]
+                        }}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
-                      Políticas de Privacidade (Markdown)
+                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
+                      Políticas de Privacidade
                     </label>
-                    <textarea
-                      value={appSettings.politicas_privacidade}
-                      onChange={(e) => setAppSettings({ ...appSettings, politicas_privacidade: e.target.value })}
-                      className="w-full h-64 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-[11px] leading-relaxed resize-none"
-                    />
+                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+                      <SimpleMDE
+                        value={appSettings.politicas_privacidade}
+                        onChange={(value) => setAppSettings(prev => ({ ...prev, politicas_privacidade: value }))}
+                        options={{
+                          spellChecker: false,
+                          status: false,
+                          minHeight: "200px",
+                          toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview", "guide"]
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
