@@ -16,6 +16,12 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+
+    // Safety timeout to prevent infinite loading hangs
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 6000);
+
     try {
       let { data: userProfile } = await supabase
         .from("usuarios")
@@ -52,6 +58,10 @@ export function AuthProvider({ children }) {
 
       if (userProfile) {
         setProfile(userProfile);
+
+        // Finalize loading as soon as profile is resolved
+        setLoading(false);
+
         if (userProfile.testador_pagamento === true) {
           setIsPremium(true);
           setIsGracePeriod(false);
@@ -64,12 +74,19 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Falha no sincronismo:", err);
     } finally {
+      clearTimeout(safetyTimeout);
       setLoading(false);
     }
   }
 
   useEffect(function () {
     let isMounted = true;
+
+    // Safety timeout for initial auth state check
+    const authInitTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 6000);
+
     supabase.auth.getSession().then(function (result) {
       if (!isMounted) return;
       const session = result.data?.session ?? null;
@@ -80,11 +97,13 @@ export function AuthProvider({ children }) {
       } else {
         setLoading(false);
       }
+      clearTimeout(authInitTimeout);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(function (event, session) {
       if (!isMounted) return;
       const currentUser = session?.user ?? null;
+
       if (event === "SIGNED_OUT") {
         setUser(null);
         setProfile(null);
@@ -93,11 +112,15 @@ export function AuthProvider({ children }) {
         setLoading(false);
         return;
       }
+
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        clearTimeout(authInitTimeout);
         setUser(currentUser);
         if (currentUser) {
           setLoading(true);
           fetchUserProfile(currentUser);
+        } else {
+          setLoading(false);
         }
       }
     });
@@ -105,6 +128,7 @@ export function AuthProvider({ children }) {
     return function () {
       isMounted = false;
       subscription.unsubscribe();
+      clearTimeout(authInitTimeout);
     };
   }, []);
 

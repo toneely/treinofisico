@@ -1,8 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Dumbbell, Trophy, Users, ShieldCheck, Zap } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const LandingPage = () => {
+  const { user } = useAuth();
   return (
     <div
       className="flex flex-col min-h-screen"
@@ -25,10 +27,10 @@ const LandingPage = () => {
             <span className="text-lg sm:text-xl font-black text-white tracking-tight truncate">Treino Físico</span>
           </div>
           <Link
-            to="/login"
+            to={user ? "/dashboard" : "/login"}
             className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
           >
-            Entrar / Cadastrar
+            {user ? "Ir para o Painel" : "Entrar / Cadastrar"}
           </Link>
         </div>
       </header>
@@ -46,11 +48,11 @@ const LandingPage = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
-                to="/login"
+                to={user ? "/dashboard" : "/login"}
                 className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--text-on-primary)" }}
               >
-                Começar Agora Gratuitamente
+                {user ? "Continuar Treinando" : "Começar Agora Gratuitamente"}
               </Link>
             </div>
           </div>

@@ -44,7 +44,13 @@ const Login = () => {
   };
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle();
-    if (error) showToast(error.message, "error");
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      // In some environments, the redirect might not be instantaneous
+      // This explicit navigate acts as a fallback
+      setTimeout(() => navigate("/dashboard"), 500);
+    }
   };
   return (
     <div className="min-h-screen flex items-center justify-center  p-6">
