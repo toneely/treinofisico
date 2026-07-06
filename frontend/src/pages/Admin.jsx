@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import SimpleMDE from "react-simplemde-editor";
-import "easymde/dist/easymde.min.css";
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import TurndownService from 'turndown';
+import { marked } from 'marked';
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
   ChevronLeft,
@@ -30,6 +32,12 @@ import LoadingScreen from "../components/LoadingScreen";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const turndownService = useMemo(() => new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    emDelimiter: '*'
+  }), []);
+
   const [activeTab, setActiveTab] = useState("onboarding");
   const [appSettings, setAppSettings] = useState({
     subscription_price: 29.90,
@@ -116,11 +124,14 @@ const Admin = () => {
 
       if (error && error.code !== 'PGRST116') throw error;
       if (data) {
-        // Sanitize literal \n from DB to real line breaks
+        // Check for local drafts first
+        const draftTerms = localStorage.getItem('draft_termos');
+        const draftPrivacy = localStorage.getItem('draft_politicas');
+
         const sanitized = {
           ...data,
-          termos_de_uso: (data.termos_de_uso || "").replace(/\\n/g, '\n'),
-          politicas_privacidade: (data.politicas_privacidade || "").replace(/\\n/g, '\n')
+          termos_de_uso: draftTerms || (data.termos_de_uso || "").replace(/\\n/g, '\n'),
+          politicas_privacidade: draftPrivacy || (data.politicas_privacidade || "").replace(/\\n/g, '\n')
         };
         setAppSettings(sanitized);
       }
@@ -213,6 +224,11 @@ const Admin = () => {
         });
 
       if (error) throw error;
+
+      // Clear drafts on success
+      localStorage.removeItem('draft_termos');
+      localStorage.removeItem('draft_politicas');
+
       alert("Configurações salvas com sucesso!");
     } catch (err) {
       console.error("Error saving settings:", err);
@@ -489,42 +505,29 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
-                      Termos de Uso
-                    </label>
-                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 admin-editor-container">
-                      <SimpleMDE
-                        value={appSettings.termos_de_uso}
-                        onChange={(value) => setAppSettings(prev => ({ ...prev, termos_de_uso: value }))}
-                        options={{
-                          spellChecker: false,
-                          status: false,
-                          minHeight: "200px",
-                          placeholder: "Use {{VALOR_ASSINATURA}} para o preço dinâmico...",
-                          toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview", "guide"]
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-2">
-                      Políticas de Privacidade
-                    </label>
-                    <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 admin-editor-container">
-                      <SimpleMDE
-                        value={appSettings.politicas_privacidade}
-                        onChange={(value) => setAppSettings(prev => ({ ...prev, politicas_privacidade: value }))}
-                        options={{
-                          spellChecker: false,
-                          status: false,
-                          minHeight: "200px",
-                          toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview", "guide"]
-                        }}
-                      />
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 gap-8">
+                  <EditorField
+                    label="Termos de Uso"
+                    value={appSettings.termos_de_uso}
+                    placeholder="Use {{VALOR_ASSINATURA}} para o preço dinâmico..."
+                    onChange={(val) => {
+                      const md = turndownService.turndown(val);
+                      setAppSettings(prev => ({ ...prev, termos_de_uso: md }));
+                      localStorage.setItem('draft_termos', md);
+                    }}
+                    price={appSettings.subscription_price}
+                  />
+
+                  <EditorField
+                    label="Políticas de Privacidade"
+                    value={appSettings.politicas_privacidade}
+                    onChange={(val) => {
+                      const md = turndownService.turndown(val);
+                      setAppSettings(prev => ({ ...prev, politicas_privacidade: md }));
+                      localStorage.setItem('draft_politicas', md);
+                    }}
+                    price={appSettings.subscription_price}
+                  />
                 </div>
 
                 <button
@@ -770,5 +773,69 @@ const TabButton = ({ active, onClick, icon, label }) => (
     {label}
   </button>
 );
+
+const EditorField = ({ label, value, onChange, placeholder, price }) => {
+  const [isPreview, setIsPreview] = useState(false);
+
+  const formattedPrice = useMemo(() => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price || 0);
+  }, [price]);
+
+  const htmlValue = useMemo(() => {
+    return marked(value || "");
+  }, [value]);
+
+  const previewContent = useMemo(() => {
+    return htmlValue.replace(/{{VALOR_ASSINATURA}}/g, formattedPrice);
+  }, [htmlValue, formattedPrice]);
+
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'clean']
+    ],
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <label className="text-[10px] font-black uppercase tracking-tight text-slate-400">
+          {label}
+        </label>
+        <button
+          type="button"
+          onClick={() => setIsPreview(!isPreview)}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+            isPreview
+              ? "bg-orange-100 text-orange-600"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          {isPreview ? "Editar" : "Visualizar"}
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm admin-editor-container">
+        {isPreview ? (
+          <div
+            className="p-4 prose prose-sm max-w-none min-h-[250px] bg-slate-50/50"
+            dangerouslySetInnerHTML={{ __html: previewContent }}
+          />
+        ) : (
+          <ReactQuill
+            theme="snow"
+            value={htmlValue}
+            onChange={onChange}
+            modules={modules}
+            placeholder={placeholder}
+            className="bg-white"
+          />
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default Admin;
