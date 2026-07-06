@@ -17,16 +17,16 @@ const LandingPage = () => {
     >
       {/* Cabeçalho */}
       <header className="bg-black/40 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-transparent rounded-xl overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-transparent rounded-xl overflow-hidden flex-shrink-0">
               <img src="/logo-app.png" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
             </div>
-            <span className="text-xl font-black text-white tracking-tight">Treino Físico</span>
+            <span className="text-lg sm:text-xl font-black text-white tracking-tight truncate">Treino Físico</span>
           </div>
           <Link
             to="/login"
-            className="px-6 py-2.5 bg-white/5 backdrop-blur-sm text-white font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all"
+            className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
           >
             Entrar / Cadastrar
           </Link>
