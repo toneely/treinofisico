@@ -485,15 +485,7 @@ const Profile = () => {
               <ul className="mt-10 space-y-5 text-left max-w-[260px] mx-auto">
                 <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
                   <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Acesso premium ilimitado e exclusivo</span>
-                </li>
-                <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
-                  <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
                   <span>Experiência completa sem anúncios</span>
-                </li>
-                <li className="flex items-start gap-4 text-slate-700 text-sm font-bold leading-snug">
-                  <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Acompanhamento detalhado de evolução</span>
                 </li>
               </ul>
             </div>
@@ -513,10 +505,7 @@ const Profile = () => {
                     color: "var(--text-on-primary)",
                   }}
                 >
-                  <div className="flex flex-col items-start">
-                    <span className="text-[9px] uppercase opacity-80 mb-0.5">Recomendado</span>
-                    <span>Cartão de Crédito</span>
-                  </div>
+                  <span>Cartão de Crédito</span>
                   {creatingPayment === 'card_recurring' ? <Loader2 className="animate-spin" size={20} /> : <CreditCard size={20} className="opacity-40" />}
                 </button>
 
@@ -552,7 +541,7 @@ const Profile = () => {
                     className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
                   >
                     <QrCode size={20} className="text-slate-400" />
-                    <span className="text-[10px] font-black uppercase tracking-tight">PIX (Avulso)</span>
+                    <span className="text-[10px] font-black uppercase tracking-tight">PIX</span>
                   </button>
 
                   <button
@@ -561,7 +550,7 @@ const Profile = () => {
                     className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
                   >
                     <CreditCard size={20} className="text-slate-400" />
-                    <span className="text-[10px] font-black uppercase tracking-tight">Cartão (Avulso)</span>
+                    <span className="text-[10px] font-black uppercase tracking-tight">CARTÃO</span>
                   </button>
                 </div>
               </div>
