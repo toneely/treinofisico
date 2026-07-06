@@ -19,14 +19,14 @@ const LandingPage = () => {
       <header className="bg-black/40 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-xl shadow-md overflow-hidden">
-              <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
+            <div className="w-10 h-10 bg-transparent rounded-xl overflow-hidden">
+              <img src="/logo-app.png" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
             </div>
             <span className="text-xl font-black text-white tracking-tight">Treino Físico</span>
           </div>
           <Link
             to="/login"
-            className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+            className="px-6 py-2.5 bg-white/5 backdrop-blur-sm text-white font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all"
           >
             Entrar / Cadastrar
           </Link>
@@ -180,8 +180,8 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white rounded-lg shadow-sm overflow-hidden border border-slate-100">
-                <img src="/logo-app.png" alt="Logo" className="w-full h-full object-cover" />
+              <div className="w-8 h-8 bg-transparent rounded-lg overflow-hidden">
+                <img src="/logo-app.png" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
               </div>
               <span className="font-black text-white">Treino Físico</span>
             </div>
