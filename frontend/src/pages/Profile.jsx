@@ -499,7 +499,7 @@ const Profile = () => {
                 <button
                   onClick={() => handlePaymentInitiation('card_recurring')}
                   disabled={!!creatingPayment}
-                  className="w-full py-5 rounded-2xl font-black text-sm transition-all flex items-center justify-between px-8 shadow-xl active:scale-95"
+                  className="w-full h-[88px] rounded-2xl font-black text-sm transition-all flex items-center justify-between px-8 shadow-xl active:scale-95"
                   style={{
                     backgroundColor: "var(--color-primary)",
                     color: "var(--text-on-primary)",
@@ -544,8 +544,12 @@ const Profile = () => {
                     disabled={!!creatingPayment}
                     className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
                   >
-                    <QrCode size={20} className="text-slate-400" />
-                    <span className="text-[10px] font-black uppercase tracking-tight">PIX</span>
+                    {creatingPayment === 'pix_one_time' ? <Loader2 className="animate-spin text-slate-400" size={20} /> : (
+                      <>
+                        <QrCode size={20} className="text-slate-400" />
+                        <span className="text-[10px] font-black uppercase tracking-tight">PIX</span>
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -553,8 +557,12 @@ const Profile = () => {
                     disabled={!!creatingPayment}
                     className="py-5 bg-transparent hover:bg-slate-50 text-slate-600 rounded-2xl font-bold text-xs transition-all flex flex-col items-center justify-center border-2 border-slate-100 gap-2 active:scale-95"
                   >
-                    <CreditCard size={20} className="text-slate-400" />
-                    <span className="text-[10px] font-black uppercase tracking-tight">CARTÃO</span>
+                    {creatingPayment === 'card_one_time' ? <Loader2 className="animate-spin text-slate-400" size={20} /> : (
+                      <>
+                        <CreditCard size={20} className="text-slate-400" />
+                        <span className="text-[10px] font-black uppercase tracking-tight">CARTÃO</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -1529,19 +1529,25 @@ const Training = () => {
     }
   }, [user.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
+  // 1. Hook de Busca de Dados - Depende apenas da função memoizada
   useEffect(() => {
     const t = setTimeout(() => fetchData(), 0);
+    return () => clearTimeout(t);
+  }, [fetchData]);
 
-    // Show diagnostic panel if loading for more than 3 seconds
+  // 2. Hook do Painel de Diagnóstico - Monitora o estado de carregamento
+  useEffect(() => {
+    if (!loading) {
+      setShowDiagnostic(false);
+      return;
+    }
+
     const diagnosticTimer = setTimeout(() => {
-      if (loading) setShowDiagnostic(true);
+      setShowDiagnostic(true);
     }, 3000);
 
-    return () => {
-      clearTimeout(t);
-      clearTimeout(diagnosticTimer);
-    };
-  }, [fetchData, loading]);
+    return () => clearTimeout(diagnosticTimer);
+  }, [loading]);
 
 
   useEffect(() => {
