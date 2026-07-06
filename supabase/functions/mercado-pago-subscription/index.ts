@@ -1,140 +1,112 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Tone confirmed these secrets in the Vault:
-const MP_ACCESS_TOKEN = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN") // Old app for native subscriptions
-const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") // New app for Transparent Checkout
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+const MP_SUBSCRIPTION_TOKEN = Deno.env.get("MERCADO_PAGO_SUBSCRIPTION_TOKEN") || Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN");
+const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") || Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN");
 
-const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-serve(async (req) => {
+const responseHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json"
+};
+
+serve(async function (req) {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    })
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const json = await req.json()
-    const { paymentType, external_reference, email, cardToken, paymentMethodId, installments, issuerId } = json
+    const reqBody = await req.json();
+    console.log("Payload recebido do App:", JSON.stringify(reqBody));
 
-    // 1. NATIVE SUBSCRIPTION (Uses Old App / Access Token)
+    const paymentType = reqBody.paymentType;
+    const external_reference = reqBody.external_reference;
+    const email = reqBody.email;
+    const transaction_amount = reqBody.transaction_amount || 29.90;
+
+    let accessToken = MP_CHECKOUT_TOKEN;
+    let endpoint = "";
+    let body = {};
+
     if (paymentType === "native_subscription") {
-      const response = await fetch("https://api.mercadopago.com/preapproval", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-          "X-Idempotency-Key": crypto.randomUUID(),
+      accessToken = MP_SUBSCRIPTION_TOKEN;
+      endpoint = "https://api.mercadopago.com/preapproval";
+      body = {
+        reason: "Assinatura Premium (Nativa)",
+        external_reference: external_reference,
+        payer_email: email,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: transaction_amount,
+          currency_id: "BRL",
         },
-        body: JSON.stringify({
-          reason: "Assinatura Premium (Nativa) - Treino Físico",
-          external_reference: external_reference,
-          payer_email: email,
-          auto_recurring: {
-            frequency: 1,
-            frequency_type: "months",
-            transaction_amount: 29.90,
-            currency_id: "BRL",
-          },
-          back_url: "https://treinofisico.netlify.app/perfil",
-          status: "pending",
-        }),
-      })
-      const data = await response.json()
-      return new Response(JSON.stringify({
-        id: data.id,
-        init_point: data.init_point
-      }), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        status: response.status
-      })
+        back_url: "https://treinofisico.netlify.app/perfil",
+        status: "pending",
+      };
+    } else if (paymentType === "pix_one_time") {
+      endpoint = "https://api.mercadopago.com/v1/payments";
+      body = {
+        transaction_amount: transaction_amount,
+        description: "Plano Premium - Pix",
+        payment_method_id: "pix",
+        payer: { email: email },
+        external_reference: external_reference
+      };
+    } else if (paymentType === "card_one_time" || paymentType === "card_recurring") {
+      endpoint = "https://api.mercadopago.com/v1/payments";
+      body = {
+        transaction_amount: transaction_amount,
+        token: reqBody.token,
+        description: "Plano Premium - Cartao",
+        installments: reqBody.installments || 1,
+        payment_method_id: reqBody.payment_method_id,
+        payer: reqBody.payer || { email: email },
+        external_reference: external_reference
+      };
+    } else {
+      throw new Error("Tipo de pagamento invalido");
     }
 
-    // 2. TRANSPARENT CHECKOUT (Uses New App / Checkout Token)
-    let body: any = {
-      transaction_amount: 29.90,
-      description: "Plano Premium - Treino Físico",
-      external_reference: external_reference,
-      payer: {
-        email: email,
-      },
-      installments: installments || 1,
-      payment_method_id: paymentMethodId,
-      token: cardToken,
-      issuer_id: issuerId,
-    }
+    console.log("Enviando para MP:", endpoint);
 
-    if (paymentType === "pix_one_time") {
-      body.payment_method_id = "pix"
-      body.payer.first_name = "Atleta"
-      body.payer.last_name = "TreinoFisico"
-    }
-
-    if (paymentType === "card_recurring") {
-      const { data: userData } = await supabase
-        .from("usuarios")
-        .select("mp_customer_id")
-        .eq("id", external_reference)
-        .single()
-
-      let customerId = userData?.mp_customer_id
-
-      if (!customerId) {
-        const custResp = await fetch("https://api.mercadopago.com/v1/customers", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${MP_CHECKOUT_TOKEN}`,
-            "Content-Type": "application/json",
-            "X-Idempotency-Key": crypto.randomUUID(),
-          },
-          body: JSON.stringify({ email: email }),
-        })
-        const custData = await custResp.json()
-        customerId = custData.id
-        await supabase.from("usuarios").update({ mp_customer_id: customerId }).eq("id", external_reference)
-      }
-      body.payer.id = customerId
-    }
-
-    const response = await fetch("https://api.mercadopago.com/v1/payments", {
+    const mpResponse = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${MP_CHECKOUT_TOKEN}`,
+        "Authorization": "Bearer " + accessToken,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": crypto.randomUUID(),
+        "X-Idempotency-Key": crypto.randomUUID()
       },
       body: JSON.stringify(body),
-    })
+    });
 
-    const data = await response.json()
-    console.log(`Direct Payment (${paymentType}) Response:`, JSON.stringify(data, null, 2))
+    const data = await mpResponse.json();
+    console.log("Resposta do MP:", JSON.stringify(data));
 
-    if (!response.ok) {
-      throw new Error(data.message || "Erro no processamento do pagamento")
+    if (!mpResponse.ok) {
+      throw new Error(JSON.stringify(data));
     }
 
-    let result: any = { status: data.status, id: data.id }
-    if (paymentType === "pix_one_time") {
-      result.qr_code = data.point_of_interaction?.transaction_data?.qr_code_base64
-      result.qr_code_copy_paste = data.point_of_interaction?.transaction_data?.qr_code
-    }
-
-    return new Response(JSON.stringify(result), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    return new Response(JSON.stringify({
+      id: data.id,
+      status: data.status,
+      init_point: data.init_point,
+      qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
+      qr_code: data.point_of_interaction?.transaction_data?.qr_code
+    }), {
+      headers: responseHeaders,
       status: 200,
-    })
+    });
 
   } catch (err) {
-    console.error("Subscription Function Error:", err)
+    console.error("Erro Critico na Function:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: responseHeaders,
       status: 400,
-    })
+    });
   }
-})
+});
