@@ -2,6 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
+import LandingPage from './pages/LandingPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
 import Admin from './pages/Admin';
 import AdminUserDashboard from './pages/AdminUserDashboard';
 import History from './pages/History';
@@ -49,7 +52,7 @@ const AdminRoute = ({ children }) => {
         Carregando...
       </div>
     );
-  if (!user || !admins.includes(user.email)) return <Navigate to="/inicio" />;
+  if (!user || !admins.includes(user.email)) return <Navigate to="/dashboard" />;
 
   return children;
 };
@@ -83,13 +86,12 @@ const AppContent = () => {
     >
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/login" element={<Login />} />
         <Route
-          path="/"
-          element={<Navigate to="/inicio" replace />}
-        />
-        <Route
-          path="/inicio"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Inicio />

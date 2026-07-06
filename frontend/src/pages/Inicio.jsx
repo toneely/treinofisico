@@ -401,7 +401,7 @@ const Inicio = () => {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
         <Link
-          to="/inicio"
+          to="/dashboard"
           className="flex flex-col items-center gap-1"
           style={{ color: "var(--color-primary-safe)" }}
         >

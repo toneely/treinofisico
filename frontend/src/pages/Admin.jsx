@@ -207,7 +207,7 @@ const Admin = () => {
     <div className="p-3 max-w-6xl mx-auto text-sm">
       <header className="mb-3">
         <Link
-          to="/inicio"
+          to="/dashboard"
           className="text-slate-500 flex items-center gap-1 mb-1 hover: transition w-fit text-xs"
         >
           <ChevronLeft size={14} /> Voltar
