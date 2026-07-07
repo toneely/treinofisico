@@ -577,7 +577,7 @@ const WorkoutTemplates = () => {
                     <div className="flex justify-between items-start">
                       <div className="flex-1 pr-4">
                         <div className="w-3/4 h-5 bg-white/10 rounded mb-2"></div>
-                        <div className="w-full h-8 bg-white/5 rounded"></div>
+                        <div className="w-full h-12 bg-white/5 rounded"></div>
                       </div>
                       <div className="w-12 h-6 bg-white/5 rounded-lg"></div>
                     </div>
@@ -599,7 +599,7 @@ const WorkoutTemplates = () => {
                         <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight mb-1 group-hover:text-[var(--color-primary)] transition-colors">
                           {prog.nome}
                         </h4>
-                        <p className="text-[11px] text-zinc-400 font-medium leading-relaxed opacity-80 line-clamp-2">
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed opacity-80">
                           {prog.descricao || prog.objetivo}
                         </p>
                       </div>
