@@ -406,7 +406,6 @@ const WorkoutTemplates = () => {
               <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
               Gerenciar Treinos
             </h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase opacity-60">Templates & Ordem</p>
           </div>
         </div>
 
@@ -601,7 +600,7 @@ const WorkoutTemplates = () => {
                           {prog.nome}
                         </h4>
                         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed opacity-80 line-clamp-2">
-                          {prog.objetivo}
+                          {prog.descricao || prog.objetivo}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
