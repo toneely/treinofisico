@@ -36,6 +36,15 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const PublicOnlyRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+  if (user) return <Navigate to="/dashboard" />;
+
+  return children;
+};
+
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const admins = ["tone.mendes@gmail.com"];
@@ -86,10 +95,24 @@ const AppContent = () => {
     >
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/"
+          element={
+            <PublicOnlyRoute>
+              <LandingPage />
+            </PublicOnlyRoute>
+          }
+        />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={
