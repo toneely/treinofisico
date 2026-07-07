@@ -299,9 +299,18 @@ const Inicio = () => {
           )}
 
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
-              Treinos Disponíveis
-            </h3>
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Treinos Disponíveis
+              </h3>
+              <button
+                onClick={() => navigate('/gerenciar-treinos')}
+                className="p-1 text-slate-300 hover:text-orange-500 transition-colors"
+                aria-label="Gerenciar Treinos"
+              >
+                <Settings size={16} />
+              </button>
+            </div>
 
             <WorkoutCard
               title="Treino Livre"
