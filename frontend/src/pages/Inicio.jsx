@@ -305,10 +305,10 @@ const Inicio = () => {
               </h3>
               <button
                 onClick={() => navigate('/gerenciar-treinos')}
-                className="p-1 text-slate-300 hover:text-orange-500 transition-colors"
+                className="p-2 -mr-2 text-orange-500 hover:bg-orange-50 active:bg-orange-100 rounded-full transition-all"
                 aria-label="Gerenciar Treinos"
               >
-                <Settings size={16} />
+                <Settings size={22} />
               </button>
             </div>
 
