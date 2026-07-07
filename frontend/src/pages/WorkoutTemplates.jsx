@@ -17,6 +17,8 @@ const WorkoutTemplates = () => {
   const [activeTab, setActiveTab] = useState("my_workouts"); // "my_workouts" | "explore"
   const [workouts, setWorkouts] = useState([]);
   const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [modalidades, setModalidades] = useState([]);
+  const [selectedExploreModality, setSelectedExploreModality] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
@@ -63,18 +65,31 @@ const WorkoutTemplates = () => {
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("programas_padrao")
-      .select("*, modalidades(nome)")
-      .order("nome", { ascending: true });
+    try {
+      const { data: mData, error: mError } = await supabase
+        .from("modalidades")
+        .select("*")
+        .order("nome");
 
-    if (error) {
-      showToast("Erro ao buscar programas: " + error.message, "error");
-    } else {
+      if (mError) throw mError;
+      setModalidades(mData || []);
+      if (mData?.length > 0 && !selectedExploreModality) {
+        setSelectedExploreModality(mData[0]);
+      }
+
+      const { data, error } = await supabase
+        .from("programas_padrao")
+        .select("*, modalidades(nome)")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
       setAvailablePrograms(data || []);
+    } catch (err) {
+      showToast("Erro ao buscar dados: " + err.message, "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [showToast]);
+  }, [showToast, selectedExploreModality]);
 
   useEffect(() => {
     // Wrapped in setTimeout to avoid cascading render lint error
@@ -528,55 +543,92 @@ const WorkoutTemplates = () => {
             </div>
           </>
         ) : (
-          <div className="p-6 space-y-6">
+          <div className="flex flex-col h-full">
+            {/* Modalidade Tabs */}
+            <div className="sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-10 border-b border-white/5">
+               <div className="flex gap-6 px-6 overflow-x-auto scrollbar-none no-scrollbar py-4">
+                {modalidades.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedExploreModality(m)}
+                    className={`text-[10px] font-black uppercase tracking-widest pb-1 transition-all whitespace-nowrap relative ${
+                      selectedExploreModality?.id === m.id
+                        ? "text-[var(--color-primary)]"
+                        : "text-zinc-500 opacity-50 hover:opacity-100"
+                    }`}
+                  >
+                    {m.nome}
+                    {selectedExploreModality?.id === m.id && (
+                      <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-[var(--color-primary)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6 flex-1">
             <div className="px-1">
               <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Catálogo de Programas</h3>
               <p className="text-[10px] text-zinc-600 font-bold uppercase leading-tight">Escolha um programa estruturado por especialistas para importar.</p>
             </div>
 
             {loading ? (
-              <div className="py-20 text-center animate-pulse">
-                <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-[10px] font-bold text-zinc-600 uppercase">Buscando programas...</p>
+              <div className="grid grid-cols-1 gap-4">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="bg-zinc-900/30 border border-white/5 rounded-[32px] p-6 animate-pulse flex flex-col gap-6">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 pr-4">
+                        <div className="w-20 h-4 bg-white/5 rounded mb-3" />
+                        <div className="w-3/4 h-6 bg-white/10 rounded mb-2" />
+                        <div className="w-full h-10 bg-white/5 rounded" />
+                      </div>
+                      <div className="w-16 h-8 bg-white/5 rounded-xl" />
+                    </div>
+                    <div className="w-full h-12 bg-white/5 rounded-2xl" />
+                  </div>
+                ))}
               </div>
-            ) : availablePrograms.length === 0 ? (
+            ) : availablePrograms.filter(p => p.modalidade_id === selectedExploreModality?.id).length === 0 ? (
               <div className="py-20 text-center opacity-20">
                 <LayoutGrid size={48} className="mx-auto mb-4 text-white" />
-                <p className="font-bold text-white uppercase text-xs">Nenhum programa disponível.</p>
+                <p className="font-bold text-white uppercase text-xs">Nenhum programa disponível nesta categoria.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {availablePrograms.map((prog) => (
-                  <div key={prog.id} className="bg-zinc-900/50 border border-white/5 rounded-3xl p-5 hover:border-white/10 transition-all flex flex-col gap-4">
+                {availablePrograms.filter(p => p.modalidade_id === selectedExploreModality?.id).map((prog) => (
+                  <div key={prog.id} className="bg-zinc-900/50 border border-white/10 rounded-[32px] p-6 hover:bg-zinc-900 transition-all flex flex-col gap-6 shadow-xl group">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full text-[8px] font-black uppercase tracking-widest border border-white/5 mb-2 inline-block">
-                          {prog.modalidades?.nome || "Geral"}
+                      <div className="flex-1 pr-4">
+                        <span className="px-2.5 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-lg text-[9px] font-black uppercase tracking-widest mb-3 inline-block">
+                          {prog.modalidades?.nome || "Programa"}
                         </span>
-                        <h4 className="text-lg font-black text-white uppercase tracking-tight">{prog.nome}</h4>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase mb-3 opacity-60 line-clamp-2">{prog.objetivo}</p>
+                        <h4 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-2 group-hover:text-[var(--color-primary)] transition-colors">
+                          {prog.nome}
+                        </h4>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed opacity-80 line-clamp-3">
+                          {prog.objetivo}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nível</span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
-                          prog.nivel === 'Avançado' ? 'bg-red-500/10 text-red-500' :
-                          prog.nivel === 'Intermediário' ? 'bg-amber-500/10 text-amber-500' :
-                          'bg-emerald-500/10 text-emerald-500'
+                      <div className="shrink-0 text-right">
+                        <div className={`px-3 py-1.5 rounded-xl border font-black text-[9px] uppercase tracking-widest ${
+                          prog.nivel === 'Avançado' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                          prog.nivel === 'Intermediário' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                          'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
                         }`}>
                           {prog.nivel}
-                        </span>
+                        </div>
                       </div>
                     </div>
 
                     <button
                       onClick={() => handleImportProgram(prog)}
                       disabled={saving}
-                      className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                      className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] hover:brightness-110 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/10"
                     >
                       {saving ? (
-                        <RefreshCw size={14} className="animate-spin" />
+                        <RefreshCw size={18} className="animate-spin" />
                       ) : (
-                        <Check size={14} />
+                        <Plus size={18} />
                       )}
                       Importar Programa
                     </button>
