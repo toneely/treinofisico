@@ -14,7 +14,11 @@ const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("my_workouts"); // "my_workouts" | "explore"
   const [workouts, setWorkouts] = useState([]);
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [modalidades, setModalidades] = useState([]);
+  const [selectedExploreModality, setSelectedExploreModality] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
@@ -46,7 +50,7 @@ const WorkoutTemplates = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("treinos")
-      .select("*")
+      .select("*, programas_padrao(nome)")
       .eq("user_id", authUser.id)
       .order("ordem_exibicao", { ascending: true })
       .order("letra", { ascending: true });
@@ -59,14 +63,46 @@ const WorkoutTemplates = () => {
     setLoading(false);
   }, [authUser, showToast]);
 
+  const fetchPrograms = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: mData, error: mError } = await supabase
+        .from("modalidades")
+        .select("*")
+        .order("nome");
+
+      if (mError) throw mError;
+      setModalidades(mData || []);
+      if (mData?.length > 0 && !selectedExploreModality) {
+        setSelectedExploreModality(mData[0]);
+      }
+
+      const { data, error } = await supabase
+        .from("programas_padrao")
+        .select("*, modalidades(nome)")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
+      setAvailablePrograms(data || []);
+    } catch (err) {
+      showToast("Erro ao buscar dados: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast, selectedExploreModality]);
+
   useEffect(() => {
     // Wrapped in setTimeout to avoid cascading render lint error
     const t = setTimeout(() => {
-      fetchWorkouts();
+      if (activeTab === "my_workouts") {
+        fetchWorkouts();
+      } else {
+        fetchPrograms();
+      }
       checkActiveSession();
     }, 0);
     return () => clearTimeout(t);
-  }, [fetchWorkouts, checkActiveSession]);
+  }, [activeTab, fetchWorkouts, fetchPrograms, checkActiveSession]);
 
   const resetForm = () => {
     setFormData({ letra: "", nome: "", subtitulo: "" });
@@ -255,12 +291,109 @@ const WorkoutTemplates = () => {
     navigate(`/treino/${letra}`);
   };
 
+  const handleImportProgram = async (program) => {
+    setSaving(true);
+    try {
+      // 1. Fetch training templates for this program
+      const { data: templates, error: tError } = await supabase
+        .from("treinos_padrao")
+        .select("*")
+        .eq("programa_padrao_id", program.id)
+        .order("ordem_exibicao", { ascending: true });
+
+      if (tError) throw tError;
+      if (!templates || templates.length === 0) {
+        showToast("Este programa não possui treinos cadastrados.", "warning");
+        setSaving(false);
+        return;
+      }
+
+      // 2. Pre-calculate unique letters for the user to avoid conflicts
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const currentUsedLetras = workouts.map(w => w.letra);
+      const letraMap = {}; // original_template_letra -> unique_user_letra
+
+      templates.forEach(template => {
+        if (!currentUsedLetras.includes(template.letra) && !Object.values(letraMap).includes(template.letra)) {
+          letraMap[template.letra] = template.letra;
+        } else {
+          // Find next available letter
+          for (let char of alphabet) {
+            if (!currentUsedLetras.includes(char) && !Object.values(letraMap).includes(char)) {
+              letraMap[template.letra] = char;
+              break;
+            }
+          }
+          // Fallback if alphabet is full
+          if (!letraMap[template.letra]) {
+             letraMap[template.letra] = template.letra + "x";
+          }
+        }
+      });
+
+      // 3. Clone each training template to the user's treinos
+      const currentWorkoutsCount = workouts.length;
+
+      for (let i = 0; i < templates.length; i++) {
+        const template = templates[i];
+        const uniqueLetra = letraMap[template.letra];
+
+        const { error: wError } = await supabase
+          .from("treinos")
+          .insert([{
+            user_id: authUser.id,
+            letra: uniqueLetra,
+            nome: template.nome,
+            subtitulo: template.subtitulo,
+            ordem_exibicao: currentWorkoutsCount + i,
+            programa_padrao_id: program.id
+          }]);
+
+        if (wError) throw wError;
+
+        // 4. Fetch associated blocks for this template and clone them
+        const { data: blocks, error: bError } = await supabase
+          .from("blocos_treino_padrao")
+          .select("*")
+          .eq("treino_padrao_id", template.id);
+
+        if (bError) throw bError;
+
+        if (blocks && blocks.length > 0) {
+          const newBlocks = blocks.map(block => ({
+            user_id: authUser.id,
+            letra_treino: uniqueLetra,
+            exercicio_id: block.exercicio_id,
+            numero_bloco: block.numero_bloco,
+            ordem_execucao: block.ordem_execucao,
+            series_alvo: block.series_alvo,
+            reps_alvo: block.reps_alvo
+          }));
+
+          const { error: insError } = await supabase
+            .from("blocos_treino")
+            .insert(newBlocks);
+
+          if (insError) throw insError;
+        }
+      }
+
+      showToast(`Programa "${program.nome}" importado com sucesso!`, "success");
+      setActiveTab("my_workouts");
+      fetchWorkouts();
+    } catch (err) {
+      showToast("Erro ao importar programa: " + err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-zinc-950 text-white flex flex-col"
     >
       {/* Header */}
-      <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full">
+      <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full pb-2">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(-1)}
@@ -273,111 +406,234 @@ const WorkoutTemplates = () => {
               <LayoutGrid size={20} style={{ color: "var(--color-primary)" }} />
               Gerenciar Treinos
             </h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase opacity-60">Templates & Ordem</p>
           </div>
+        </div>
+
+        {/* Tab Control */}
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-8 translate-y-[50%]">
+          <button
+            onClick={() => setActiveTab("my_workouts")}
+            className={`text-[10px] font-black uppercase tracking-widest pb-1 border-b-2 transition-all ${
+              activeTab === "my_workouts"
+                ? "text-[var(--color-primary)] border-[var(--color-primary)]"
+                : "text-zinc-500 border-transparent opacity-50 hover:opacity-100"
+            }`}
+          >
+            Meus Treinos
+          </button>
+          <button
+            onClick={() => setActiveTab("explore")}
+            className={`text-[10px] font-black uppercase tracking-widest pb-1 border-b-2 transition-all ${
+              activeTab === "explore"
+                ? "text-[var(--color-primary)] border-[var(--color-primary)]"
+                : "text-zinc-500 border-transparent opacity-50 hover:opacity-100"
+            }`}
+          >
+            Explorar Programas
+          </button>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto w-full flex-1">
-        <div className="p-6 pb-0">
-          <button
-            onClick={() => { resetForm(); setIsFormModalOpen(true); }}
-            className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <Plus size={18} />
-            Adicionar novo treino
-          </button>
-        </div>
-
-        {/* List Area */}
-        <div
-          className="p-6 space-y-3"
-          style={{ paddingBottom: isPremium ? "20px" : "80px" }}
-        >
-          <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Sua Biblioteca</h3>
-
-          {loading ? (
-            <div className="py-20 text-center animate-pulse">
-              <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-[10px] font-bold text-zinc-600 uppercase">Carregando treinos...</p>
+      <main className="max-w-2xl mx-auto w-full flex-1 pt-4">
+        {activeTab === "my_workouts" ? (
+          <>
+            <div className="p-6 pb-0">
+              <button
+                onClick={() => { resetForm(); setIsFormModalOpen(true); }}
+                className="w-full py-3 bg-[var(--color-primary)] text-[var(--text-on-primary)] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Plus size={18} />
+                Adicionar novo treino
+              </button>
             </div>
-          ) : workouts.length === 0 ? (
-            <div className="py-20 text-center opacity-20">
-              <LayoutGrid size={48} className="mx-auto mb-4 text-white" />
-              <p className="font-bold text-white">Nenhum template encontrado.</p>
-            </div>
-          ) : (
-            workouts.map((workout, idx) => {
-              const isCurrent = activeSession && workout.letra === activeSession.letra;
-              return (
-                <div
-                  key={workout.id}
-                  className={`bg-zinc-900/50 p-3.5 rounded-2xl border transition-all flex items-center justify-between group ${
-                    isCurrent ? "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/5" : "border-white/5 hover:border-white/10"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col gap-1 mr-1">
-                       <button
-                        onClick={() => handleReorder(idx, -1)}
-                        className="p-1 hover:bg-white/5 rounded-md text-zinc-600 hover:text-white transition"
-                        disabled={idx === 0}
-                       >
-                         <ArrowUp size={12} />
-                       </button>
-                       <button
-                        onClick={() => handleReorder(idx, 1)}
-                        className="p-1 hover:bg-white/5 rounded-md text-zinc-600 hover:text-white transition"
-                        disabled={idx === workouts.length - 1}
-                       >
-                         <ArrowDown size={12} />
-                       </button>
-                    </div>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${isCurrent ? "bg-[var(--color-primary)] text-[var(--text-on-primary)]" : "bg-white/5 text-[var(--color-secondary)]"}`}>
-                      {workout.letra}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-white leading-tight">{workout.nome}</h4>
-                      <p className="text-[10px] text-zinc-500 font-medium">{workout.subtitulo || 'Treino sem descrição'}</p>
-                    </div>
-                  </div>
 
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handlePlay(workout.letra)}
-                      className="p-2 text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all"
-                      title="Iniciar Treino"
-                    >
-                      <PlayCircle size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(workout)}
-                      className="p-2 text-zinc-500 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition-all"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDuplicate(workout)}
-                      className="p-2 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
-                      title="Duplicar"
-                    >
-                      <Copy size={16} />
-                    </button>
-                    <button
-                      onClick={() => setShowDeleteConfirm(workout)}
-                      className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+            {/* List Area */}
+            <div
+          className={`p-6 space-y-3 flex-1 ${!isPremium ? "resilient-bottom-spacing" : "pb-10"}`}
+            >
+              <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Sua Biblioteca</h3>
+
+              {loading ? (
+                <div className="py-20 text-center animate-pulse">
+                  <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-[10px] font-bold text-zinc-600 uppercase">Carregando treinos...</p>
                 </div>
-              );
-            })
-          )}
+              ) : workouts.length === 0 ? (
+                <div className="py-20 text-center opacity-20">
+                  <LayoutGrid size={48} className="mx-auto mb-4 text-white" />
+                  <p className="font-bold text-white">Nenhum template encontrado.</p>
+                </div>
+              ) : (
+                workouts.map((workout, idx) => {
+                  const isCurrent = activeSession && workout.letra === activeSession.letra;
+                  return (
+                    <div
+                      key={workout.id}
+                      className={`bg-zinc-900/50 p-3.5 rounded-2xl border transition-all flex items-center justify-between group ${
+                        isCurrent ? "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/5" : "border-white/5 hover:border-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-1 mr-1">
+                          <button
+                            onClick={() => handleReorder(idx, -1)}
+                            className="p-1 hover:bg-white/5 rounded-md text-zinc-600 hover:text-white transition"
+                            disabled={idx === 0}
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleReorder(idx, 1)}
+                            className="p-1 hover:bg-white/5 rounded-md text-zinc-600 hover:text-white transition"
+                            disabled={idx === workouts.length - 1}
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${isCurrent ? "bg-[var(--color-primary)] text-[var(--text-on-primary)]" : "bg-white/5 text-[var(--color-secondary)]"}`}>
+                          {workout.letra}
+                        </div>
+                        <div>
+                          {workout.programas_padrao && (
+                            <p className="text-[8px] font-black uppercase text-[var(--color-primary)] mb-0.5 tracking-tighter opacity-80">
+                              Ficha Base: {workout.programas_padrao.nome}
+                            </p>
+                          )}
+                          <h4 className="font-bold text-sm text-white leading-tight">{workout.nome}</h4>
+                          <p className="text-[10px] text-zinc-500 font-medium">{workout.subtitulo || 'Treino sem descrição'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handlePlay(workout.letra)}
+                          className="p-2 text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all"
+                          title="Iniciar Treino"
+                        >
+                          <PlayCircle size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(workout)}
+                          className="p-2 text-zinc-500 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDuplicate(workout)}
+                          className="p-2 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+                          title="Duplicar"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(workout)}
+                          className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col h-full">
+            {/* Modalidade Tabs */}
+            <div className="sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-10 border-b border-white/5">
+               <div className="flex gap-6 px-6 overflow-x-auto scrollbar-none no-scrollbar py-4">
+                {modalidades.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedExploreModality(m)}
+                    className={`text-[10px] font-black uppercase tracking-widest pb-1 transition-all whitespace-nowrap relative ${
+                      selectedExploreModality?.id === m.id
+                        ? "text-[var(--color-primary)]"
+                        : "text-zinc-500 opacity-50 hover:opacity-100"
+                    }`}
+                  >
+                    {m.nome}
+                    {selectedExploreModality?.id === m.id && (
+                      <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-[var(--color-primary)]"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={`p-6 space-y-6 flex-1 ${!isPremium ? "resilient-bottom-spacing" : "pb-10"}`}>
+            <div className="px-1">
+              <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Catálogo de Programas</h3>
+              <p className="text-[10px] text-zinc-600 font-bold uppercase leading-tight">Escolha um programa estruturado por especialistas para importar.</p>
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="bg-zinc-900/30 border border-white/5 rounded-[24px] p-5 animate-pulse flex flex-col gap-4 shadow-xl">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 pr-4">
+                        <div className="w-3/4 h-5 bg-white/10 rounded mb-2"></div>
+                        <div className="w-full h-12 bg-white/5 rounded"></div>
+                      </div>
+                      <div className="w-12 h-6 bg-white/5 rounded-lg"></div>
+                    </div>
+                    <div className="w-full h-10 bg-white/5 rounded-xl"></div>
+                  </div>
+                ))}
+              </div>
+            ) : availablePrograms.filter(p => p.modalidade_id === selectedExploreModality?.id).length === 0 ? (
+              <div className="py-20 text-center opacity-20">
+                <LayoutGrid size={48} className="mx-auto mb-4 text-white" />
+                <p className="font-bold text-white uppercase text-xs">Nenhum programa disponível nesta categoria.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {availablePrograms.filter(p => p.modalidade_id === selectedExploreModality?.id).map((prog) => (
+                  <div key={prog.id} className="bg-zinc-900/50 border border-white/10 rounded-[24px] p-5 hover:bg-zinc-900 transition-all flex flex-col gap-4 shadow-xl group">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 pr-4">
+                        <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight mb-1 group-hover:text-[var(--color-primary)] transition-colors">
+                          {prog.nome}
+                        </h4>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed opacity-80">
+                          {prog.descricao || prog.objetivo}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className={`px-2.5 py-1 rounded-lg border font-black text-[8px] uppercase tracking-widest ${
+                          prog.nivel === 'Avançado' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                          prog.nivel === 'Intermediário' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                          'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                        }`}>
+                          {prog.nivel}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleImportProgram(prog)}
+                      disabled={saving}
+                      className="w-full py-2.5 bg-[var(--color-primary)] text-[var(--text-on-primary)] hover:brightness-110 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/10"
+                    >
+                      {saving ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Plus size={14} />
+                      )}
+                      Importar Programa
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      )}
+    </main>
 
       {/* Internal Modals */}
       {showDeleteConfirm && (

@@ -325,8 +325,7 @@ const Profile = () => {
 
   return (
     <div
-      className="p-6 max-w-2xl mx-auto"
-      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
+      className={`p-6 max-w-2xl mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
     >
       <header className="mb-8 flex justify-between items-center px-2">
         <Link

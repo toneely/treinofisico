@@ -548,8 +548,7 @@ const History = () => {
 
   return (
     <div
-      className="p-6 max-w-md mx-auto"
-      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
+      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
     >
       <header className="mb-6 flex justify-between items-center">
         <Link

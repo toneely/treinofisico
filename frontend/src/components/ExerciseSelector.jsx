@@ -15,25 +15,18 @@ const ExerciseSelector = ({
   const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [modalidade, setModalidade] = useState("Musculação");
+  const [modalidades, setModalidades] = useState([]);
+  const [selectedModality, setSelectedModality] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEx, setSelectedEx] = useState(null);
   const dropdownRef = useRef(null);
 
-  const modalidades = [
-    "Musculação",
-    "Atletismo",
-    "Natação",
-    "Pilates",
-    "Calistenia",
-    "CrossFit",
-    "Mobilidade",
-    "Cardio",
-    "Luta",
-  ];
-
   const isDark = context === "training";
+
+  useEffect(() => {
+    fetchModalidades();
+  }, []);
 
   useEffect(() => {
     if (currentExerciseId) {
@@ -41,12 +34,27 @@ const ExerciseSelector = ({
     }
   }, [currentExerciseId]);
 
+  const fetchModalidades = async () => {
+    const { data, error } = await supabase
+      .from("modalidades")
+      .select("*")
+      .order("nome");
+    if (data) {
+      setModalidades(data);
+      // Set default modality if not already set
+      if (data.length > 0 && !selectedModality) {
+        const musculacao = data.find(m => m.nome === "Musculação") || data[0];
+        setSelectedModality(musculacao);
+      }
+    }
+  };
+
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (isOpen) fetchResults();
+      if (isOpen && selectedModality) fetchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchTerm, modalidade, isOpen]);
+  }, [searchTerm, selectedModality, isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -68,6 +76,7 @@ const ExerciseSelector = ({
   };
 
   const fetchResults = async () => {
+    if (!selectedModality) return;
     setLoading(true);
 
     if (isAdminContext) {
@@ -76,7 +85,7 @@ const ExerciseSelector = ({
         const { data, error } = await supabase
           .from('exercicios_padrao')
           .select('id, nome, alvo_principal')
-          .eq('modalidade', modalidade)
+          .eq('modalidade', selectedModality.nome)
           .ilike('nome', `%${searchTerm}%`)
           .limit(20);
 
@@ -106,7 +115,7 @@ const ExerciseSelector = ({
       try {
         const { data, error } = await supabase.rpc('buscar_exercicios_unificados', {
           p_termo_busca: searchTerm,
-          p_modalidade: modalidade,
+          p_modalidade: selectedModality.nome,
           p_user_id: userId
         });
 
@@ -156,21 +165,21 @@ const ExerciseSelector = ({
       <div className="flex gap-2 overflow-x-auto pb-3 mb-1 scrollbar-none no-scrollbar">
         {modalidades.map((m) => (
           <button
-            key={m}
+            key={m.id}
             type="button"
             onClick={() => {
-              setModalidade(m);
+              setSelectedModality(m);
               if (!isOpen) setIsOpen(true);
             }}
             className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${
-              modalidade === m
+              selectedModality?.id === m.id
                 ? "shadow-md"
                 : isDark
                   ? "bg-white/5 opacity-60 border border-white/10"
                   : "bg-black/5 opacity-60 border border-black/10"
             }`}
             style={
-              modalidade === m
+              selectedModality?.id === m.id
                 ? {
                     backgroundColor: "var(--color-primary)",
                     color: "var(--text-on-primary)",
@@ -178,7 +187,7 @@ const ExerciseSelector = ({
                 : {}
             }
           >
-            {m}
+            {m.nome}
           </button>
         ))}
       </div>
