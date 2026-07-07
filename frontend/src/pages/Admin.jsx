@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -214,6 +214,7 @@ const Admin = () => {
     e.preventDefault();
     setSavingSettings(true);
     try {
+      // Ensure we are saving the latest values
       const { error } = await supabase
         .from("config_app")
         .upsert({
@@ -508,25 +509,25 @@ const Admin = () => {
                 <div className="grid grid-cols-1 gap-8">
                   <EditorField
                     label="Termos de Uso"
-                    value={appSettings.termos_de_uso}
+                    initialValue={appSettings.termos_de_uso}
                     placeholder="Use {{VALOR_ASSINATURA}} para o preço dinâmico..."
-                    onChange={(val) => {
-                      const md = turndownService.turndown(val);
+                    onMarkdownChange={(md) => {
                       setAppSettings(prev => ({ ...prev, termos_de_uso: md }));
                       localStorage.setItem('draft_termos', md);
                     }}
                     price={appSettings.subscription_price}
+                    storageKey="draft_termos"
                   />
 
                   <EditorField
                     label="Políticas de Privacidade"
-                    value={appSettings.politicas_privacidade}
-                    onChange={(val) => {
-                      const md = turndownService.turndown(val);
+                    initialValue={appSettings.politicas_privacidade}
+                    onMarkdownChange={(md) => {
                       setAppSettings(prev => ({ ...prev, politicas_privacidade: md }));
                       localStorage.setItem('draft_politicas', md);
                     }}
                     price={appSettings.subscription_price}
+                    storageKey="draft_politicas"
                   />
                 </div>
 
@@ -774,20 +775,45 @@ const TabButton = ({ active, onClick, icon, label }) => (
   </button>
 );
 
-const EditorField = ({ label, value, onChange, placeholder, price }) => {
+const EditorField = ({ label, initialValue, onMarkdownChange, placeholder, price, storageKey }) => {
   const [isPreview, setIsPreview] = useState(false);
+  const [editorHtml, setEditorHtml] = useState("");
+  const debounceRef = useRef(null);
+
+  const turndownService = useMemo(() => new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    emDelimiter: '*'
+  }), []);
+
+  // Initialize editor with HTML converted from the Markdown initialValue
+  useEffect(() => {
+    if (initialValue && !editorHtml) {
+      setEditorHtml(marked(initialValue));
+    }
+  }, [initialValue]);
 
   const formattedPrice = useMemo(() => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price || 0);
   }, [price]);
 
-  const htmlValue = useMemo(() => {
-    return marked(value || "");
-  }, [value]);
-
   const previewContent = useMemo(() => {
-    return htmlValue.replace(/{{VALOR_ASSINATURA}}/g, formattedPrice);
-  }, [htmlValue, formattedPrice]);
+    // Inject dynamic price directly into the HTML string
+    return editorHtml.replace(/{{VALOR_ASSINATURA}}/g, formattedPrice);
+  }, [editorHtml, formattedPrice]);
+
+  const handleChange = (content) => {
+    setEditorHtml(content);
+
+    // Clear previous timeout
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // Debounce Markdown conversion and persistence (1000ms)
+    debounceRef.current = setTimeout(() => {
+      const markdown = turndownService.turndown(content);
+      onMarkdownChange(markdown);
+    }, 1000);
+  };
 
   const modules = {
     toolbar: [
@@ -818,21 +844,24 @@ const EditorField = ({ label, value, onChange, placeholder, price }) => {
       </div>
 
       <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm admin-editor-container">
-        {isPreview ? (
+        {/* Isolate Preview from Editor to prevent unmounting/remounting loops */}
+        <div className={isPreview ? "block" : "hidden"}>
           <div
-            className="p-4 prose prose-sm max-w-none min-h-[250px] bg-slate-50/50"
+            className="p-4 prose prose-sm max-w-none min-h-[300px] bg-slate-50/50 overflow-y-auto"
             dangerouslySetInnerHTML={{ __html: previewContent }}
           />
-        ) : (
+        </div>
+
+        <div className={isPreview ? "hidden" : "block"}>
           <ReactQuill
             theme="snow"
-            value={htmlValue}
-            onChange={onChange}
+            value={editorHtml}
+            onChange={handleChange}
             modules={modules}
             placeholder={placeholder}
             className="bg-white"
           />
-        )}
+        </div>
       </div>
     </div>
   );
