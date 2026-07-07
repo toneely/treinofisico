@@ -34,3 +34,18 @@
 .admin-editor-container .ql-snow .ql-picker.ql-header {
   width: 120px !important;
 }
+
+@layer utilities {
+  .resilient-bottom-spacing {
+    padding-bottom: calc(constant(safe-area-inset-bottom) + 80px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
+    overscroll-behavior-y: contain;
+  }
+
+  /* Version for pages with Bottom Nav (approx 72px) + AdBanner (80px) */
+  .resilient-bottom-spacing-nav {
+    padding-bottom: calc(constant(safe-area-inset-bottom) + 152px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 152px);
+    overscroll-behavior-y: contain;
+  }
+}

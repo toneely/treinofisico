@@ -210,8 +210,7 @@ const Inicio = () => {
 
   return (
     <div
-      className="p-6 max-w-md mx-auto min-h-screen flex flex-col"
-      style={{ paddingBottom: isPremium ? "80px" : "148px" }}
+      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
     >
       <header className="mb-8">
         <div className="flex items-center gap-2.5 mb-6">

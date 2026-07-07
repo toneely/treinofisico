@@ -450,8 +450,7 @@ const WorkoutTemplates = () => {
 
             {/* List Area */}
             <div
-              className="p-6 space-y-3"
-              style={{ paddingBottom: isPremium ? "20px" : "80px" }}
+          className={`p-6 space-y-3 flex-1 ${!isPremium ? "resilient-bottom-spacing" : "pb-10"}`}
             >
               <h3 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest px-1">Sua Biblioteca</h3>
 
@@ -566,7 +565,7 @@ const WorkoutTemplates = () => {
               </div>
             </div>
 
-            <div className="p-6 space-y-6 flex-1">
+            <div className={`p-6 space-y-6 flex-1 ${!isPremium ? "resilient-bottom-spacing" : "pb-10"}`}>
             <div className="px-1">
               <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Catálogo de Programas</h3>
               <p className="text-[10px] text-zinc-600 font-bold uppercase leading-tight">Escolha um programa estruturado por especialistas para importar.</p>
