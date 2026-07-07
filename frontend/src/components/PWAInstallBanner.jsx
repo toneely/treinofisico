@@ -21,13 +21,11 @@ const PWAInstallBanner = () => {
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      console.log('Evento beforeinstallprompt capturado');
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
     window.addEventListener('appinstalled', () => {
-      console.log('PWA instalado com sucesso');
       setDeferredPrompt(null);
       setIsVisible(false);
     });
@@ -63,7 +61,6 @@ const PWAInstallBanner = () => {
     deferredPrompt.prompt();
 
     const { outcome } = await deferredPrompt.userChoice;
-    console.log(`Resposta do usuário para a instalação: ${outcome}`);
 
     setDeferredPrompt(null);
     setIsVisible(false);
