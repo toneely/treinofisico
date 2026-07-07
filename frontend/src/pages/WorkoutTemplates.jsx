@@ -559,7 +559,7 @@ const WorkoutTemplates = () => {
                   >
                     {m.nome}
                     {selectedExploreModality?.id === m.id && (
-                      <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-[var(--color-primary)]" />
+                      <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-[var(--color-primary)]"></div>
                     )}
                   </button>
                 ))}
@@ -578,13 +578,13 @@ const WorkoutTemplates = () => {
                   <div key={n} className="bg-zinc-900/30 border border-white/5 rounded-[32px] p-6 animate-pulse flex flex-col gap-6">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 pr-4">
-                        <div className="w-20 h-4 bg-white/5 rounded mb-3" />
-                        <div className="w-3/4 h-6 bg-white/10 rounded mb-2" />
-                        <div className="w-full h-10 bg-white/5 rounded" />
+                        <div className="w-20 h-4 bg-white/5 rounded mb-3"></div>
+                        <div className="w-3/4 h-6 bg-white/10 rounded mb-2"></div>
+                        <div className="w-full h-10 bg-white/5 rounded"></div>
                       </div>
-                      <div className="w-16 h-8 bg-white/5 rounded-xl" />
+                      <div className="w-16 h-8 bg-white/5 rounded-xl"></div>
                     </div>
-                    <div className="w-full h-12 bg-white/5 rounded-2xl" />
+                    <div className="w-full h-12 bg-white/5 rounded-2xl"></div>
                   </div>
                 ))}
               </div>
@@ -637,8 +637,9 @@ const WorkoutTemplates = () => {
               </div>
             )}
           </div>
-        )}
-      </main>
+        </div>
+      )}
+    </main>
 
       {/* Internal Modals */}
       {showDeleteConfirm && (
