@@ -574,16 +574,15 @@ const WorkoutTemplates = () => {
             {loading ? (
               <div className="grid grid-cols-1 gap-4">
                 {[1, 2, 3].map((n) => (
-                  <div key={n} className="bg-zinc-900/30 border border-white/5 rounded-[32px] p-6 animate-pulse flex flex-col gap-6">
+                  <div key={n} className="bg-zinc-900/30 border border-white/5 rounded-[24px] p-5 animate-pulse flex flex-col gap-4 shadow-xl">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 pr-4">
-                        <div className="w-20 h-4 bg-white/5 rounded mb-3"></div>
-                        <div className="w-3/4 h-6 bg-white/10 rounded mb-2"></div>
-                        <div className="w-full h-10 bg-white/5 rounded"></div>
+                        <div className="w-3/4 h-5 bg-white/10 rounded mb-2"></div>
+                        <div className="w-full h-8 bg-white/5 rounded"></div>
                       </div>
-                      <div className="w-16 h-8 bg-white/5 rounded-xl"></div>
+                      <div className="w-12 h-6 bg-white/5 rounded-lg"></div>
                     </div>
-                    <div className="w-full h-12 bg-white/5 rounded-2xl"></div>
+                    <div className="w-full h-10 bg-white/5 rounded-xl"></div>
                   </div>
                 ))}
               </div>
@@ -595,21 +594,18 @@ const WorkoutTemplates = () => {
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {availablePrograms.filter(p => p.modalidade_id === selectedExploreModality?.id).map((prog) => (
-                  <div key={prog.id} className="bg-zinc-900/50 border border-white/10 rounded-[32px] p-6 hover:bg-zinc-900 transition-all flex flex-col gap-6 shadow-xl group">
+                  <div key={prog.id} className="bg-zinc-900/50 border border-white/10 rounded-[24px] p-5 hover:bg-zinc-900 transition-all flex flex-col gap-4 shadow-xl group">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 pr-4">
-                        <span className="px-2.5 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-lg text-[9px] font-black uppercase tracking-widest mb-3 inline-block">
-                          {prog.modalidades?.nome || "Programa"}
-                        </span>
-                        <h4 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-2 group-hover:text-[var(--color-primary)] transition-colors">
+                        <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight mb-1 group-hover:text-[var(--color-primary)] transition-colors">
                           {prog.nome}
                         </h4>
-                        <p className="text-xs text-zinc-400 font-medium leading-relaxed opacity-80 line-clamp-3">
+                        <p className="text-[11px] text-zinc-400 font-medium leading-relaxed opacity-80 line-clamp-2">
                           {prog.objetivo}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <div className={`px-3 py-1.5 rounded-xl border font-black text-[9px] uppercase tracking-widest ${
+                        <div className={`px-2.5 py-1 rounded-lg border font-black text-[8px] uppercase tracking-widest ${
                           prog.nivel === 'Avançado' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
                           prog.nivel === 'Intermediário' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
                           'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
@@ -622,12 +618,12 @@ const WorkoutTemplates = () => {
                     <button
                       onClick={() => handleImportProgram(prog)}
                       disabled={saving}
-                      className="w-full py-4 bg-[var(--color-primary)] text-[var(--text-on-primary)] hover:brightness-110 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/10"
+                      className="w-full py-2.5 bg-[var(--color-primary)] text-[var(--text-on-primary)] hover:brightness-110 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/10"
                     >
                       {saving ? (
-                        <RefreshCw size={18} className="animate-spin" />
+                        <RefreshCw size={14} className="animate-spin" />
                       ) : (
-                        <Plus size={18} />
+                        <Plus size={14} />
                       )}
                       Importar Programa
                     </button>
