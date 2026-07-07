@@ -40,7 +40,7 @@ const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" />;
+  if (user) return <Navigate to="/app" />;
 
   return children;
 };
@@ -61,7 +61,7 @@ const AdminRoute = ({ children }) => {
         Carregando...
       </div>
     );
-  if (!user || !admins.includes(user.email)) return <Navigate to="/dashboard" />;
+  if (!user || !admins.includes(user.email)) return <Navigate to="/app" />;
 
   return children;
 };
@@ -114,7 +114,7 @@ const AppContent = () => {
           }
         />
         <Route
-          path="/dashboard"
+          path="/app"
           element={
             <ProtectedRoute>
               <Inicio />

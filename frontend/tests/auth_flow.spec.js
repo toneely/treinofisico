@@ -8,8 +8,8 @@ test('verify login page renders and toggles modes', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Entrar na Conta' })).toBeVisible();
 
   // Toggle to Sign Up
-  await page.click('text=Não tem uma conta? Cadastre-se');
-  await expect(page.locator('button', { hasText: /Criar Conta/i })).toBeVisible();
+  await page.click('text=Cadastre-se');
+  await expect(page.getByRole('button', { name: 'Criar Conta' })).toBeVisible();
 
   await page.screenshot({ path: 'login_verification.png' });
 });

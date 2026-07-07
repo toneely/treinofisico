@@ -27,7 +27,7 @@ const LandingPage = () => {
             <span className="text-lg sm:text-xl font-black text-white tracking-tight truncate">Treino Físico</span>
           </div>
           <Link
-            to={user ? "/dashboard" : "/login"}
+            to={user ? "/app" : "/login"}
             className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
           >
             {user ? "Ir para o Painel" : "Entrar / Cadastrar"}
@@ -48,7 +48,7 @@ const LandingPage = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
-                to={user ? "/dashboard" : "/login"}
+                to={user ? "/app" : "/login"}
                 className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--text-on-primary)" }}
               >

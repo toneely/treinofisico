@@ -11,7 +11,7 @@ const Login = () => {
   React.useEffect(() => {
     if (user && !authLoading) {
       console.log("Usuário já autenticado, redirecionando...");
-      navigate("/dashboard");
+      navigate("/app");
     }
   }, [user, authLoading, navigate]);
   const [email, setEmail] = useState("");
@@ -37,7 +37,7 @@ const Login = () => {
         showToast("Bem-vindo de volta!", "success");
         console.log("Login efetuado, aguardando carregamento do perfil...");
         // Non-destructive navigate to allow AuthContext to update gracefully
-        navigate("/dashboard");
+        navigate("/app");
       }
     }
     setLoading(false);
@@ -49,7 +49,7 @@ const Login = () => {
     } else {
       // In some environments, the redirect might not be instantaneous
       // This explicit navigate acts as a fallback
-      setTimeout(() => navigate("/dashboard"), 500);
+      setTimeout(() => navigate("/app"), 500);
     }
   };
   return (

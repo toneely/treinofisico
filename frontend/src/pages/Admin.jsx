@@ -243,7 +243,7 @@ const Admin = () => {
     <div className="p-3 max-w-6xl mx-auto text-sm">
       <header className="mb-3">
         <Link
-          to="/dashboard"
+          to="/app"
           className="text-slate-500 flex items-center gap-1 mb-1 hover: transition w-fit text-xs"
         >
           <ChevronLeft size={14} /> Voltar
@@ -789,7 +789,7 @@ const EditorField = ({ label, initialValue, onMarkdownChange, placeholder, price
   // Initialize editor with HTML converted from the Markdown initialValue
   useEffect(() => {
     if (initialValue && !editorHtml) {
-      setEditorHtml(marked(initialValue));
+      setEditorHtml(marked.parse(initialValue));
     }
   }, [initialValue]);
 
