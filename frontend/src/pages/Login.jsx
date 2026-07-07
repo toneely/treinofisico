@@ -59,12 +59,12 @@ const Login = () => {
         {" "}
         <div className="text-center mb-8">
           {" "}
-          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-100 overflow-hidden">
+          <div className="w-20 h-20 bg-transparent flex items-center justify-center mx-auto mb-4 overflow-hidden">
             {" "}
             <img
               src="/logo-app.png"
               alt="Logo"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />{" "}
           </div>{" "}
           <h1 className="text-2xl font-black ">Treino Físico</h1>{" "}

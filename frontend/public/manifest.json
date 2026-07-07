@@ -1,6 +1,6 @@
 {
   "name": "Treino Físico",
-  "short_name": "TreinoFisico",
+  "short_name": "Treino Físico",
   "description": "Plataforma completa para musculação, calistenia e esportes.",
   "start_url": "/app",
   "display": "standalone",

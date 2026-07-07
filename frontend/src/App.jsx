@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import WorkoutTemplates from './pages/WorkoutTemplates';
 import GracePeriodBanner from './components/ui/GracePeriodBanner';
+import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 
@@ -93,6 +94,7 @@ const AppContent = () => {
         paddingTop: "0px",
       }}
     >
+      <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <Routes>
         <Route
