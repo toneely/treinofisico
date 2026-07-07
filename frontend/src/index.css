@@ -8,3 +8,29 @@
     color: white;
   }
 }
+
+/* Admin WYSIWYG Editor Custom Styles */
+.admin-editor-container .ql-editor {
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  font-family: inherit !important;
+  min-height: 250px;
+}
+
+.admin-editor-container .ql-toolbar.ql-snow {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  padding: 8px 12px !important;
+}
+
+.admin-editor-container .ql-container.ql-snow {
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  border-color: #e2e8f0 !important;
+}
+
+.admin-editor-container .ql-snow .ql-picker.ql-header {
+  width: 120px !important;
+}

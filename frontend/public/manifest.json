@@ -2,7 +2,7 @@
   "name": "Treino Físico",
   "short_name": "TreinoFisico",
   "description": "Plataforma completa para musculação, calistenia e esportes.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#4f46e5",

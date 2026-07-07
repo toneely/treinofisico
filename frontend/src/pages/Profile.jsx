@@ -330,7 +330,7 @@ const Profile = () => {
     >
       <header className="mb-8 flex justify-between items-center px-2">
         <Link
-          to="/inicio"
+          to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
         >
           <ChevronLeft size={20} />
@@ -875,7 +875,7 @@ const Profile = () => {
       {/* Footer Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
         <Link
-          to="/inicio"
+          to="/app"
           className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
         >
           <Dumbbell size={24} />

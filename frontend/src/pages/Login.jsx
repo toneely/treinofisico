@@ -11,7 +11,7 @@ const Login = () => {
   React.useEffect(() => {
     if (user && !authLoading) {
       console.log("Usuário já autenticado, redirecionando...");
-      navigate("/inicio");
+      navigate("/app");
     }
   }, [user, authLoading, navigate]);
   const [email, setEmail] = useState("");
@@ -37,14 +37,20 @@ const Login = () => {
         showToast("Bem-vindo de volta!", "success");
         console.log("Login efetuado, aguardando carregamento do perfil...");
         // Non-destructive navigate to allow AuthContext to update gracefully
-        navigate("/inicio");
+        navigate("/app");
       }
     }
     setLoading(false);
   };
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle();
-    if (error) showToast(error.message, "error");
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      // In some environments, the redirect might not be instantaneous
+      // This explicit navigate acts as a fallback
+      setTimeout(() => navigate("/app"), 500);
+    }
   };
   return (
     <div className="min-h-screen flex items-center justify-center  p-6">

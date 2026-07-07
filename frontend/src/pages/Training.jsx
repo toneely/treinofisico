@@ -1503,7 +1503,7 @@ const Training = () => {
 
       if (historyData.length === 0) {
         showToast("Nenhum exercício registrado.", "info");
-        navigate("/inicio");
+        navigate("/app");
         return;
       }
 
@@ -1518,7 +1518,7 @@ const Training = () => {
         if (!isPremium) {
           setShowInterstitial(true);
         } else {
-          navigate("/inicio");
+          navigate("/app");
         }
       }
     } catch (error) {
@@ -1752,7 +1752,7 @@ const Training = () => {
       variant: "danger",
       onConfirm: () => {
         localStorage.removeItem("active_training_session");
-        navigate("/inicio");
+        navigate("/app");
         showToast("Treino descartado.", "info");
       }
     });
@@ -1762,7 +1762,7 @@ const Training = () => {
     const hasProgress = Object.values(state.exerciseTimes).some(times => times.length > 0);
     if (!hasProgress) {
       localStorage.removeItem("active_training_session");
-      navigate("/inicio");
+      navigate("/app");
     } else {
       setConfirmationModal({
         isOpen: true,
@@ -1770,7 +1770,7 @@ const Training = () => {
         message: "Seu progresso atual será salvo para continuar depois.",
         confirmText: "Sair e Salvar",
         variant: "info",
-        onConfirm: () => navigate("/inicio")
+        onConfirm: () => navigate("/app")
       });
     }
   };
@@ -1844,7 +1844,7 @@ const Training = () => {
             Tentar Novamente
           </button>
           <button
-            onClick={() => navigate("/inicio")}
+            onClick={() => navigate("/app")}
             className="w-full py-4 bg-white/5 text-slate-400 rounded-2xl font-bold active:scale-95 transition-all"
           >
             Voltar ao Início
@@ -1890,7 +1890,7 @@ const Training = () => {
     return (
       <div className="p-10 text-center text-slate-500">
         Nenhum exercício encontrado.{" "}
-        <Link to="/inicio" className="underline">
+        <Link to="/app" className="underline">
           Voltar
         </Link>
       </div>
@@ -3136,7 +3136,7 @@ const Training = () => {
 
       <AdInterstitial
         show={showInterstitial}
-        onClose={() => navigate("/inicio")}
+        onClose={() => navigate("/app")}
         isPremium={isPremium}
       />
     </div>

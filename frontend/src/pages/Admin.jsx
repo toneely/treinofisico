@@ -1,5 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import TurndownService from 'turndown';
+import { marked } from 'marked';
 import { calculateSubscriptionStatus } from "../utils/subscriptionUtils";
 import {
   ChevronLeft,
@@ -28,8 +32,18 @@ import LoadingScreen from "../components/LoadingScreen";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const turndownService = useMemo(() => new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    emDelimiter: '*'
+  }), []);
+
   const [activeTab, setActiveTab] = useState("onboarding");
-  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
+  const [appSettings, setAppSettings] = useState({
+    subscription_price: 29.90,
+    termos_de_uso: "",
+    politicas_privacidade: ""
+  });
   const [savingSettings, setSavingSettings] = useState(false);
   const [subTab, setSubTab] = useState("workouts");
   // moldeUserId set to null represents global templates (where user_id is NULL)
@@ -109,7 +123,18 @@ const Admin = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      if (data) setAppSettings(data);
+      if (data) {
+        // Check for local drafts first
+        const draftTerms = localStorage.getItem('draft_termos');
+        const draftPrivacy = localStorage.getItem('draft_politicas');
+
+        const sanitized = {
+          ...data,
+          termos_de_uso: draftTerms || (data.termos_de_uso || "").replace(/\\n/g, '\n'),
+          politicas_privacidade: draftPrivacy || (data.politicas_privacidade || "").replace(/\\n/g, '\n')
+        };
+        setAppSettings(sanitized);
+      }
     } catch (err) {
       console.error("Admin: Error fetching app settings:", err);
     } finally {
@@ -189,11 +214,22 @@ const Admin = () => {
     e.preventDefault();
     setSavingSettings(true);
     try {
+      // Ensure we are saving the latest values
       const { error } = await supabase
         .from("config_app")
-        .upsert({ id: appSettings.id || 1, subscription_price: parseFloat(appSettings.subscription_price) });
+        .upsert({
+          id: appSettings.id || 1,
+          subscription_price: parseFloat(appSettings.subscription_price),
+          termos_de_uso: appSettings.termos_de_uso,
+          politicas_privacidade: appSettings.politicas_privacidade
+        });
 
       if (error) throw error;
+
+      // Clear drafts on success
+      localStorage.removeItem('draft_termos');
+      localStorage.removeItem('draft_politicas');
+
       alert("Configurações salvas com sucesso!");
     } catch (err) {
       console.error("Error saving settings:", err);
@@ -207,7 +243,7 @@ const Admin = () => {
     <div className="p-3 max-w-6xl mx-auto text-sm">
       <header className="mb-3">
         <Link
-          to="/inicio"
+          to="/app"
           className="text-slate-500 flex items-center gap-1 mb-1 hover: transition w-fit text-xs"
         >
           <ChevronLeft size={14} /> Voltar
@@ -453,8 +489,8 @@ const Admin = () => {
                 Parâmetros do Sistema
               </h2>
 
-              <form onSubmit={handleSaveSettings} className="space-y-4 max-w-sm">
-                <div>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="max-w-sm">
                   <label className="text-[10px] font-black uppercase tracking-tight text-slate-400 block mb-1">
                     Valor da Assinatura (Mensal)
                   </label>
@@ -468,6 +504,31 @@ const Admin = () => {
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-1 focus:ring-orange-500/20 focus:border-orange-500 font-bold text-xs"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-8">
+                  <EditorField
+                    label="Termos de Uso"
+                    initialValue={appSettings.termos_de_uso}
+                    placeholder="Use {{VALOR_ASSINATURA}} para o preço dinâmico..."
+                    onMarkdownChange={(md) => {
+                      setAppSettings(prev => ({ ...prev, termos_de_uso: md }));
+                      localStorage.setItem('draft_termos', md);
+                    }}
+                    price={appSettings.subscription_price}
+                    storageKey="draft_termos"
+                  />
+
+                  <EditorField
+                    label="Políticas de Privacidade"
+                    initialValue={appSettings.politicas_privacidade}
+                    onMarkdownChange={(md) => {
+                      setAppSettings(prev => ({ ...prev, politicas_privacidade: md }));
+                      localStorage.setItem('draft_politicas', md);
+                    }}
+                    price={appSettings.subscription_price}
+                    storageKey="draft_politicas"
+                  />
                 </div>
 
                 <button
@@ -713,5 +774,97 @@ const TabButton = ({ active, onClick, icon, label }) => (
     {label}
   </button>
 );
+
+const EditorField = ({ label, initialValue, onMarkdownChange, placeholder, price, storageKey }) => {
+  const [isPreview, setIsPreview] = useState(false);
+  const [editorHtml, setEditorHtml] = useState("");
+  const debounceRef = useRef(null);
+
+  const turndownService = useMemo(() => new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    emDelimiter: '*'
+  }), []);
+
+  // Initialize editor with HTML converted from the Markdown initialValue
+  useEffect(() => {
+    if (initialValue && !editorHtml) {
+      setEditorHtml(marked.parse(initialValue));
+    }
+  }, [initialValue]);
+
+  const formattedPrice = useMemo(() => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price || 0);
+  }, [price]);
+
+  const previewContent = useMemo(() => {
+    // Inject dynamic price directly into the HTML string
+    return editorHtml.replace(/{{VALOR_ASSINATURA}}/g, formattedPrice);
+  }, [editorHtml, formattedPrice]);
+
+  const handleChange = (content) => {
+    setEditorHtml(content);
+
+    // Clear previous timeout
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // Debounce Markdown conversion and persistence (1000ms)
+    debounceRef.current = setTimeout(() => {
+      const markdown = turndownService.turndown(content);
+      onMarkdownChange(markdown);
+    }, 1000);
+  };
+
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'clean']
+    ],
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <label className="text-[10px] font-black uppercase tracking-tight text-slate-400">
+          {label}
+        </label>
+        <button
+          type="button"
+          onClick={() => setIsPreview(!isPreview)}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+            isPreview
+              ? "bg-orange-100 text-orange-600"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          {isPreview ? "Editar" : "Visualizar"}
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm admin-editor-container">
+        {/* Isolate Preview from Editor to prevent unmounting/remounting loops */}
+        <div className={isPreview ? "block" : "hidden"}>
+          <div
+            className="p-4 prose prose-sm max-w-none min-h-[300px] bg-slate-50/50 overflow-y-auto"
+            dangerouslySetInnerHTML={{ __html: previewContent }}
+          />
+        </div>
+
+        <div className={isPreview ? "hidden" : "block"}>
+          <ReactQuill
+            theme="snow"
+            value={editorHtml}
+            onChange={handleChange}
+            modules={modules}
+            placeholder={placeholder}
+            className="bg-white"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Admin;
