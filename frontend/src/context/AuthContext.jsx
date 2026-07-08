@@ -82,24 +82,27 @@ export function AuthProvider({ children }) {
   useEffect(function () {
     let isMounted = true;
 
-    // Safety timeout for initial auth state check
     const authInitTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
     }, 6000);
 
+    // 1. Busca inicial
     supabase.auth.getSession().then(function (result) {
       if (!isMounted) return;
       const session = result.data?.session ?? null;
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
+
       if (currentUser) {
-        fetchUserProfile(currentUser);
+        setUser(currentUser);
+        fetchUserProfile(currentUser, false);
       } else {
+        setUser(null);
         setLoading(false);
       }
       clearTimeout(authInitTimeout);
     });
 
+    // 2. Listener de eventos
     const { data: { subscription } } = supabase.auth.onAuthStateChange(function (event, session) {
       if (!isMounted) return;
       const currentUser = session?.user ?? null;
@@ -124,10 +127,11 @@ export function AuthProvider({ children }) {
         }
       }
 
-      if (event === "TOKEN_REFRESHED") {
+      // Proteção: Apenas atualiza silenciosamente se o currentUser existir!
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         clearTimeout(authInitTimeout);
-        setUser(currentUser);
         if (currentUser) {
+          setUser(currentUser);
           fetchUserProfile(currentUser, true);
         }
       }
