@@ -90,7 +90,7 @@ const History = () => {
         nome: authUser.email,
       },
     );
-  }, [authUser, profile]);
+  }, [authUser?.id, profile?.id]);
 
   const fetchExercises = useCallback(async () => {
     const { data } = await supabase
