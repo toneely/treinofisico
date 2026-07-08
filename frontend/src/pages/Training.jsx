@@ -1192,6 +1192,7 @@ const Training = () => {
 
   const audioContextRef = React.useRef(null);
   const scrollContainerRef = useRef(null);
+  const initialScrollDone = useRef(false);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1613,12 +1614,13 @@ const Training = () => {
   }, [state.isTimerActive, state.activeRestTimers]);
 
   useEffect(() => {
-    if (loading || state.blocos.length === 0) return;
+    if (loading || state.blocos.length === 0 || initialScrollDone.current) return;
 
     const timer = setTimeout(() => {
       const activeCard = document.getElementById("active-exercise");
       if (activeCard) {
         activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        initialScrollDone.current = true;
       }
     }, 100);
 
