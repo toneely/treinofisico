@@ -11,16 +11,19 @@ export function AuthProvider({ children }) {
   const [isPremium, setIsPremium] = useState(false);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
 
-  async function fetchUserProfile(authUser) {
+  async function fetchUserProfile(authUser, isSilent = false) {
     if (!authUser) {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       return;
     }
 
     // Safety timeout to prevent infinite loading hangs
-    const safetyTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 6000);
+    let safetyTimeout;
+    if (!isSilent) {
+      safetyTimeout = setTimeout(() => {
+        setLoading(false);
+      }, 6000);
+    }
 
     try {
       let { data: userProfile } = await supabase
@@ -60,7 +63,7 @@ export function AuthProvider({ children }) {
         setProfile(userProfile);
 
         // Finalize loading as soon as profile is resolved
-        setLoading(false);
+        if (!isSilent) setLoading(false);
 
         if (userProfile.testador_pagamento === true) {
           setIsPremium(true);
@@ -74,32 +77,37 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Falha no sincronismo:", err);
     } finally {
-      clearTimeout(safetyTimeout);
-      setLoading(false);
+      if (!isSilent) {
+        clearTimeout(safetyTimeout);
+        setLoading(false);
+      }
     }
   }
 
   useEffect(function () {
     let isMounted = true;
 
-    // Safety timeout for initial auth state check
     const authInitTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
     }, 6000);
 
+    // 1. Busca inicial
     supabase.auth.getSession().then(function (result) {
       if (!isMounted) return;
       const session = result.data?.session ?? null;
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
+
       if (currentUser) {
-        fetchUserProfile(currentUser);
+        setUser(currentUser);
+        fetchUserProfile(currentUser, false);
       } else {
+        setUser(null);
         setLoading(false);
       }
       clearTimeout(authInitTimeout);
     });
 
+    // 2. Listener de eventos
     const { data: { subscription } } = supabase.auth.onAuthStateChange(function (event, session) {
       if (!isMounted) return;
       const currentUser = session?.user ?? null;
@@ -113,14 +121,23 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "SIGNED_IN") {
         clearTimeout(authInitTimeout);
         setUser(currentUser);
         if (currentUser) {
           setLoading(true);
-          fetchUserProfile(currentUser);
+          fetchUserProfile(currentUser, false);
         } else {
           setLoading(false);
+        }
+      }
+
+      // Proteção: Apenas atualiza silenciosamente se o currentUser existir!
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        clearTimeout(authInitTimeout);
+        if (currentUser) {
+          setUser(currentUser);
+          fetchUserProfile(currentUser, true);
         }
       }
     });
