@@ -1568,6 +1568,22 @@ const Training = () => {
   }, [state, loading, letra]);
 
   useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && state.blocos.length > 0) {
+        localStorage.setItem(
+          "active_training_session",
+          JSON.stringify({ ...state, letra }),
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [state, letra]);
+
+  useEffect(() => {
     let metronomeInterval = null;
     if (metronomeActive) {
       if (!audioContextRef.current) {
