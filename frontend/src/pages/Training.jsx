@@ -1413,7 +1413,7 @@ const Training = () => {
       clearTimeout(safetyTimeout);
       setLoading(false);
     }
-  }, [user.id, letra, isFreeTraining, showToast]);
+  }, [user?.id, letra, isFreeTraining, showToast]);
 
   const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
@@ -1433,7 +1433,7 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  }, [user.id, isFreeTraining, letra]);
+  }, [user?.id, isFreeTraining, letra]);
 
   const finishWorkout = useCallback(async () => {
     setSavingSession(true);
@@ -1527,7 +1527,7 @@ const Training = () => {
     } finally {
       setSavingSession(false);
     }
-  }, [user.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
+  }, [user?.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
   // 1. Hook de Busca de Dados - Depende apenas da função memoizada
   useEffect(() => {

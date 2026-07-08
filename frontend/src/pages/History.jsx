@@ -140,7 +140,7 @@ const History = () => {
     setHistory(loads || []);
     setExtraActivities(extras || []);
     setLoading(false);
-  }, [authUser.id, currentDate, showToast]);
+  }, [authUser?.id, currentDate, showToast]);
 
   useEffect(() => {
     const t = setTimeout(() => {

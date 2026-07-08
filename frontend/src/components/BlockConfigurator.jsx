@@ -21,7 +21,7 @@ const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
     if (overrideUserId === null) {
       query = query.is("user_id", null);
     } else {
-      query = query.eq("user_id", overrideUserId || authUser.id);
+      query = query.eq("user_id", overrideUserId || authUser?.id);
     }
 
     const { data } = await query;
@@ -30,7 +30,7 @@ const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
       setWorkouts(data);
       if (!selectedWorkout) setSelectedWorkout(data[0].letra);
     }
-  }, [authUser.id, overrideUserId, selectedWorkout]);
+  }, [authUser?.id, overrideUserId, selectedWorkout]);
 
   const fetchExercises = useCallback(async () => {
     const { data } = await supabase
@@ -52,7 +52,7 @@ const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
     if (overrideUserId === null) {
       query = query.is("user_id", null);
     } else {
-      query = query.eq("user_id", overrideUserId || authUser.id);
+      query = query.eq("user_id", overrideUserId || authUser?.id);
     }
 
     const { data, error } = await query;
@@ -74,7 +74,7 @@ const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
       setBlocks(blocksArray);
     }
     setLoading(false);
-  }, [authUser.id, overrideUserId]);
+  }, [authUser?.id, overrideUserId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -198,7 +198,7 @@ const BlockConfigurator = ({ overrideUserId = null, isCompact = false }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser?.id);
 
     const query = supabase
       .from("blocos_treino")
