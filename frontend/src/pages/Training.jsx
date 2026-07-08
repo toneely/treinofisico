@@ -1089,6 +1089,11 @@ function trainingReducer(state, action) {
         status: "IDLE",
       };
 
+    case "CLEAR_SESSION":
+      return {
+        ...initialState,
+      };
+
     default:
       return state;
   }
@@ -1502,6 +1507,9 @@ const Training = () => {
       });
 
       if (historyData.length === 0) {
+        localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        dispatch({ type: "CLEAR_SESSION" });
         showToast("Nenhum exercício registrado.", "info");
         navigate("/app");
         return;
@@ -1514,6 +1522,9 @@ const Training = () => {
         throw error;
       } else {
         localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        dispatch({ type: "CLEAR_SESSION" });
+
         showToast("Treino concluído!", "success");
         if (!isPremium) {
           setShowInterstitial(true);
@@ -1752,6 +1763,8 @@ const Training = () => {
       variant: "danger",
       onConfirm: () => {
         localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        dispatch({ type: "CLEAR_SESSION" });
         navigate("/app");
         showToast("Treino descartado.", "info");
       }
@@ -1762,6 +1775,8 @@ const Training = () => {
     const hasProgress = Object.values(state.exerciseTimes).some(times => times.length > 0);
     if (!hasProgress) {
       localStorage.removeItem("active_training_session");
+      localStorage.removeItem("treino_em_andamento");
+      dispatch({ type: "CLEAR_SESSION" });
       navigate("/app");
     } else {
       setConfirmationModal({
