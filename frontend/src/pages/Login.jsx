@@ -9,11 +9,11 @@ const Login = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (user && !authLoading) {
+    if (user?.id && !authLoading) {
       console.log("Usuário já autenticado, redirecionando...");
       navigate("/app");
     }
-  }, [user, authLoading, navigate]);
+  }, [user?.id, authLoading, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

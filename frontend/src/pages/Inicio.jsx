@@ -84,11 +84,11 @@ const Inicio = () => {
   const [activeTab, setActiveTab] = useState("treinos");
 
   useEffect(() => {
-    if (authUser) {
+    if (authUser?.id) {
       fetchWorkouts();
       checkSavedTraining();
     }
-  }, [authUser]);
+  }, [authUser?.id]);
 
   const checkSavedTraining = () => {
     const saved = localStorage.getItem("active_training_session");

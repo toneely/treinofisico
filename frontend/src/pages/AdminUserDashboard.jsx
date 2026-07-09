@@ -201,7 +201,7 @@ const AdminUserDashboard = () => {
       const { data } = await supabase.from("historico_medidas").select("*, tipos_medida(nome, unidade)").eq("user_id", userId).order("data_medida", { ascending: false });
       setMeasurements(data || []);
     }
-  }, [userId, user, activeTab]);
+  }, [userId, user?.id, activeTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchUserData(), 0);

@@ -23,7 +23,7 @@ const WorkoutManager = ({ overrideUserId = null, isCompact = false }) => {
     if (overrideUserId === null) {
       query = query.is("user_id", null);
     } else {
-      query = query.eq("user_id", overrideUserId || authUser.id);
+      query = query.eq("user_id", overrideUserId || authUser?.id);
     }
 
     const { data, error } = await query;
@@ -33,7 +33,7 @@ const WorkoutManager = ({ overrideUserId = null, isCompact = false }) => {
       setWorkouts(data);
     }
     setLoading(false);
-  }, [authUser.id, overrideUserId, showToast]);
+  }, [authUser?.id, overrideUserId, showToast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,7 +50,7 @@ const WorkoutManager = ({ overrideUserId = null, isCompact = false }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // When overrideUserId is explicitly null, we want to save with user_id as null (global template)
-    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser?.id);
 
     // Check for uniqueness based on user_id and letra
     const { data: existing } = await supabase
@@ -118,7 +118,7 @@ const WorkoutManager = ({ overrideUserId = null, isCompact = false }) => {
   };
 
   const handleDelete = async (id) => {
-    const userId = overrideUserId === null ? null : (overrideUserId || authUser.id);
+    const userId = overrideUserId === null ? null : (overrideUserId || authUser?.id);
     if (
       window.confirm(
         "Tem certeza que deseja excluir este treino? Isso pode afetar a visualização de blocos.",

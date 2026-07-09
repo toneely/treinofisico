@@ -20,7 +20,7 @@ import { useLocation } from "react-router-dom";
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading)
+  if (loading && !user)
     return (
       <div
         className="min-h-screen flex items-center justify-center text-white"
@@ -40,7 +40,7 @@ const ProtectedRoute = ({ children }) => {
 const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading && !user) return null;
   if (user) return <Navigate to="/app" />;
 
   return children;
@@ -50,7 +50,7 @@ const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const admins = ["tone.mendes@gmail.com"];
 
-  if (loading)
+  if (loading && !user)
     return (
       <div
         className="min-h-screen flex items-center justify-center text-white"

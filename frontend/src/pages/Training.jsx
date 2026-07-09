@@ -1192,6 +1192,7 @@ const Training = () => {
 
   const audioContextRef = React.useRef(null);
   const scrollContainerRef = useRef(null);
+  const initialScrollDone = useRef(false);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1413,7 +1414,7 @@ const Training = () => {
       clearTimeout(safetyTimeout);
       setLoading(false);
     }
-  }, [user.id, letra, isFreeTraining, showToast]);
+  }, [user?.id, letra, isFreeTraining]);
 
   const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
@@ -1433,7 +1434,7 @@ const Training = () => {
     } else {
       setSaveAsData({ letra: "", nome: "Treino Livre", subtitulo: "" });
     }
-  }, [user.id, isFreeTraining, letra]);
+  }, [user?.id, isFreeTraining, letra]);
 
   const finishWorkout = useCallback(async () => {
     setSavingSession(true);
@@ -1527,7 +1528,7 @@ const Training = () => {
     } finally {
       setSavingSession(false);
     }
-  }, [user.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
+  }, [user?.id, letra, isPremium, showToast, state.originalBlocos, state.cargas, state.exerciseTimes, state.restTimes, state.exerciseLoads, state.exerciseReps, state.sessaoTreinoId, navigate]);
 
   // 1. Hook de Busca de Dados - Depende apenas da função memoizada
   useEffect(() => {
@@ -1565,6 +1566,22 @@ const Training = () => {
       );
     }
   }, [state, loading, letra]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && state.blocos.length > 0) {
+        localStorage.setItem(
+          "active_training_session",
+          JSON.stringify({ ...state, letra }),
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [state, letra]);
 
   useEffect(() => {
     let metronomeInterval = null;
@@ -1613,12 +1630,13 @@ const Training = () => {
   }, [state.isTimerActive, state.activeRestTimers]);
 
   useEffect(() => {
-    if (loading || state.blocos.length === 0) return;
+    if (loading || state.blocos.length === 0 || initialScrollDone.current) return;
 
     const timer = setTimeout(() => {
       const activeCard = document.getElementById("active-exercise");
       if (activeCard) {
-        activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
+        initialScrollDone.current = true;
       }
     }, 100);
 

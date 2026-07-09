@@ -96,7 +96,7 @@ const Profile = () => {
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [profile]);
+  }, [profile?.id]);
 
   // Initialize Mercado Pago V2 with Public Key from Netlify/Vite Env
   useEffect(() => {

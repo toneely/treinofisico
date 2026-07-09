@@ -46,7 +46,7 @@ const WorkoutTemplates = () => {
   }, []);
 
   const fetchWorkouts = useCallback(async () => {
-    if (!authUser) return;
+    if (!authUser?.id) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("treinos")
@@ -61,7 +61,7 @@ const WorkoutTemplates = () => {
       setWorkouts(data || []);
     }
     setLoading(false);
-  }, [authUser, showToast]);
+  }, [authUser?.id, showToast]);
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);

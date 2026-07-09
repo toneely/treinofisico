@@ -81,10 +81,10 @@ const BodyEvolution = () => {
     );
     setHistory(measures || []);
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   const fetchPhotos = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     const { data } = await supabase
       .from("fotos_progresso")
       .select("*")
@@ -94,7 +94,7 @@ const BodyEvolution = () => {
     if (data) {
       setPhotos(data);
     }
-  }, [user]);
+  }, [user?.id]);
 
   const handleUpdatePhoto = async () => {
     if (!selectedPhoto || !user) return;
@@ -169,14 +169,14 @@ const BodyEvolution = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       const load = async () => {
         await fetchData();
         await fetchPhotos();
       };
       load();
     }
-  }, [user, fetchData, fetchPhotos]);
+  }, [user?.id, fetchData, fetchPhotos]);
 
   useEffect(() => {
     if (swiperRef.current && photos.length > 0) {
