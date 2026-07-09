@@ -1414,7 +1414,7 @@ const Training = () => {
       clearTimeout(safetyTimeout);
       setLoading(false);
     }
-  }, [user?.id, letra, isFreeTraining, showToast]);
+  }, [user?.id, letra, isFreeTraining]);
 
   const fetchWorkoutDetails = useCallback(async () => {
     if (!isFreeTraining) {
@@ -1635,7 +1635,7 @@ const Training = () => {
     const timer = setTimeout(() => {
       const activeCard = document.getElementById("active-exercise");
       if (activeCard) {
-        activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
         initialScrollDone.current = true;
       }
     }, 100);
