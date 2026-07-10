@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
 import LoadingScreen from "../components/LoadingScreen";
+import PageTransition from "../components/PageTransition";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -202,17 +203,16 @@ const Inicio = () => {
     }
   };
 
-  if (loading) return <LoadingScreen message="Carregando painel..." />;
-
   // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
   const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
   const atividadeAlt = profile?.atividade_alternativa;
 
   return (
-    <div
-      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-    >
-      <header className="mb-8">
+    <PageTransition>
+      <div
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+      >
+        <header className="mb-8">
         <div className="flex items-center gap-2.5 mb-6">
           <img src="/logo-app.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h2 className="text-xl font-black tracking-tight" style={{ color: "var(--text-on-gestao)" }}>
@@ -312,42 +312,55 @@ const Inicio = () => {
               </button>
             </div>
 
-            <WorkoutCard
-              title="Treino Livre"
-              subtitle="Iniciar treino em branco"
-              icon={<Play size={24} />}
-              onClick={() => startTraining("LIVRE")}
-              variant="indigo"
-            />
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="w-full h-[88px] bg-slate-200 rounded-2xl animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <WorkoutCard
+                  title="Treino Livre"
+                  subtitle="Iniciar treino em branco"
+                  icon={<Play size={24} />}
+                  onClick={() => startTraining("LIVRE")}
+                  variant="indigo"
+                />
 
-            {workouts.map((workout) => (
-              <WorkoutCard
-                key={workout.id}
-                title={workout.nome}
-                subtitle={workout.subtitulo}
-                icon={
-                  workout.letra === "A" ? (
-                    <Dumbbell />
-                  ) : workout.letra === "B" ? (
-                    <List />
-                  ) : workout.letra === "C" ? (
-                    <RotateCcw />
-                  ) : (
-                    <Bike />
-                  )
-                }
-                onClick={() => startTraining(workout.letra)}
-              />
-            ))}
+                {workouts.map((workout) => (
+                  <WorkoutCard
+                    key={workout.id}
+                    title={workout.nome}
+                    subtitle={workout.subtitulo}
+                    icon={
+                      workout.letra === "A" ? (
+                        <Dumbbell />
+                      ) : workout.letra === "B" ? (
+                        <List />
+                      ) : workout.letra === "C" ? (
+                        <RotateCcw />
+                      ) : (
+                        <Bike />
+                      )
+                    }
+                    onClick={() => startTraining(workout.letra)}
+                  />
+                ))}
 
-            {atividadeAlt && (
-              <WorkoutCard
-                title={atividadeAlt}
-                subtitle="Registrar atividade de hoje"
-                icon={<Shield size={24} />}
-                onClick={() => setShowActivityModal(true)}
-                variant="indigo"
-              />
+                {atividadeAlt && (
+                  <WorkoutCard
+                    title={atividadeAlt}
+                    subtitle="Registrar atividade de hoje"
+                    icon={<Shield size={24} />}
+                    onClick={() => setShowActivityModal(true)}
+                    variant="indigo"
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
@@ -431,7 +444,8 @@ const Inicio = () => {
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

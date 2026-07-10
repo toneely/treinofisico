@@ -16,6 +16,7 @@ import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -96,7 +97,8 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <Routes>
+      <AnimatePresence mode="popLayout">
+      <Routes location={location} key={location.pathname}>
         <Route
           path="/"
           element={
@@ -172,6 +174,7 @@ const AppContent = () => {
           }
         />
       </Routes>
+      </AnimatePresence>
     </div>
   );
 };

@@ -29,6 +29,7 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
+import PageTransition from "../components/PageTransition";
 
 const Profile = () => {
   const { user, profile, refreshProfile, signOut, isPremium } = useAuth();
@@ -324,10 +325,11 @@ const Profile = () => {
   };
 
   return (
-    <div
-      className={`p-6 max-w-2xl mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-    >
-      <header className="mb-8 flex justify-between items-center px-2">
+    <PageTransition>
+      <div
+        className={`p-6 max-w-2xl mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+      >
+        <header className="mb-8 flex justify-between items-center px-2">
         <Link
           to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
@@ -896,7 +898,8 @@ const Profile = () => {
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

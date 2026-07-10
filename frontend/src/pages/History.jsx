@@ -24,6 +24,7 @@ import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import LoadingScreen from "../components/LoadingScreen";
+import PageTransition from "../components/PageTransition";
 
 const History = () => {
   const navigate = useNavigate();
@@ -547,10 +548,11 @@ const History = () => {
   };
 
   return (
-    <div
-      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-    >
-      <header className="mb-6 flex justify-between items-center">
+    <PageTransition>
+      <div
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+      >
+        <header className="mb-6 flex justify-between items-center">
         <Link
           to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:opacity-70 transition"
@@ -1341,7 +1343,8 @@ const History = () => {
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 
