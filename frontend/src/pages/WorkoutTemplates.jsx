@@ -391,8 +391,15 @@ const WorkoutTemplates = () => {
   if (loading) {
     return (
       <PageTransition>
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <Loader2 className="animate-spin text-slate-400 w-12 h-12" />
+        <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center">
+          <div className="w-full p-4 flex flex-col gap-4 max-w-2xl">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-24 bg-slate-200 animate-pulse rounded-2xl"
+              />
+            ))}
+          </div>
         </div>
       </PageTransition>
     );

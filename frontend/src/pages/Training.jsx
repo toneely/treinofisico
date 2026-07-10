@@ -1876,8 +1876,20 @@ const Training = () => {
   if (loading) {
     return (
       <PageTransition>
-        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-treino)] relative">
-          <Loader2 className="animate-spin text-white w-12 h-12 opacity-50" />
+        <div className="min-h-screen bg-[var(--bg-treino)] relative flex flex-col">
+          {/* Barra superior */}
+          <div className="animate-pulse bg-white/10 w-full h-16 rounded-b-3xl shrink-0" />
+
+          {/* Lista de blocos/exercícios simulados */}
+          <div className="flex flex-col p-4 gap-4 flex-1 overflow-hidden">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-32 w-full bg-white/10 animate-pulse rounded-3xl shrink-0"
+              />
+            ))}
+          </div>
+
           {showDiagnostic && (
             <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
               <div className="flex gap-3">
