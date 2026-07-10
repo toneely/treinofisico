@@ -34,8 +34,6 @@ const PageTransition = ({ children }) => {
     }
   };
 
-  const isTrainingRoute = location.pathname.startsWith("/treino");
-
   return (
     <motion.div
       initial="initial"
@@ -43,10 +41,7 @@ const PageTransition = ({ children }) => {
       exit="exit"
       variants={variants}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-      className="absolute top-0 left-0 w-full min-h-screen z-10 overflow-x-hidden"
-      style={{
-        backgroundColor: isTrainingRoute ? "var(--bg-treino)" : "var(--bg-gestao)",
-      }}
+      className="w-full h-full"
     >
       {children}
     </motion.div>

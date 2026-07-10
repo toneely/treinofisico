@@ -18,7 +18,7 @@ test('Verify PageTransition Wrapper existence and basic styling in pages', async
   expect(fileContent).toContain('initial="initial"');
   expect(fileContent).toContain('animate="animate"');
   expect(fileContent).toContain('exit="exit"');
-  expect(fileContent).toContain('className="absolute top-0 left-0 w-full min-h-screen z-10 overflow-x-hidden"');
+  expect(fileContent).toContain('className="w-full h-full"');
 });
 
 test('Verify Inicio has Skeleton screens and wraps content in PageTransition', async () => {
