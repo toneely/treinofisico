@@ -97,7 +97,7 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route
           path="/"
