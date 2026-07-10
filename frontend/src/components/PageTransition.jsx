@@ -4,23 +4,23 @@ import { motion } from "framer-motion";
 
 const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
-  if (pathname.startsWith("/historico")) return 2;
-  if (pathname.startsWith("/perfil")) return 3;
-  return 4; // internal pages / admin / training / etc.
+  if (pathname.includes("/historico")) return 2;
+  if (pathname.includes("/perfil")) return 3;
+  return 4; // other pages
 };
+
+// Persistent prevLevel object across mounts/unmounts of child components
+const prevLevel = { current: 1 };
 
 const PageTransition = ({ children }) => {
   const location = useLocation();
   const currentLevel = getRouteLevel(location.pathname);
 
-  // Track the previous route level across renders
-  const prevLevelRef = useRef(currentLevel);
+  const isBack = currentLevel < prevLevel.current;
 
   useEffect(() => {
-    prevLevelRef.current = currentLevel;
+    prevLevel.current = currentLevel;
   }, [currentLevel]);
-
-  const isBack = currentLevel < prevLevelRef.current;
 
   const variants = {
     initial: {

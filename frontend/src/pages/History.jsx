@@ -571,7 +571,20 @@ const History = () => {
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
+        {loading ? (
+          <div className="space-y-6">
+            {/* Grande para o calendário */}
+            <div className="w-full h-80 bg-slate-200 animate-pulse rounded-[32px]" />
+            {/* Linhas menores para a lista */}
+            <div className="space-y-4">
+              <div className="w-1/3 h-4 bg-slate-200 animate-pulse rounded-xl" />
+              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
+              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-bold  flex items-center gap-2">
             <CalendarIcon size={18} style={{ color: "var(--color-primary)" }} />
@@ -1097,6 +1110,8 @@ const History = () => {
           </div>
         </div>
       )}
+          </>
+        )}
 
       {/* Export Filter Modal */}
       {showExportModal && (

@@ -32,7 +32,7 @@ import { useAppearance } from "../context/AppearanceContext";
 import PageTransition from "../components/PageTransition";
 
 const Profile = () => {
-  const { user, profile, refreshProfile, signOut, isPremium } = useAuth();
+  const { user, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -346,6 +346,25 @@ const Profile = () => {
         </button>
       </header>
 
+        {loading ? (
+          <div className="space-y-6">
+            {/* Identification Card Skeleton */}
+            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 flex flex-col items-center">
+              <div className="w-24 h-24 rounded-full bg-slate-200 animate-pulse" />
+              <div className="w-32 h-4 bg-slate-200 animate-pulse rounded-full mt-4" />
+              <div className="w-48 h-3 bg-slate-200 animate-pulse rounded-full mt-2" />
+            </div>
+
+            {/* Account Data Card Skeleton */}
+            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 space-y-4">
+              <div className="w-1/3 h-3 bg-slate-200 animate-pulse rounded-full" />
+              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
+              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
+              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
+            </div>
+          </div>
+        ) : (
+          <>
       {/* 1. Identification Card */}
       <section className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 mb-6 flex flex-col items-center">
         <div className="relative mb-4">
@@ -872,6 +891,9 @@ const Profile = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
+
+          </>
+        )}
 
       {/* Footer Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">

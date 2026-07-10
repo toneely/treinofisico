@@ -316,7 +316,7 @@ const Inicio = () => {
                 {[1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="w-full h-[88px] bg-slate-200 rounded-2xl animate-pulse"
+                    className="w-full h-24 bg-slate-200 animate-pulse rounded-2xl mb-4"
                   />
                 ))}
               </div>
