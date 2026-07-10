@@ -118,7 +118,7 @@ const AppContent = () => {
 
   return (
     <div
-      className="font-sans antialiased transition-colors duration-500 min-h-screen"
+      className="font-sans antialiased transition-colors duration-500 pb-20 overflow-x-hidden w-full min-h-screen relative"
       style={{
         backgroundColor: isTrainingRoute
           ? "var(--bg-treino)"
