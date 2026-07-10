@@ -1875,34 +1875,36 @@ const Training = () => {
 
   if (loading) {
     return (
-      <div className="relative">
-        <LoadingScreen message="Iniciando treino..." />
-        {showDiagnostic && (
-          <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
-            <div className="flex gap-3">
-              <button
-                onClick={handleInspectCache}
-                className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
-              >
-                Inspecionar Cache Local
-              </button>
-              <button
-                onClick={handleForceClear}
-                className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
-              >
-                Forçar Limpeza e Desconectar
-              </button>
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-treino)] relative">
+          <Loader2 className="animate-spin text-white w-12 h-12 opacity-50" />
+          {showDiagnostic && (
+            <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleInspectCache}
+                  className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+                >
+                  Inspecionar Cache Local
+                </button>
+                <button
+                  onClick={handleForceClear}
+                  className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+                >
+                  Forçar Limpeza e Desconectar
+                </button>
+              </div>
+              {inspectedData && (
+                <textarea
+                  readOnly
+                  value={inspectedData}
+                  className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
+                />
+              )}
             </div>
-            {inspectedData && (
-              <textarea
-                readOnly
-                value={inspectedData}
-                className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
-              />
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </PageTransition>
     );
   }
   if (!isFreeTraining && !state.blocos.length)

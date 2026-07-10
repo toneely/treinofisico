@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -6,36 +6,43 @@ const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
   if (pathname.includes("/historico")) return 2;
   if (pathname.includes("/perfil")) return 3;
-  return 4; // other pages (WorkoutTemplates / Training / etc.)
+  return 4; // other pages
 };
 
-// Persistent prevLevel object across mounts/unmounts of child components
-const prevLevel = { current: 1 };
+// Initialize global window variables if not already set
+if (typeof window !== "undefined") {
+  if (typeof window.prevLevel === "undefined") {
+    window.prevLevel = 1;
+  }
+  if (typeof window.navDirection === "undefined") {
+    window.navDirection = 1;
+  }
+}
 
 const PageTransition = ({ children }) => {
   const location = useLocation();
   const currentLevel = getRouteLevel(location.pathname);
 
-  const isBack = currentLevel < prevLevel.current;
-
-  useEffect(() => {
-    prevLevel.current = currentLevel;
-  }, [currentLevel]);
+  if (typeof window !== "undefined" && window.prevLevel !== currentLevel) {
+    window.navDirection = (currentLevel < window.prevLevel) ? -1 : 1;
+    window.prevLevel = currentLevel;
+  }
 
   const variants = {
-    initial: {
-      x: isBack ? "-100%" : "100%"
-    },
+    initial: (direction) => ({
+      x: direction === -1 ? "-100%" : "100%"
+    }),
     animate: {
       x: 0
     },
-    exit: {
-      x: isBack ? "100%" : "-100%"
-    }
+    exit: () => ({
+      x: window.navDirection === -1 ? "100%" : "-100%"
+    })
   };
 
   return (
     <motion.div
+      custom={window.navDirection}
       initial="initial"
       animate="animate"
       exit="exit"

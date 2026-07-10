@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
   ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
-  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X
+  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X, Loader2
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
@@ -387,6 +387,16 @@ const WorkoutTemplates = () => {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 className="animate-spin text-slate-400 w-12 h-12" />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
