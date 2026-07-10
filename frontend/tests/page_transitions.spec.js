@@ -14,9 +14,10 @@ test('Verify PageTransition Wrapper existence and basic styling in pages', async
   expect(fs.existsSync(pageTransitionPath)).toBe(true);
 
   const fileContent = fs.readFileSync(pageTransitionPath, 'utf8');
-  expect(fileContent).toContain('initial={{ x: "100%" }}');
-  expect(fileContent).toContain('animate={{ x: 0 }}');
-  expect(fileContent).toContain('exit={{ x: "-100%" }}');
+  expect(fileContent).toContain('variants={variants}');
+  expect(fileContent).toContain('initial="initial"');
+  expect(fileContent).toContain('animate="animate"');
+  expect(fileContent).toContain('exit="exit"');
   expect(fileContent).toContain('className="w-full h-full"');
 });
 

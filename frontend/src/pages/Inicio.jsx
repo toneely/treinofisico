@@ -18,7 +18,6 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
-import LoadingScreen from "../components/LoadingScreen";
 import PageTransition from "../components/PageTransition";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {

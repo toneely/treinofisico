@@ -23,7 +23,6 @@ import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
-import LoadingScreen from "../components/LoadingScreen";
 import PageTransition from "../components/PageTransition";
 
 const History = () => {
@@ -1299,8 +1298,6 @@ const History = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
-
-      {loading && <LoadingScreen message="Carregando histórico..." />}
 
       <AdInterstitial
         show={showInterstitial}
