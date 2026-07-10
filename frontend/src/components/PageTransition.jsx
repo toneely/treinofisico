@@ -6,7 +6,7 @@ const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
   if (pathname.includes("/historico")) return 2;
   if (pathname.includes("/perfil")) return 3;
-  return 4; // other pages
+  return 4; // other pages (WorkoutTemplates / Training / etc.)
 };
 
 // Persistent prevLevel object across mounts/unmounts of child components
@@ -34,6 +34,8 @@ const PageTransition = ({ children }) => {
     }
   };
 
+  const isTrainingRoute = location.pathname.startsWith("/treino");
+
   return (
     <motion.div
       initial="initial"
@@ -41,7 +43,10 @@ const PageTransition = ({ children }) => {
       exit="exit"
       variants={variants}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-      className="w-full h-full"
+      className="absolute top-0 left-0 w-full min-h-screen z-10 overflow-x-hidden"
+      style={{
+        backgroundColor: isTrainingRoute ? "var(--bg-treino)" : "var(--bg-gestao)",
+      }}
     >
       {children}
     </motion.div>

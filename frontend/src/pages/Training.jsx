@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import PageTransition from "../components/PageTransition";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import {
@@ -1942,14 +1943,15 @@ const Training = () => {
   };
 
   return (
-    <div
-      className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
-      style={{
-        color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
-        backgroundColor: "var(--bg-treino)",
-      }}
-    >
-      <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
+    <PageTransition>
+      <div
+        className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
+        style={{
+          color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
+          backgroundColor: "var(--bg-treino)",
+        }}
+      >
+        <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
         <div className="flex gap-2">
           <button
             onClick={handleGoBack}
@@ -3157,7 +3159,8 @@ const Training = () => {
         onClose={() => navigate("/app")}
         isPremium={isPremium}
       />
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 
