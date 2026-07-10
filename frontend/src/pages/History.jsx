@@ -23,7 +23,8 @@ import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
-import LoadingScreen from "../components/LoadingScreen";
+import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const History = () => {
   const navigate = useNavigate();
@@ -31,11 +32,17 @@ const History = () => {
   const { user: authUser, isPremium } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [history, setHistory] = useState([]);
-  const [extraActivities, setExtraActivities] = useState([]);
+  const [history, setHistory] = useState(() => {
+    return appCache.history?.history || [];
+  });
+  const [extraActivities, setExtraActivities] = useState(() => {
+    return appCache.history?.extraActivities || [];
+  });
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    return !appCache.history;
+  });
   const [userData, setUserData] = useState(null);
 
   // Export Filter States
@@ -101,7 +108,9 @@ const History = () => {
   }, []);
 
   const fetchHistory = useCallback(async () => {
-    setLoading(true);
+    if (!appCache.history) {
+      setLoading(true);
+    }
     const startOfMonth = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
@@ -139,6 +148,7 @@ const History = () => {
 
     setHistory(loads || []);
     setExtraActivities(extras || []);
+    appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
     setLoading(false);
   }, [authUser?.id, currentDate, showToast]);
 
@@ -547,10 +557,11 @@ const History = () => {
   };
 
   return (
-    <div
-      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-    >
-      <header className="mb-6 flex justify-between items-center">
+    <PageTransition>
+      <div
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+      >
+        <header className="mb-6 flex justify-between items-center">
         <Link
           to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:opacity-70 transition"
@@ -570,7 +581,20 @@ const History = () => {
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
+        {loading ? (
+          <div className="space-y-6">
+            {/* Grande para o calendário */}
+            <div className="w-full h-80 bg-slate-200 animate-pulse rounded-[32px]" />
+            {/* Linhas menores para a lista */}
+            <div className="space-y-4">
+              <div className="w-1/3 h-4 bg-slate-200 animate-pulse rounded-xl" />
+              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
+              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-bold  flex items-center gap-2">
             <CalendarIcon size={18} style={{ color: "var(--color-primary)" }} />
@@ -1096,6 +1120,8 @@ const History = () => {
           </div>
         </div>
       )}
+          </>
+        )}
 
       {/* Export Filter Modal */}
       {showExportModal && (
@@ -1298,8 +1324,6 @@ const History = () => {
 
       <AdBanner isPremium={isPremium} />
 
-      {loading && <LoadingScreen message="Carregando histórico..." />}
-
       <AdInterstitial
         show={showInterstitial}
         onClose={() => navigate("/app")}
@@ -1341,7 +1365,8 @@ const History = () => {
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

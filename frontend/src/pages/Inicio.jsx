@@ -18,7 +18,8 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
-import LoadingScreen from "../components/LoadingScreen";
+import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -76,8 +77,12 @@ const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, profile, isPremium } = useAuth();
-  const [workouts, setWorkouts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [workouts, setWorkouts] = useState(() => {
+    return appCache.inicio?.workouts || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    return !appCache.inicio;
+  });
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [savedTraining, setSavedTraining] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -104,7 +109,9 @@ const Inicio = () => {
   const fetchWorkouts = async () => {
     if (!authUser?.id) return;
 
-    setLoading(true);
+    if (!appCache.inicio) {
+      setLoading(true);
+    }
     const { data: workoutsData } = await supabase
       .from("treinos")
       .select("*")
@@ -116,6 +123,7 @@ const Inicio = () => {
 
     if (workoutsData && workoutsData.length > 0) {
       setWorkouts(workoutsData);
+      appCache.inicio = { ...appCache.inicio, workouts: workoutsData };
       setLoading(false);
     } else if (workoutsData && workoutsData.length === 0) {
       // New user? Clone global templates
@@ -172,6 +180,7 @@ const Inicio = () => {
         .order("letra", { ascending: true });
 
       setWorkouts(finalWorkouts || []);
+      appCache.inicio = { ...appCache.inicio, workouts: finalWorkouts || [] };
     } catch (err) {
       console.error("Erro ao clonar treinos padrão:", err);
       showToast("Não foi possível carregar os treinos padrão.", "error");
@@ -202,17 +211,16 @@ const Inicio = () => {
     }
   };
 
-  if (loading) return <LoadingScreen message="Carregando painel..." />;
-
   // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
   const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
   const atividadeAlt = profile?.atividade_alternativa;
 
   return (
-    <div
-      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-    >
-      <header className="mb-8">
+    <PageTransition>
+      <div
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+      >
+        <header className="mb-8">
         <div className="flex items-center gap-2.5 mb-6">
           <img src="/logo-app.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h2 className="text-xl font-black tracking-tight" style={{ color: "var(--text-on-gestao)" }}>
@@ -312,42 +320,55 @@ const Inicio = () => {
               </button>
             </div>
 
-            <WorkoutCard
-              title="Treino Livre"
-              subtitle="Iniciar treino em branco"
-              icon={<Play size={24} />}
-              onClick={() => startTraining("LIVRE")}
-              variant="indigo"
-            />
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="w-full h-24 bg-slate-200 animate-pulse rounded-2xl mb-4"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <WorkoutCard
+                  title="Treino Livre"
+                  subtitle="Iniciar treino em branco"
+                  icon={<Play size={24} />}
+                  onClick={() => startTraining("LIVRE")}
+                  variant="indigo"
+                />
 
-            {workouts.map((workout) => (
-              <WorkoutCard
-                key={workout.id}
-                title={workout.nome}
-                subtitle={workout.subtitulo}
-                icon={
-                  workout.letra === "A" ? (
-                    <Dumbbell />
-                  ) : workout.letra === "B" ? (
-                    <List />
-                  ) : workout.letra === "C" ? (
-                    <RotateCcw />
-                  ) : (
-                    <Bike />
-                  )
-                }
-                onClick={() => startTraining(workout.letra)}
-              />
-            ))}
+                {workouts.map((workout) => (
+                  <WorkoutCard
+                    key={workout.id}
+                    title={workout.nome}
+                    subtitle={workout.subtitulo}
+                    icon={
+                      workout.letra === "A" ? (
+                        <Dumbbell />
+                      ) : workout.letra === "B" ? (
+                        <List />
+                      ) : workout.letra === "C" ? (
+                        <RotateCcw />
+                      ) : (
+                        <Bike />
+                      )
+                    }
+                    onClick={() => startTraining(workout.letra)}
+                  />
+                ))}
 
-            {atividadeAlt && (
-              <WorkoutCard
-                title={atividadeAlt}
-                subtitle="Registrar atividade de hoje"
-                icon={<Shield size={24} />}
-                onClick={() => setShowActivityModal(true)}
-                variant="indigo"
-              />
+                {atividadeAlt && (
+                  <WorkoutCard
+                    title={atividadeAlt}
+                    subtitle="Registrar atividade de hoje"
+                    icon={<Shield size={24} />}
+                    onClick={() => setShowActivityModal(true)}
+                    variant="indigo"
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
@@ -431,7 +452,8 @@ const Inicio = () => {
           <span className="text-[10px] font-bold uppercase">Perfil</span>
         </Link>
       </nav>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

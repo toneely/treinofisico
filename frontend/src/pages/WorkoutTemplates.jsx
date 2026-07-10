@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
   ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
-  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X
+  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X, Loader2
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import AdBanner from "../components/ui/AdBanner";
-import LoadingScreen from "../components/LoadingScreen";
+import PageTransition from "../components/PageTransition";
 
 const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
@@ -388,11 +388,22 @@ const WorkoutTemplates = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 className="animate-spin text-slate-400 w-12 h-12" />
+        </div>
+      </PageTransition>
+    );
+  }
+
   return (
-    <div
-      className="min-h-screen bg-zinc-950 text-white flex flex-col"
-    >
-      {/* Header */}
+    <PageTransition>
+      <div
+        className="min-h-screen bg-zinc-950 text-white flex flex-col"
+      >
+        {/* Header */}
       <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full pb-2">
         <div className="flex items-center gap-4">
           <button
@@ -781,8 +792,9 @@ const WorkoutTemplates = () => {
         </div>
       )}
 
-      {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
-    </div>
+        {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
+      </div>
+    </PageTransition>
   );
 };
 
