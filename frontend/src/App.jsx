@@ -16,17 +16,18 @@ import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, useIsPresent } from "framer-motion";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const isPresent = useIsPresent();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && isPresent) {
       navigate("/login", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isPresent]);
 
   if (loading && !user)
     return (
@@ -49,12 +50,13 @@ const ProtectedRoute = ({ children }) => {
 const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const isPresent = useIsPresent();
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && isPresent) {
       navigate("/app", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isPresent]);
 
   if (loading && !user) return null;
 
@@ -65,9 +67,10 @@ const AdminRoute = ({ children }) => {
   const { user, loading, profile } = useAuth();
   const admins = ["tone.mendes@gmail.com"];
   const navigate = useNavigate();
+  const isPresent = useIsPresent();
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && isPresent) {
       if (!user) {
         navigate("/login", { replace: true });
       } else {
@@ -77,7 +80,7 @@ const AdminRoute = ({ children }) => {
         }
       }
     }
-  }, [user, loading, profile, navigate]);
+  }, [user, loading, profile, navigate, isPresent]);
 
   if (loading && !user)
     return (
