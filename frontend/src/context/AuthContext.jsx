@@ -175,7 +175,7 @@ export function AuthProvider({ children }) {
 
   function refreshProfile() {
     if (user) {
-      fetchUserProfile(user);
+      fetchUserProfile(user, true);
     }
   }
 

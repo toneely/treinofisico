@@ -30,6 +30,7 @@ import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
 import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const Profile = () => {
   const { user, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
@@ -73,12 +74,17 @@ const Profile = () => {
     confirmPassword: "",
   });
 
-  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
+  const [appSettings, setAppSettings] = useState(() => {
+    return appCache.profile?.appSettings || { subscription_price: 29.90 };
+  });
 
   useEffect(() => {
     async function fetchSettings() {
       const { data, error } = await supabase.from('config_app').select('*').single();
-      if (data) setAppSettings(data);
+      if (data) {
+        setAppSettings(data);
+        appCache.profile = { ...appCache.profile, appSettings: data };
+      }
     }
     fetchSettings();
   }, []);

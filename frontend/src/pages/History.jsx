@@ -24,6 +24,7 @@ import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const History = () => {
   const navigate = useNavigate();
@@ -31,11 +32,17 @@ const History = () => {
   const { user: authUser, isPremium } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [history, setHistory] = useState([]);
-  const [extraActivities, setExtraActivities] = useState([]);
+  const [history, setHistory] = useState(() => {
+    return appCache.history?.history || [];
+  });
+  const [extraActivities, setExtraActivities] = useState(() => {
+    return appCache.history?.extraActivities || [];
+  });
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    return !appCache.history;
+  });
   const [userData, setUserData] = useState(null);
 
   // Export Filter States
@@ -101,7 +108,9 @@ const History = () => {
   }, []);
 
   const fetchHistory = useCallback(async () => {
-    setLoading(true);
+    if (!appCache.history) {
+      setLoading(true);
+    }
     const startOfMonth = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
@@ -139,6 +148,7 @@ const History = () => {
 
     setHistory(loads || []);
     setExtraActivities(extras || []);
+    appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
     setLoading(false);
   }, [authUser?.id, currentDate, showToast]);
 

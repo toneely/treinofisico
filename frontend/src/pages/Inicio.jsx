@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
 import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -76,8 +77,12 @@ const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, profile, isPremium } = useAuth();
-  const [workouts, setWorkouts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [workouts, setWorkouts] = useState(() => {
+    return appCache.inicio?.workouts || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    return !appCache.inicio;
+  });
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [savedTraining, setSavedTraining] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -104,7 +109,9 @@ const Inicio = () => {
   const fetchWorkouts = async () => {
     if (!authUser?.id) return;
 
-    setLoading(true);
+    if (!appCache.inicio) {
+      setLoading(true);
+    }
     const { data: workoutsData } = await supabase
       .from("treinos")
       .select("*")
@@ -116,6 +123,7 @@ const Inicio = () => {
 
     if (workoutsData && workoutsData.length > 0) {
       setWorkouts(workoutsData);
+      appCache.inicio = { ...appCache.inicio, workouts: workoutsData };
       setLoading(false);
     } else if (workoutsData && workoutsData.length === 0) {
       // New user? Clone global templates
@@ -172,6 +180,7 @@ const Inicio = () => {
         .order("letra", { ascending: true });
 
       setWorkouts(finalWorkouts || []);
+      appCache.inicio = { ...appCache.inicio, workouts: finalWorkouts || [] };
     } catch (err) {
       console.error("Erro ao clonar treinos padrão:", err);
       showToast("Não foi possível carregar os treinos padrão.", "error");
