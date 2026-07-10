@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
 import LandingPage from './pages/LandingPage';
@@ -20,6 +20,13 @@ import { AnimatePresence } from "framer-motion";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   if (loading && !user)
     return (
@@ -33,23 +40,44 @@ const ProtectedRoute = ({ children }) => {
         Carregando...
       </div>
     );
-  if (!user) return <Navigate to="/login" />;
+
+  if (!user) return null;
 
   return children;
 };
 
 const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/app", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   if (loading && !user) return null;
-  if (user) return <Navigate to="/app" />;
 
   return children;
 };
 
 const AdminRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const admins = ["tone.mendes@gmail.com"];
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        navigate("/login", { replace: true });
+      } else {
+        const isAdmin = admins.includes(user.email) || (profile && profile.role === "admin");
+        if (!isAdmin) {
+          navigate("/app", { replace: true });
+        }
+      }
+    }
+  }, [user, loading, profile, navigate]);
 
   if (loading && !user)
     return (
@@ -63,7 +91,9 @@ const AdminRoute = ({ children }) => {
         Carregando...
       </div>
     );
-  if (!user || !admins.includes(user.email)) return <Navigate to="/app" />;
+
+  const isAdmin = user && (admins.includes(user.email) || (profile && profile.role === "admin"));
+  if (!user || !isAdmin) return null;
 
   return children;
 };
