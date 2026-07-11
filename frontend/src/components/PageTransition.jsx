@@ -19,7 +19,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-const PageTransition = ({ children }) => {
+const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
   const currentLevel = getRouteLevel(location.pathname);
 
@@ -47,8 +47,8 @@ const PageTransition = ({ children }) => {
       animate="animate"
       exit="exit"
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-      className="w-full h-full"
+      transition={{ type: "tween", ease: "easeInOut", duration: currentLevel === 4 ? 0.8 : 0.3 }}
+      className={`w-full min-h-screen relative ${bgClass}`}
     >
       {children}
     </motion.div>
