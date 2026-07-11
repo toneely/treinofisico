@@ -14,7 +14,6 @@ import Profile from './pages/Profile';
 import WorkoutTemplates from './pages/WorkoutTemplates';
 import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
-import BottomNav from './components/BottomNav';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, useIsPresent } from "framer-motion";
@@ -209,7 +208,6 @@ const AppContent = () => {
         />
       </Routes>
       </AnimatePresence>
-      <BottomNav />
     </div>
   );
 };
