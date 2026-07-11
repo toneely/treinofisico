@@ -47,7 +47,7 @@ const PageTransition = ({ children }) => {
       animate="animate"
       exit="exit"
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
+      transition={{ type: "tween", ease: "easeInOut", duration: 1 }}
       className="w-full h-full"
     >
       {children}
