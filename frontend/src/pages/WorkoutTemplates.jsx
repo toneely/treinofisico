@@ -9,17 +9,29 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import AdBanner from "../components/ui/AdBanner";
 import PageTransition from "../components/PageTransition";
+import { appCache } from "../utils/cache";
 
 const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("my_workouts"); // "my_workouts" | "explore"
-  const [workouts, setWorkouts] = useState([]);
-  const [availablePrograms, setAvailablePrograms] = useState([]);
-  const [modalidades, setModalidades] = useState([]);
-  const [selectedExploreModality, setSelectedExploreModality] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [workouts, setWorkouts] = useState(() => {
+    return appCache.workoutTemplates?.workouts || [];
+  });
+  const [availablePrograms, setAvailablePrograms] = useState(() => {
+    return appCache.workoutTemplates?.availablePrograms || [];
+  });
+  const [modalidades, setModalidades] = useState(() => {
+    return appCache.workoutTemplates?.modalidades || [];
+  });
+  const [selectedExploreModality, setSelectedExploreModality] = useState(() => {
+    const cached = appCache.workoutTemplates?.modalidades;
+    return cached && cached.length > 0 ? cached[0] : null;
+  });
+  const [loading, setLoading] = useState(() => {
+    return appCache.workoutTemplates ? false : true;
+  });
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
@@ -47,7 +59,9 @@ const WorkoutTemplates = () => {
 
   const fetchWorkouts = useCallback(async () => {
     if (!authUser?.id) return;
-    setLoading(true);
+    if (!appCache.workoutTemplates) {
+      setLoading(true);
+    }
     const { data, error } = await supabase
       .from("treinos")
       .select("*, programas_padrao(nome)")
@@ -58,13 +72,20 @@ const WorkoutTemplates = () => {
     if (error) {
       showToast("Erro ao buscar treinos: " + error.message, "error");
     } else {
-      setWorkouts(data || []);
+      const updatedWorkouts = data || [];
+      setWorkouts(updatedWorkouts);
+      appCache.workoutTemplates = {
+        ...appCache.workoutTemplates,
+        workouts: updatedWorkouts
+      };
     }
     setLoading(false);
   }, [authUser?.id, showToast]);
 
   const fetchPrograms = useCallback(async () => {
-    setLoading(true);
+    if (!appCache.workoutTemplates) {
+      setLoading(true);
+    }
     try {
       const { data: mData, error: mError } = await supabase
         .from("modalidades")
@@ -72,9 +93,11 @@ const WorkoutTemplates = () => {
         .order("nome");
 
       if (mError) throw mError;
-      setModalidades(mData || []);
-      if (mData?.length > 0 && !selectedExploreModality) {
-        setSelectedExploreModality(mData[0]);
+
+      const updatedModalidades = mData || [];
+      setModalidades(updatedModalidades);
+      if (updatedModalidades.length > 0 && !selectedExploreModality) {
+        setSelectedExploreModality(updatedModalidades[0]);
       }
 
       const { data, error } = await supabase
@@ -83,7 +106,15 @@ const WorkoutTemplates = () => {
         .order("nome", { ascending: true });
 
       if (error) throw error;
-      setAvailablePrograms(data || []);
+
+      const updatedPrograms = data || [];
+      setAvailablePrograms(updatedPrograms);
+
+      appCache.workoutTemplates = {
+        ...appCache.workoutTemplates,
+        modalidades: updatedModalidades,
+        availablePrograms: updatedPrograms
+      };
     } catch (err) {
       showToast("Erro ao buscar dados: " + err.message, "error");
     } finally {

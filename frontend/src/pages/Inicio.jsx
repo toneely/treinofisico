@@ -95,6 +95,51 @@ const Inicio = () => {
     }
   }, [authUser?.id]);
 
+  useEffect(() => {
+    if (!authUser?.id) return;
+    if (appCache.workoutTemplates) return;
+
+    const prefetchWorkoutTemplates = async () => {
+      try {
+        const [workoutsRes, modalidadesRes, programsRes] = await Promise.all([
+          supabase
+            .from("treinos")
+            .select("*, programas_padrao(nome)")
+            .eq("user_id", authUser.id)
+            .order("ordem_exibicao", { ascending: true })
+            .order("letra", { ascending: true }),
+          supabase
+            .from("modalidades")
+            .select("*")
+            .order("nome"),
+          supabase
+            .from("programas_padrao")
+            .select("*, modalidades(nome)")
+            .order("nome", { ascending: true })
+        ]);
+
+        if (workoutsRes.error || modalidadesRes.error || programsRes.error) {
+          console.warn("Silent prefetch failed silently", {
+            wErr: workoutsRes.error,
+            mErr: modalidadesRes.error,
+            pErr: programsRes.error
+          });
+          return;
+        }
+
+        appCache.workoutTemplates = {
+          workouts: workoutsRes.data || [],
+          modalidades: modalidadesRes.data || [],
+          availablePrograms: programsRes.data || []
+        };
+      } catch (err) {
+        console.warn("Silent prefetch exception:", err);
+      }
+    };
+
+    prefetchWorkoutTemplates();
+  }, [authUser?.id]);
+
   const checkSavedTraining = () => {
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
