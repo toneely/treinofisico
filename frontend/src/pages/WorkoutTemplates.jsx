@@ -390,17 +390,24 @@ const WorkoutTemplates = () => {
 
   return (
     <PageTransition>
-      {loading ? (
-        <div className="min-h-screen w-full bg-slate-50 p-4 flex flex-col gap-4">
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-        </div>
-      ) : (
-        <div
-          className="min-h-screen bg-zinc-950 text-white flex flex-col"
-        >
+      <div className="min-h-screen w-full relative bg-slate-50">
+        {loading && (
+          <div className="absolute inset-0 flex flex-col justify-center items-center bg-zinc-950">
+            <div className="w-full p-4 flex flex-col gap-4 max-w-2xl">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="h-24 bg-slate-200 animate-pulse rounded-2xl"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className={`w-full transition-opacity duration-500 ease-in-out ${loading ? "opacity-0" : "opacity-100"}`}>
+          <div
+            className="min-h-screen bg-zinc-950 text-white flex flex-col"
+          >
         {/* Header */}
       <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full pb-2">
         <div className="flex items-center gap-4">
@@ -791,8 +798,9 @@ const WorkoutTemplates = () => {
       )}
 
         {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
+          </div>
         </div>
-      )}
+      </div>
     </PageTransition>
   );
 };
