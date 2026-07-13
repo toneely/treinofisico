@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 
-const getRouteLevel = (pathname) => {
+export const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
   if (pathname.includes("/historico")) return 2;
   if (pathname.includes("/perfil")) return 3;
@@ -17,6 +17,9 @@ if (typeof window !== "undefined") {
   if (typeof window.navDirection === "undefined") {
     window.navDirection = 1;
   }
+  if (typeof window.navDuration === "undefined") {
+    window.navDuration = 0.3;
+  }
 }
 
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
@@ -25,6 +28,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
 
   if (typeof window !== "undefined" && window.prevLevel !== currentLevel) {
     window.navDirection = (currentLevel < window.prevLevel) ? -1 : 1;
+    window.navDuration = (currentLevel === 4 || window.prevLevel === 4) ? 0.8 : 0.3;
     window.prevLevel = currentLevel;
   }
 
@@ -40,6 +44,8 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
     })
   };
 
+  const navDuration = typeof window !== "undefined" ? (window.navDuration || 0.3) : 0.3;
+
   return (
     <motion.div
       custom={window.navDirection}
@@ -47,7 +53,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
       animate="animate"
       exit="exit"
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut", duration: currentLevel === 4 ? 0.8 : 0.3 }}
+      transition={{ type: "tween", ease: "easeInOut", duration: navDuration }}
       className={`w-full min-h-screen relative ${bgClass}`}
     >
       {children}

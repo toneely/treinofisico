@@ -5,11 +5,6 @@ import { Dumbbell, History as HistoryIcon, User } from 'lucide-react';
 const BottomNav = () => {
   const { pathname } = useLocation();
 
-  // Se o pathname NAO for "/app" E NAO comecar com "/historico" E NAO comecar com "/perfil", retorne null
-  if (pathname !== "/app" && !pathname.startsWith("/historico") && !pathname.startsWith("/perfil")) {
-    return null;
-  }
-
   const isTabActive = (path) => {
     if (path === "/app") {
       return pathname === "/app";

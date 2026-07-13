@@ -25,7 +25,6 @@ import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
-import BottomNav from "../components/BottomNav";
 
 const History = () => {
   const navigate = useNavigate();
@@ -1340,7 +1339,6 @@ const History = () => {
         onConfirm={confirmationModal.onConfirm}
         onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
       />
-      <BottomNav />
       </div>
     </PageTransition>
   );

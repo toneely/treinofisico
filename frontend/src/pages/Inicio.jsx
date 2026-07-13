@@ -20,7 +20,6 @@ import BodyEvolution from "../components/BodyEvolution";
 import AdBanner from "../components/ui/AdBanner";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
-import BottomNav from "../components/BottomNav";
 
 const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   const getStyles = () => {
@@ -473,7 +472,6 @@ const Inicio = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
-      <BottomNav />
       </div>
     </PageTransition>
   );

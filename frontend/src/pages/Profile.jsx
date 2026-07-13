@@ -31,7 +31,6 @@ import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
-import BottomNav from "../components/BottomNav";
 
 const Profile = () => {
   const { user, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
@@ -898,7 +897,6 @@ const Profile = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
-      <BottomNav />
 
           </>
         )}
