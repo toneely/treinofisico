@@ -1,53 +1,60 @@
-import React, { useEffect, useRef } from "react";
-import { motion, useIsPresent } from "framer-motion";
+import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 
 export const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
-  if (pathname.startsWith("/historico")) return 2;
-  if (pathname.startsWith("/perfil")) return 3;
-  return 4;
+  if (pathname.includes("/historico")) return 2;
+  if (pathname.includes("/perfil")) return 3;
+  return 4; // other pages
 };
+
+// Initialize global window variables if not already set
+if (typeof window !== "undefined") {
+  if (typeof window.prevLevel === "undefined") {
+    window.prevLevel = 1;
+  }
+  if (typeof window.navDirection === "undefined") {
+    window.navDirection = 1;
+  }
+  if (typeof window.navDuration === "undefined") {
+    window.navDuration = 0.3;
+  }
+}
 
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
   const currentLevel = getRouteLevel(location.pathname);
-  const isPresent = useIsPresent();
-  const transitionRef = useRef(null);
 
-  if (!transitionRef.current) {
-    const prev = window.lastGlobalLevel || 1;
-    const levelDifference = currentLevel - prev;
-    const direction = levelDifference === 0 ? 1 : (levelDifference / Math.abs(levelDifference));
-    const duration = (currentLevel === 4 || prev === 4) ? 0.8 : 0.3;
-    transitionRef.current = { direction, duration };
-    window.lastGlobalLevel = currentLevel;
+  if (typeof window !== "undefined" && window.prevLevel !== currentLevel) {
+    window.navDirection = (currentLevel < window.prevLevel) ? -1 : 1;
+    window.navDuration = (currentLevel === 4 || window.prevLevel === 4) ? 0.8 : 0.3;
+    window.prevLevel = currentLevel;
   }
 
-  const direction = transitionRef.current.direction;
-  const duration = transitionRef.current.duration;
-
   const variants = {
-    initial: (dir) => ({
-      x: dir === -1 ? "-100%" : "100%",
+    initial: (direction) => ({
+      x: direction === -1 ? "-100%" : "100%"
     }),
     animate: {
-      x: 0,
+      x: 0
     },
-    exit: (dir) => ({
-      x: dir === -1 ? "100%" : "-100%",
-    }),
+    exit: () => ({
+      x: window.navDirection === -1 ? "100%" : "-100%"
+    })
   };
+
+  const navDuration = typeof window !== "undefined" ? (window.navDuration || 0.3) : 0.3;
 
   return (
     <motion.div
-      custom={direction}
-      variants={variants}
+      custom={window.navDirection}
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={{ type: "tween", ease: "easeInOut", duration }}
-      className={"w-full min-h-screen relative " + bgClass}
+      variants={variants}
+      transition={{ type: "tween", ease: "easeInOut", duration: navDuration }}
+      className={`w-full min-h-screen relative ${bgClass}`}
     >
       {children}
     </motion.div>
