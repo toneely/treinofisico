@@ -1,12 +1,12 @@
-import React, { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 
 export const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
-  if (pathname.includes("/historico")) return 2;
-  if (pathname.includes("/perfil")) return 3;
-  return 4; // other pages
+  if (pathname.startsWith("/historico")) return 2;
+  if (pathname.startsWith("/perfil")) return 3;
+  return 4;
 };
 
 // Initialize global window variables if not already set
@@ -24,7 +24,10 @@ if (typeof window !== "undefined") {
 
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
-  const currentLevel = getRouteLevel(location.pathname);
+  const initialPathname = React.useRef(location.pathname);
+  const initialLevel = React.useRef(getRouteLevel(initialPathname.current));
+
+  const currentLevel = initialLevel.current;
 
   if (typeof window !== "undefined" && window.prevLevel !== currentLevel) {
     window.navDirection = (currentLevel < window.prevLevel) ? -1 : 1;
@@ -54,7 +57,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
       exit="exit"
       variants={variants}
       transition={{ type: "tween", ease: "easeInOut", duration: navDuration }}
-      className={`w-full min-h-screen relative ${bgClass}`}
+      className={"w-full min-h-screen relative " + bgClass}
     >
       {children}
     </motion.div>
