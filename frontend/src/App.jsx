@@ -109,6 +109,13 @@ const AppContent = () => {
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
   const currentLevel = getRouteLevel(location.pathname);
+  const prevLevelRef = React.useRef(currentLevel);
+
+  React.useEffect(() => {
+    prevLevelRef.current = currentLevel;
+  }, [currentLevel]);
+
+  const menuDuration = (currentLevel === 4 || prevLevelRef.current === 4) ? 0.8 : 0.3;
 
   React.useEffect(() => {
     if (isTrainingRoute) {
@@ -213,7 +220,7 @@ const AppContent = () => {
       </AnimatePresence>
       <motion.div
         animate={{ x: currentLevel === 4 ? "-100%" : "0%" }}
-        transition={{ type: "tween", ease: "easeInOut", duration: typeof window !== "undefined" ? (window.navDuration || 0.3) : 0.3 }}
+        transition={{ type: "tween", ease: "easeInOut", duration: menuDuration }}
         className="w-full"
       >
         <BottomNav />
