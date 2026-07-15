@@ -95,6 +95,51 @@ const Inicio = () => {
     }
   }, [authUser?.id]);
 
+  useEffect(() => {
+    if (!authUser?.id) return;
+    if (appCache.workoutTemplates) return;
+
+    const prefetchWorkoutTemplates = async () => {
+      try {
+        const [workoutsRes, modalidadesRes, programsRes] = await Promise.all([
+          supabase
+            .from("treinos")
+            .select("*, programas_padrao(nome)")
+            .eq("user_id", authUser.id)
+            .order("ordem_exibicao", { ascending: true })
+            .order("letra", { ascending: true }),
+          supabase
+            .from("modalidades")
+            .select("*")
+            .order("nome"),
+          supabase
+            .from("programas_padrao")
+            .select("*, modalidades(nome)")
+            .order("nome", { ascending: true })
+        ]);
+
+        if (workoutsRes.error || modalidadesRes.error || programsRes.error) {
+          console.warn("Silent prefetch failed silently", {
+            wErr: workoutsRes.error,
+            mErr: modalidadesRes.error,
+            pErr: programsRes.error
+          });
+          return;
+        }
+
+        appCache.workoutTemplates = {
+          workouts: workoutsRes.data || [],
+          modalidades: modalidadesRes.data || [],
+          availablePrograms: programsRes.data || []
+        };
+      } catch (err) {
+        console.warn("Silent prefetch exception:", err);
+      }
+    };
+
+    prefetchWorkoutTemplates();
+  }, [authUser?.id]);
+
   const checkSavedTraining = () => {
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
@@ -427,31 +472,6 @@ const Inicio = () => {
       )}
 
       <AdBanner isPremium={isPremium} />
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
-        <Link
-          to="/app"
-          className="flex flex-col items-center gap-1"
-          style={{ color: "var(--color-primary-safe)" }}
-        >
-          <Dumbbell size={24} />
-          <span className="text-[10px] font-bold uppercase">Treinos</span>
-        </Link>
-        <Link
-          to="/historico"
-          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
-        >
-          <HistoryIcon size={24} />
-          <span className="text-[10px] font-bold uppercase">Histórico</span>
-        </Link>
-        <Link
-          to="/perfil"
-          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
-        >
-          <UserIcon size={24} />
-          <span className="text-[10px] font-bold uppercase">Perfil</span>
-        </Link>
-      </nav>
       </div>
     </PageTransition>
   );

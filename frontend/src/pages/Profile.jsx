@@ -900,32 +900,6 @@ const Profile = () => {
 
           </>
         )}
-
-      {/* Footer Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
-        <Link
-          to="/app"
-          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
-        >
-          <Dumbbell size={24} />
-          <span className="text-[10px] font-bold uppercase">Treinos</span>
-        </Link>
-        <Link
-          to="/historico"
-          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
-        >
-          <HistoryIcon size={24} />
-          <span className="text-[10px] font-bold uppercase">Histórico</span>
-        </Link>
-        <Link
-          to="/perfil"
-          className="flex flex-col items-center gap-1"
-          style={{ color: "var(--color-primary-safe)" }}
-        >
-          <User size={24} />
-          <span className="text-[10px] font-bold uppercase">Perfil</span>
-        </Link>
-      </nav>
       </div>
     </PageTransition>
   );

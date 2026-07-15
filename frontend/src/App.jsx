@@ -16,7 +16,9 @@ import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
-import { AnimatePresence, useIsPresent } from "framer-motion";
+import { AnimatePresence, useIsPresent, motion } from "framer-motion";
+import BottomNav from './components/BottomNav';
+import { getRouteLevel } from './components/PageTransition';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -106,6 +108,8 @@ const AppContent = () => {
   const { isGracePeriod } = useAuth();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
+  const currentLevel = getRouteLevel(location.pathname);
+  const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
   React.useEffect(() => {
     if (isTrainingRoute) {
@@ -117,7 +121,7 @@ const AppContent = () => {
 
   return (
     <div
-      className="font-sans antialiased transition-colors duration-500 min-h-screen"
+      className="font-sans antialiased transition-colors duration-500 pb-20 overflow-x-hidden w-full min-h-screen relative"
       style={{
         backgroundColor: isTrainingRoute
           ? "var(--bg-treino)"
@@ -208,6 +212,13 @@ const AppContent = () => {
         />
       </Routes>
       </AnimatePresence>
+      <motion.div
+        animate={{ y: currentLevel === 4 ? "100%" : "0%" }}
+        transition={{ type: "tween", ease: "easeInOut", duration: 0.8 }}
+        style={{ display: isPublicRoute ? "none" : "block" }}
+      >
+        <BottomNav />
+      </motion.div>
     </div>
   );
 };
