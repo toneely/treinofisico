@@ -109,6 +109,7 @@ const AppContent = () => {
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
   const currentLevel = getRouteLevel(location.pathname);
+  const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
   React.useEffect(() => {
     if (isTrainingRoute) {
@@ -211,7 +212,13 @@ const AppContent = () => {
         />
       </Routes>
       </AnimatePresence>
-      <BottomNav />
+      <motion.div
+        animate={{ y: currentLevel === 4 ? "100%" : "0%" }}
+        transition={{ type: "tween", ease: "easeInOut", duration: 0.8 }}
+        style={{ display: isPublicRoute ? "none" : "block" }}
+      >
+        <BottomNav />
+      </motion.div>
     </div>
   );
 };

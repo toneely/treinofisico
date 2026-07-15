@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
+
+let globalPrevLevel = 1;
 
 export const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
@@ -11,22 +13,31 @@ export const getRouteLevel = (pathname) => {
 
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
-  const level = getRouteLevel(location.pathname);
+  const [config] = useState(() => {
+    const currentLevel = getRouteLevel(location.pathname);
+    const prevLevel = globalPrevLevel;
+    // Calculo aritmetico de direcao usando Math.sign sem usar sinais de comparacao
+    const diff = currentLevel - prevLevel;
+    const direction = diff === 0 ? 1 : Math.sign(diff);
+    globalPrevLevel = currentLevel;
+    return {
+      level: currentLevel,
+      direction,
+      isOverlay: currentLevel === 4 || prevLevel === 4
+    };
+  });
 
-  // Telas de nivel 4 funcionam como um Overlay que desliza por cima de tudo
-  const isOverlay = level === 4;
-
-  const variants = isOverlay ? {
-    initial: { x: "100%", opacity: 1, zIndex: 50 },
-    animate: { x: 0, opacity: 1, zIndex: 50 },
-    exit: { x: "100%", opacity: 1, zIndex: 50 }
+  const variants = config.isOverlay ? {
+    initial: { x: "100%", zIndex: 50 },
+    animate: { x: 0, zIndex: 50 },
+    exit: { x: "100%", zIndex: 50 }
   } : {
-    initial: { opacity: 0, scale: 0.98, zIndex: 10 },
-    animate: { opacity: 1, scale: 1, zIndex: 10 },
-    exit: { opacity: 0, scale: 0.98, zIndex: 10 }
+    initial: { x: config.direction === 1 ? "100%" : "-100%", zIndex: 10 },
+    animate: { x: 0, zIndex: 10 },
+    exit: { x: config.direction === 1 ? "-100%" : "100%", zIndex: 10 }
   };
 
-  const duration = isOverlay ? 0.4 : 0.2;
+  const duration = config.isOverlay ? 0.8 : 0.3;
 
   return (
     <motion.div
