@@ -1,60 +1,41 @@
-import React, { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React from "react";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 
 export const getRouteLevel = (pathname) => {
   if (pathname === "/app") return 1;
-  if (pathname.includes("/historico")) return 2;
-  if (pathname.includes("/perfil")) return 3;
-  return 4; // other pages
+  if (pathname.startsWith("/historico")) return 2;
+  if (pathname.startsWith("/perfil")) return 3;
+  return 4;
 };
-
-// Initialize global window variables if not already set
-if (typeof window !== "undefined") {
-  if (typeof window.prevLevel === "undefined") {
-    window.prevLevel = 1;
-  }
-  if (typeof window.navDirection === "undefined") {
-    window.navDirection = 1;
-  }
-  if (typeof window.navDuration === "undefined") {
-    window.navDuration = 0.3;
-  }
-}
 
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
-  const currentLevel = getRouteLevel(location.pathname);
+  const level = getRouteLevel(location.pathname);
 
-  if (typeof window !== "undefined" && window.prevLevel !== currentLevel) {
-    window.navDirection = (currentLevel < window.prevLevel) ? -1 : 1;
-    window.navDuration = (currentLevel === 4 || window.prevLevel === 4) ? 0.8 : 0.3;
-    window.prevLevel = currentLevel;
-  }
+  // Telas de nivel 4 funcionam como um Overlay que desliza por cima de tudo
+  const isOverlay = level === 4;
 
-  const variants = {
-    initial: (direction) => ({
-      x: direction === -1 ? "-100%" : "100%"
-    }),
-    animate: {
-      x: 0
-    },
-    exit: () => ({
-      x: window.navDirection === -1 ? "100%" : "-100%"
-    })
+  const variants = isOverlay ? {
+    initial: { x: "100%", opacity: 1, zIndex: 50 },
+    animate: { x: 0, opacity: 1, zIndex: 50 },
+    exit: { x: "100%", opacity: 1, zIndex: 50 }
+  } : {
+    initial: { opacity: 0, scale: 0.98, zIndex: 10 },
+    animate: { opacity: 1, scale: 1, zIndex: 10 },
+    exit: { opacity: 0, scale: 0.98, zIndex: 10 }
   };
 
-  const navDuration = typeof window !== "undefined" ? (window.navDuration || 0.3) : 0.3;
+  const duration = isOverlay ? 0.4 : 0.2;
 
   return (
     <motion.div
-      custom={window.navDirection}
       initial="initial"
       animate="animate"
       exit="exit"
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut", duration: navDuration }}
-      className={`w-full min-h-screen relative ${bgClass}`}
+      transition={{ type: "tween", ease: "easeInOut", duration: duration }}
+      className={"w-full min-h-screen absolute top-0 left-0 " + bgClass}
     >
       {children}
     </motion.div>
