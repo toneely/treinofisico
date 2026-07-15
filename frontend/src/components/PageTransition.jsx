@@ -16,9 +16,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const [config] = useState(() => {
     const currentLevel = getRouteLevel(location.pathname);
     const prevLevel = globalPrevLevel;
-    // Calculo aritmetico de direcao usando Math.sign sem usar sinais de comparacao
-    const diff = currentLevel - prevLevel;
-    const direction = diff === 0 ? 1 : Math.sign(diff);
+    const direction = Math.sign(currentLevel - prevLevel);
     globalPrevLevel = currentLevel;
     return {
       level: currentLevel,
@@ -28,10 +26,12 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   });
 
   const variants = config.isOverlay ? {
-    initial: { x: "100%", zIndex: 50 },
+    // Regras exclusivas para o Nivel 4 (Overlay)
+    initial: { x: config.level === 4 ? "100%" : "-20%", zIndex: 50 },
     animate: { x: 0, zIndex: 50 },
-    exit: { x: "100%", zIndex: 50 }
+    exit: { x: config.level === 4 ? "-20%" : "100%", zIndex: 50 }
   } : {
+    // Regras para as Abas Principais (Niveis 1, 2 e 3)
     initial: { x: config.direction === 1 ? "100%" : "-100%", zIndex: 10 },
     animate: { x: 0, zIndex: 10 },
     exit: { x: config.direction === 1 ? "-100%" : "100%", zIndex: 10 }
