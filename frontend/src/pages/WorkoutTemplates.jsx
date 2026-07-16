@@ -420,13 +420,52 @@ const WorkoutTemplates = () => {
   };
 
   return (
-    <PageTransition bgClass="bg-slate-50">
+    <PageTransition bgClass="bg-zinc-950">
       {loading ? (
-        <div className="min-h-screen w-full bg-slate-50 p-4 flex flex-col gap-4">
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
+        <div className="min-h-screen w-full bg-zinc-950 p-6 flex flex-col gap-6 max-w-2xl mx-auto">
+          {/* Header Skeleton */}
+          <div className="flex justify-between items-center w-full animate-pulse border-b border-white/5 pb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-zinc-900 rounded-xl" />
+              <div className="w-32 h-5 bg-zinc-900 rounded-lg" />
+            </div>
+            <div className="flex gap-4">
+              <div className="w-20 h-4 bg-zinc-900 rounded" />
+              <div className="w-20 h-4 bg-zinc-900 rounded" />
+            </div>
+          </div>
+
+          <div className="w-full h-12 bg-zinc-900 rounded-2xl animate-pulse mt-2" />
+
+          {/* List Skeleton */}
+          <div className="space-y-4 animate-pulse">
+            <div className="w-24 h-3 bg-zinc-900 rounded mb-2" />
+
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-zinc-900/50 p-3.5 rounded-2xl border border-white/5 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-1 mr-1 opacity-20">
+                    <div className="w-4 h-3 bg-zinc-800 rounded" />
+                    <div className="w-4 h-3 bg-zinc-800 rounded" />
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-zinc-900" />
+                  <div className="space-y-2">
+                    <div className="w-32 h-4 bg-zinc-900 rounded" />
+                    <div className="w-24 h-3 bg-zinc-900 rounded" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-900" />
+                  <div className="w-8 h-8 rounded-lg bg-zinc-900" />
+                  <div className="w-8 h-8 rounded-lg bg-zinc-900" />
+                  <div className="w-8 h-8 rounded-lg bg-zinc-900" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <div

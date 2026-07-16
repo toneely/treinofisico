@@ -1913,11 +1913,55 @@ const Training = () => {
   return (
     <PageTransition bgClass="bg-slate-900">
       {loading ? (
-        <div className="min-h-screen w-full bg-slate-900 p-4 flex flex-col gap-4">
-          <div className="w-full h-16 bg-white/10 rounded-2xl animate-pulse" />
-          <div className="w-full h-32 bg-white/10 rounded-3xl animate-pulse" />
-          <div className="w-full h-32 bg-white/10 rounded-3xl animate-pulse" />
-          <div className="w-full h-32 bg-white/10 rounded-3xl animate-pulse" />
+        <div className="min-h-screen w-full bg-slate-900 p-6 flex flex-col gap-6">
+          {/* Cabeçalho flex com três espaços */}
+          <div className="flex justify-between items-center w-full animate-pulse">
+            <div className="w-10 h-10 bg-white/5 rounded-xl" />
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-20 h-3 bg-white/5 rounded-full" />
+              <div className="w-32 h-5 bg-white/5 rounded-lg" />
+            </div>
+            <div className="w-10 h-10 bg-white/5 rounded-xl" />
+          </div>
+
+          <div className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-2 animate-pulse">
+            Exercícios da Sessão
+          </div>
+
+          {/* Bloco de treino fictício */}
+          <div className="p-5 rounded-[32px] bg-white/5 border border-white/5 animate-pulse flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-4 h-4 bg-white/10 rounded-full" />
+              <div className="w-48 h-4 bg-white/10 rounded-lg" />
+            </div>
+
+            {/* Simulação do card do exercício */}
+            <div className="rounded-2xl border border-white/5 p-4 bg-white/5 flex flex-col gap-4">
+              {/* Cabeçalho: ícone redondo e título */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/10" />
+                  <div className="w-40 h-5 bg-white/10 rounded-lg" />
+                </div>
+                <div className="w-6 h-6 rounded bg-white/10" />
+              </div>
+
+              {/* Duas caixas lado a lado (Carga e Reps) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/10 p-3 h-20 rounded-2xl flex flex-col gap-2">
+                  <div className="w-12 h-2.5 bg-white/10 rounded" />
+                  <div className="w-16 h-8 bg-white/10 rounded-lg" />
+                </div>
+                <div className="bg-white/10 p-3 h-20 rounded-2xl flex flex-col gap-2">
+                  <div className="w-16 h-2.5 bg-white/10 rounded" />
+                  <div className="w-12 h-8 bg-white/10 rounded-lg" />
+                </div>
+              </div>
+
+              {/* Grande botão central na base */}
+              <div className="w-full h-12 bg-white/10 rounded-2xl mt-2" />
+            </div>
+          </div>
 
           {showDiagnostic && (
             <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
