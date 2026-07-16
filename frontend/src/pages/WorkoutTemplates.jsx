@@ -2,36 +2,24 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import {
   ChevronLeft, Plus, Trash2, Edit2, Copy, Check, RefreshCw,
-  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X, Loader2
+  LayoutGrid, AlertTriangle, ArrowUp, ArrowDown, PlayCircle, X
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import AdBanner from "../components/ui/AdBanner";
-import PageTransition from "../components/PageTransition";
-import { appCache } from "../utils/cache";
+import LoadingScreen from "../components/LoadingScreen";
 
 const WorkoutTemplates = () => {
   const { user: authUser, isPremium } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("my_workouts"); // "my_workouts" | "explore"
-  const [workouts, setWorkouts] = useState(() => {
-    return appCache.workoutTemplates?.workouts || [];
-  });
-  const [availablePrograms, setAvailablePrograms] = useState(() => {
-    return appCache.workoutTemplates?.availablePrograms || [];
-  });
-  const [modalidades, setModalidades] = useState(() => {
-    return appCache.workoutTemplates?.modalidades || [];
-  });
-  const [selectedExploreModality, setSelectedExploreModality] = useState(() => {
-    const cached = appCache.workoutTemplates?.modalidades;
-    return cached && cached.length > 0 ? cached[0] : null;
-  });
-  const [loading, setLoading] = useState(() => {
-    return appCache.workoutTemplates ? false : true;
-  });
+  const [workouts, setWorkouts] = useState([]);
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [modalidades, setModalidades] = useState([]);
+  const [selectedExploreModality, setSelectedExploreModality] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
@@ -59,9 +47,7 @@ const WorkoutTemplates = () => {
 
   const fetchWorkouts = useCallback(async () => {
     if (!authUser?.id) return;
-    if (!appCache.workoutTemplates) {
-      setLoading(true);
-    }
+    setLoading(true);
     const { data, error } = await supabase
       .from("treinos")
       .select("*, programas_padrao(nome)")
@@ -72,20 +58,13 @@ const WorkoutTemplates = () => {
     if (error) {
       showToast("Erro ao buscar treinos: " + error.message, "error");
     } else {
-      const updatedWorkouts = data || [];
-      setWorkouts(updatedWorkouts);
-      appCache.workoutTemplates = {
-        ...appCache.workoutTemplates,
-        workouts: updatedWorkouts
-      };
+      setWorkouts(data || []);
     }
     setLoading(false);
   }, [authUser?.id, showToast]);
 
   const fetchPrograms = useCallback(async () => {
-    if (!appCache.workoutTemplates) {
-      setLoading(true);
-    }
+    setLoading(true);
     try {
       const { data: mData, error: mError } = await supabase
         .from("modalidades")
@@ -93,11 +72,9 @@ const WorkoutTemplates = () => {
         .order("nome");
 
       if (mError) throw mError;
-
-      const updatedModalidades = mData || [];
-      setModalidades(updatedModalidades);
-      if (updatedModalidades.length > 0 && !selectedExploreModality) {
-        setSelectedExploreModality(updatedModalidades[0]);
+      setModalidades(mData || []);
+      if (mData?.length > 0 && !selectedExploreModality) {
+        setSelectedExploreModality(mData[0]);
       }
 
       const { data, error } = await supabase
@@ -106,15 +83,7 @@ const WorkoutTemplates = () => {
         .order("nome", { ascending: true });
 
       if (error) throw error;
-
-      const updatedPrograms = data || [];
-      setAvailablePrograms(updatedPrograms);
-
-      appCache.workoutTemplates = {
-        ...appCache.workoutTemplates,
-        modalidades: updatedModalidades,
-        availablePrograms: updatedPrograms
-      };
+      setAvailablePrograms(data || []);
     } catch (err) {
       showToast("Erro ao buscar dados: " + err.message, "error");
     } finally {
@@ -420,19 +389,10 @@ const WorkoutTemplates = () => {
   };
 
   return (
-    <PageTransition bgClass="bg-slate-50">
-      {loading ? (
-        <div className="min-h-screen w-full bg-slate-50 p-4 flex flex-col gap-4">
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-          <div className="w-full h-24 bg-slate-200 rounded-2xl animate-pulse" />
-        </div>
-      ) : (
-        <div
-          className="min-h-screen bg-zinc-950 text-white flex flex-col"
-        >
-        {/* Header */}
+    <div
+      className="min-h-screen bg-zinc-950 text-white flex flex-col"
+    >
+      {/* Header */}
       <header className="p-4 px-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-xl z-20 max-w-2xl mx-auto w-full pb-2">
         <div className="flex items-center gap-4">
           <button
@@ -821,10 +781,8 @@ const WorkoutTemplates = () => {
         </div>
       )}
 
-        {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
-        </div>
-      )}
-    </PageTransition>
+      {!isFormModalOpen && <AdBanner isPremium={isPremium} variant="fixed-bottom" />}
+    </div>
   );
 };
 

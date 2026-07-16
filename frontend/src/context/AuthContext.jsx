@@ -93,6 +93,7 @@ export function AuthProvider({ children }) {
 
     // 1. Busca inicial
     supabase.auth.getSession().then(function (result) {
+      if (!isMounted) return;
       const session = result.data?.session ?? null;
       const currentUser = session?.user ?? null;
 
@@ -108,6 +109,7 @@ export function AuthProvider({ children }) {
 
     // 2. Listener de eventos
     const { data: { subscription } } = supabase.auth.onAuthStateChange(function (event, session) {
+      if (!isMounted) return;
       const currentUser = session?.user ?? null;
 
       if (event === "SIGNED_OUT") {
@@ -175,7 +177,7 @@ export function AuthProvider({ children }) {
 
   function refreshProfile() {
     if (user) {
-      fetchUserProfile(user, true);
+      fetchUserProfile(user);
     }
   }
 

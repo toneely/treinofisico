@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
 import LandingPage from './pages/LandingPage';
@@ -16,20 +16,9 @@ import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
-import { AnimatePresence, useIsPresent, motion } from "framer-motion";
-import BottomNav from './components/BottomNav';
-import { getRouteLevel } from './components/PageTransition';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const isPresent = useIsPresent();
-
-  useEffect(() => {
-    if (!loading && !user && isPresent) {
-      navigate("/login", { replace: true });
-    }
-  }, [user, loading, navigate, isPresent]);
 
   if (loading && !user)
     return (
@@ -43,46 +32,23 @@ const ProtectedRoute = ({ children }) => {
         Carregando...
       </div>
     );
-
-  if (!user) return null;
+  if (!user) return <Navigate to="/login" />;
 
   return children;
 };
 
 const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const isPresent = useIsPresent();
-
-  useEffect(() => {
-    if (!loading && user && isPresent) {
-      navigate("/app", { replace: true });
-    }
-  }, [user, loading, navigate, isPresent]);
 
   if (loading && !user) return null;
+  if (user) return <Navigate to="/app" />;
 
   return children;
 };
 
 const AdminRoute = ({ children }) => {
-  const { user, loading, profile } = useAuth();
+  const { user, loading } = useAuth();
   const admins = ["tone.mendes@gmail.com"];
-  const navigate = useNavigate();
-  const isPresent = useIsPresent();
-
-  useEffect(() => {
-    if (!loading && isPresent) {
-      if (!user) {
-        navigate("/login", { replace: true });
-      } else {
-        const isAdmin = admins.includes(user.email) || (profile && profile.role === "admin");
-        if (!isAdmin) {
-          navigate("/app", { replace: true });
-        }
-      }
-    }
-  }, [user, loading, profile, navigate, isPresent]);
 
   if (loading && !user)
     return (
@@ -96,9 +62,7 @@ const AdminRoute = ({ children }) => {
         Carregando...
       </div>
     );
-
-  const isAdmin = user && (admins.includes(user.email) || (profile && profile.role === "admin"));
-  if (!user || !isAdmin) return null;
+  if (!user || !admins.includes(user.email)) return <Navigate to="/app" />;
 
   return children;
 };
@@ -108,8 +72,6 @@ const AppContent = () => {
   const { isGracePeriod } = useAuth();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
-  const currentLevel = getRouteLevel(location.pathname);
-  const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
   React.useEffect(() => {
     if (isTrainingRoute) {
@@ -121,7 +83,7 @@ const AppContent = () => {
 
   return (
     <div
-      className="font-sans antialiased transition-colors duration-500 pb-20 overflow-x-hidden w-full min-h-screen relative"
+      className="font-sans antialiased transition-colors duration-500 min-h-screen"
       style={{
         backgroundColor: isTrainingRoute
           ? "var(--bg-treino)"
@@ -134,8 +96,7 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <AnimatePresence mode="popLayout" initial={false}>
-      <Routes location={location} key={location.pathname}>
+      <Routes>
         <Route
           path="/"
           element={
@@ -211,14 +172,6 @@ const AppContent = () => {
           }
         />
       </Routes>
-      </AnimatePresence>
-      <motion.div
-        animate={{ y: currentLevel === 4 ? "100%" : "0%" }}
-        transition={{ type: "tween", ease: "easeInOut", duration: 0.8 }}
-        style={{ display: isPublicRoute ? "none" : "block" }}
-      >
-        <BottomNav />
-      </motion.div>
     </div>
   );
 };

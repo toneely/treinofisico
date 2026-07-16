@@ -29,11 +29,9 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { useAppearance } from "../context/AppearanceContext";
-import PageTransition from "../components/PageTransition";
-import { appCache } from "../utils/cache";
 
 const Profile = () => {
-  const { user, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
+  const { user, profile, refreshProfile, signOut, isPremium } = useAuth();
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -74,17 +72,12 @@ const Profile = () => {
     confirmPassword: "",
   });
 
-  const [appSettings, setAppSettings] = useState(() => {
-    return appCache.profile?.appSettings || { subscription_price: 29.90 };
-  });
+  const [appSettings, setAppSettings] = useState({ subscription_price: 29.90 });
 
   useEffect(() => {
     async function fetchSettings() {
       const { data, error } = await supabase.from('config_app').select('*').single();
-      if (data) {
-        setAppSettings(data);
-        appCache.profile = { ...appCache.profile, appSettings: data };
-      }
+      if (data) setAppSettings(data);
     }
     fetchSettings();
   }, []);
@@ -331,11 +324,10 @@ const Profile = () => {
   };
 
   return (
-    <PageTransition>
-      <div
-        className={`p-6 max-w-2xl mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-      >
-        <header className="mb-8 flex justify-between items-center px-2">
+    <div
+      className={`p-6 max-w-2xl mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+    >
+      <header className="mb-8 flex justify-between items-center px-2">
         <Link
           to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 transition"
@@ -352,25 +344,6 @@ const Profile = () => {
         </button>
       </header>
 
-        {loading ? (
-          <div className="space-y-6">
-            {/* Identification Card Skeleton */}
-            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-slate-200 animate-pulse" />
-              <div className="w-32 h-4 bg-slate-200 animate-pulse rounded-full mt-4" />
-              <div className="w-48 h-3 bg-slate-200 animate-pulse rounded-full mt-2" />
-            </div>
-
-            {/* Account Data Card Skeleton */}
-            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 space-y-4">
-              <div className="w-1/3 h-3 bg-slate-200 animate-pulse rounded-full" />
-              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
-              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
-              <div className="w-full h-12 bg-slate-200 animate-pulse rounded-2xl" />
-            </div>
-          </div>
-        ) : (
-          <>
       {/* 1. Identification Card */}
       <section className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-200 mb-6 flex flex-col items-center">
         <div className="relative mb-4">
@@ -898,10 +871,32 @@ const Profile = () => {
 
       <AdBanner isPremium={isPremium} />
 
-          </>
-        )}
-      </div>
-    </PageTransition>
+      {/* Footer Nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
+        <Link
+          to="/app"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <Dumbbell size={24} />
+          <span className="text-[10px] font-bold uppercase">Treinos</span>
+        </Link>
+        <Link
+          to="/historico"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <HistoryIcon size={24} />
+          <span className="text-[10px] font-bold uppercase">Histórico</span>
+        </Link>
+        <Link
+          to="/perfil"
+          className="flex flex-col items-center gap-1"
+          style={{ color: "var(--color-primary-safe)" }}
+        >
+          <User size={24} />
+          <span className="text-[10px] font-bold uppercase">Perfil</span>
+        </Link>
+      </nav>
+    </div>
   );
 };
 
