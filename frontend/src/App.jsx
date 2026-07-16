@@ -134,8 +134,7 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <AnimatePresence initial={false}>
-      {/* Dynamic location and key attributes for absolute geographic transitions */}
+      <AnimatePresence mode="popLayout" initial={false}>
       <Routes location={location} key={location.pathname}>
         <Route
           path="/"
