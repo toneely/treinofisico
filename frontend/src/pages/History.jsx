@@ -23,8 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
 import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
-import PageTransition from "../components/PageTransition";
-import { appCache } from "../utils/cache";
+import LoadingScreen from "../components/LoadingScreen";
 
 const History = () => {
   const navigate = useNavigate();
@@ -32,17 +31,11 @@ const History = () => {
   const { user: authUser, isPremium } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [history, setHistory] = useState(() => {
-    return appCache.history?.history || [];
-  });
-  const [extraActivities, setExtraActivities] = useState(() => {
-    return appCache.history?.extraActivities || [];
-  });
+  const [history, setHistory] = useState([]);
+  const [extraActivities, setExtraActivities] = useState([]);
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
-  const [loading, setLoading] = useState(() => {
-    return !appCache.history;
-  });
+  const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
   // Export Filter States
@@ -108,9 +101,7 @@ const History = () => {
   }, []);
 
   const fetchHistory = useCallback(async () => {
-    if (!appCache.history) {
-      setLoading(true);
-    }
+    setLoading(true);
     const startOfMonth = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
@@ -148,7 +139,6 @@ const History = () => {
 
     setHistory(loads || []);
     setExtraActivities(extras || []);
-    appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
     setLoading(false);
   }, [authUser?.id, currentDate, showToast]);
 
@@ -557,11 +547,10 @@ const History = () => {
   };
 
   return (
-    <PageTransition>
-      <div
-        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
-      >
-        <header className="mb-6 flex justify-between items-center">
+    <div
+      className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+    >
+      <header className="mb-6 flex justify-between items-center">
         <Link
           to="/app"
           className="p-2 bg-white rounded-xl border border-slate-200 text-slate-400 hover:opacity-70 transition"
@@ -581,20 +570,7 @@ const History = () => {
         </button>
       </header>
 
-        {loading ? (
-          <div className="space-y-6">
-            {/* Grande para o calendário */}
-            <div className="w-full h-80 bg-slate-200 animate-pulse rounded-[32px]" />
-            {/* Linhas menores para a lista */}
-            <div className="space-y-4">
-              <div className="w-1/3 h-4 bg-slate-200 animate-pulse rounded-xl" />
-              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
-              <div className="w-full h-24 bg-slate-200 animate-pulse rounded-[24px]" />
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-bold  flex items-center gap-2">
             <CalendarIcon size={18} style={{ color: "var(--color-primary)" }} />
@@ -1120,8 +1096,6 @@ const History = () => {
           </div>
         </div>
       )}
-          </>
-        )}
 
       {/* Export Filter Modal */}
       {showExportModal && (
@@ -1324,6 +1298,8 @@ const History = () => {
 
       <AdBanner isPremium={isPremium} />
 
+      {loading && <LoadingScreen message="Carregando histórico..." />}
+
       <AdInterstitial
         show={showInterstitial}
         onClose={() => navigate("/app")}
@@ -1339,8 +1315,33 @@ const History = () => {
         onConfirm={confirmationModal.onConfirm}
         onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
       />
-      </div>
-    </PageTransition>
+
+      {/* Footer Nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50">
+        <Link
+          to="/app"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <Dumbbell size={24} />
+          <span className="text-[10px] font-bold uppercase">Treinos</span>
+        </Link>
+        <Link
+          to="/historico"
+          className="flex flex-col items-center gap-1"
+          style={{ color: "var(--color-primary-safe)" }}
+        >
+          <HistoryIcon size={24} />
+          <span className="text-[10px] font-bold uppercase">Histórico</span>
+        </Link>
+        <Link
+          to="/perfil"
+          className="text-slate-400 hover:opacity-80 flex flex-col items-center gap-1"
+        >
+          <UserIcon size={24} />
+          <span className="text-[10px] font-bold uppercase">Perfil</span>
+        </Link>
+      </nav>
+    </div>
   );
 };
 

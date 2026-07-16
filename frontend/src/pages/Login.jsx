@@ -2,20 +2,18 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
-import { useIsPresent } from "framer-motion";
 import { LogIn, Mail, Lock, Chrome, Loader2 } from "lucide-react";
 const Login = () => {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const isPresent = useIsPresent();
 
   React.useEffect(() => {
-    if (user?.id && !authLoading && isPresent) {
+    if (user?.id && !authLoading) {
       console.log("Usuário já autenticado, redirecionando...");
       navigate("/app");
     }
-  }, [user?.id, authLoading, navigate, isPresent]);
+  }, [user?.id, authLoading, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

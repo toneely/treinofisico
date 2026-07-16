@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import PageTransition from "../components/PageTransition";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import {
@@ -1873,7 +1872,39 @@ const Training = () => {
     );
   }
 
-  if (!isFreeTraining && !state.blocos.length && !loading)
+  if (loading) {
+    return (
+      <div className="relative">
+        <LoadingScreen message="Iniciando treino..." />
+        {showDiagnostic && (
+          <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
+            <div className="flex gap-3">
+              <button
+                onClick={handleInspectCache}
+                className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Inspecionar Cache Local
+              </button>
+              <button
+                onClick={handleForceClear}
+                className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+              >
+                Forçar Limpeza e Desconectar
+              </button>
+            </div>
+            {inspectedData && (
+              <textarea
+                readOnly
+                value={inspectedData}
+                className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (!isFreeTraining && !state.blocos.length)
     return (
       <div className="p-10 text-center text-slate-500">
         Nenhum exercício encontrado.{" "}
@@ -1911,93 +1942,14 @@ const Training = () => {
   };
 
   return (
-    <PageTransition bgClass="bg-slate-900">
-      {loading ? (
-        <div className="min-h-screen w-full bg-slate-900 p-6 flex flex-col gap-6">
-          {/* Cabeçalho flex com três espaços */}
-          <div className="flex justify-between items-center w-full animate-pulse">
-            <div className="w-10 h-10 bg-white/5 rounded-xl" />
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-20 h-3 bg-white/5 rounded-full" />
-              <div className="w-32 h-5 bg-white/5 rounded-lg" />
-            </div>
-            <div className="w-10 h-10 bg-white/5 rounded-xl" />
-          </div>
-
-          <div className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-2 animate-pulse">
-            Exercícios da Sessão
-          </div>
-
-          {/* Bloco de treino fictício */}
-          <div className="p-5 rounded-[32px] bg-white/5 border border-white/5 animate-pulse flex flex-col gap-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-4 h-4 bg-white/10 rounded-full" />
-              <div className="w-48 h-4 bg-white/10 rounded-lg" />
-            </div>
-
-            {/* Simulação do card do exercício */}
-            <div className="rounded-2xl border border-white/5 p-4 bg-white/5 flex flex-col gap-4">
-              {/* Cabeçalho: ícone redondo e título */}
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/10" />
-                  <div className="w-40 h-5 bg-white/10 rounded-lg" />
-                </div>
-                <div className="w-6 h-6 rounded bg-white/10" />
-              </div>
-
-              {/* Duas caixas lado a lado (Carga e Reps) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/10 p-3 h-20 rounded-2xl flex flex-col gap-2">
-                  <div className="w-12 h-2.5 bg-white/10 rounded" />
-                  <div className="w-16 h-8 bg-white/10 rounded-lg" />
-                </div>
-                <div className="bg-white/10 p-3 h-20 rounded-2xl flex flex-col gap-2">
-                  <div className="w-16 h-2.5 bg-white/10 rounded" />
-                  <div className="w-12 h-8 bg-white/10 rounded-lg" />
-                </div>
-              </div>
-
-              {/* Grande botão central na base */}
-              <div className="w-full h-12 bg-white/10 rounded-2xl mt-2" />
-            </div>
-          </div>
-
-          {showDiagnostic && (
-            <div className="fixed bottom-10 left-0 right-0 z-[110] p-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-500">
-              <div className="flex gap-3">
-                <button
-                  onClick={handleInspectCache}
-                  className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
-                >
-                  Inspecionar Cache Local
-                </button>
-                <button
-                  onClick={handleForceClear}
-                  className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
-                >
-                  Forçar Limpeza e Desconectar
-                </button>
-              </div>
-              {inspectedData && (
-                <textarea
-                  readOnly
-                  value={inspectedData}
-                  className="w-full max-w-md h-40 bg-black/80 border border-white/20 rounded-xl p-4 text-[9px] font-mono text-emerald-400 outline-none"
-                />
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
-          style={{
-            color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
-            backgroundColor: "var(--bg-treino)",
-          }}
-        >
-        <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
+    <div
+      className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
+      style={{
+        color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
+        backgroundColor: "var(--bg-treino)",
+      }}
+    >
+      <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">
         <div className="flex gap-2">
           <button
             onClick={handleGoBack}
@@ -3205,9 +3157,7 @@ const Training = () => {
         onClose={() => navigate("/app")}
         isPremium={isPremium}
       />
-        </div>
-      )}
-    </PageTransition>
+    </div>
   );
 };
 
