@@ -23,7 +23,7 @@ navState.direction = diff === 0 ? 1 : Math.sign(diff);
 const variants = {
 initial: function() {
 if (myLevel === 4) return { x: "100%", zIndex: 50 };
-if (navState.prev === 4) return { x: "-20%", zIndex: 10 };
+if (navState.prev === 4) return { x: 0, zIndex: 10 };
 return { x: navState.direction === 1 ? "100%" : "-100%", zIndex: 10 };
 },
 animate: function() {
@@ -33,7 +33,7 @@ zIndex: myLevel === 4 ? 50 : 10
 };
 },
 exit: function() {
-if (navState.current === 4) return { x: "-20%", zIndex: 10 };
+if (navState.current === 4) return { x: 0, zIndex: 10 };
 if (myLevel === 4) return { x: "100%", zIndex: 50 };
 return { x: navState.direction === 1 ? "-100%" : "100%", zIndex: 10 };
 }
