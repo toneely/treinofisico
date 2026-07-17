@@ -1,5 +1,5 @@
-import React, { useState, createContext, useContext, useRef } from "react";
-import { motion, usePresence } from "framer-motion";
+import React from "react";
+import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
 let globalPrevLevel = 1;
@@ -18,44 +18,30 @@ export const getTabLevel = (pathname) => {
   return null;
 };
 
-export const TransitionContext = createContext(null);
-
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
   const isDeep = getTabLevel(location.pathname) === null;
   const positionClass = isDeep ? 'fixed' : 'absolute';
 
-  const contextCustom = useContext(TransitionContext);
-  const [isPresent] = usePresence();
-  const latestCustomRef = useRef(contextCustom);
-
-  if (isPresent && contextCustom) {
-    latestCustomRef.current = contextCustom;
-  }
-
-  const custom = isPresent ? contextCustom : latestCustomRef.current;
-
   const variants = {
     initial: (custom) => {
-      const { type = 'tab', dir = 1 } = custom || {};
+      const type = custom?.type || 'tab';
+      const dir = custom?.dir || 1;
       if (type === 'toDeep') {
         return {
           x: '100%',
-          zIndex: 60,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          zIndex: 60
         };
       }
       if (type === 'fromDeep') {
         return {
           x: 0,
-          zIndex: 10,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          zIndex: 10
         };
       }
       return {
         x: dir === 1 ? '100%' : '-100%',
-        zIndex: 10,
-        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+        zIndex: 10
       };
     },
     animate: () => ({
@@ -63,25 +49,23 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
       zIndex: isDeep ? 60 : 10
     }),
     exit: (custom) => {
-      const { type = 'tab', dir = 1 } = custom || {};
+      const type = custom?.type || 'tab';
+      const dir = custom?.dir || 1;
       if (type === 'toDeep') {
         return {
           x: 0,
-          zIndex: 10,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          zIndex: 10
         };
       }
       if (type === 'fromDeep') {
         return {
           x: '100%',
-          zIndex: 60,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          zIndex: 60
         };
       }
       return {
         x: dir === 1 ? '-100%' : '100%',
-        zIndex: 10,
-        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+        zIndex: 10
       };
     }
   };
@@ -91,9 +75,8 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
       initial="initial"
       animate="animate"
       exit="exit"
-      custom={custom}
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut" }}
+      transition={{ type: 'tween', ease: 'easeInOut', duration: 0.8 }}
       className={"w-full min-h-screen top-0 left-0 " + positionClass + " " + bgClass}
     >
       {children}
