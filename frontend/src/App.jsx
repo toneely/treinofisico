@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Inicio from './pages/Inicio';
@@ -18,7 +18,7 @@ import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, useIsPresent, motion } from "framer-motion";
 import BottomNav from './components/BottomNav';
-import { getRouteLevel } from './components/PageTransition';
+import { getRouteLevel, getTabLevel, TransitionContext } from './components/PageTransition';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -111,6 +111,29 @@ const AppContent = () => {
   const currentLevel = getRouteLevel(location.pathname);
   const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
+  const prevPathRef = useRef(location.pathname);
+  const prevTab = getTabLevel(prevPathRef.current);
+  const currentTab = getTabLevel(location.pathname);
+
+  let transitionType = 'tab';
+  let direction = 1;
+
+  if (prevTab !== null && currentTab !== null) {
+    direction = Math.sign(currentTab - prevTab);
+    transitionType = 'tab';
+  } else if (currentTab === null && prevTab !== null) {
+    transitionType = 'toDeep';
+  } else if (currentTab !== null && prevTab === null) {
+    transitionType = 'fromDeep';
+  } else {
+    transitionType = 'deepToDeep';
+    direction = 1;
+  }
+
+  useEffect(() => {
+    prevPathRef.current = location.pathname;
+  }, [location.pathname]);
+
   React.useEffect(() => {
     if (isTrainingRoute) {
       document.documentElement.classList.add("dark");
@@ -134,91 +157,95 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <AnimatePresence mode="popLayout" initial={false}>
-      <Routes location={location} key={location.pathname}>
-        <Route
-          path="/"
-          element={
-            <PublicOnlyRoute>
-              <LandingPage />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsOfUse />} />
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route
-          path="/app"
-          element={
-            <ProtectedRoute>
-              <Inicio />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/user/:userId"
-          element={
-            <AdminRoute>
-              <AdminUserDashboard />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/historico"
-          element={
-            <ProtectedRoute>
-              <History />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/treino/:letra"
-          element={
-            <ProtectedRoute>
-              <Training />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/gerenciar-treinos"
-          element={
-            <ProtectedRoute>
-              <WorkoutTemplates />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-      </AnimatePresence>
-      <motion.div
-        animate={{ y: currentLevel === 4 ? "100%" : "0%" }}
-        transition={{ type: "tween", ease: "easeInOut", duration: 0.8 }}
-        style={{ display: isPublicRoute ? "none" : "block" }}
+      <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
+        <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
+        <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <PublicOnlyRoute>
+                <LandingPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfUse />} />
+          <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/app"
+            element={
+              <ProtectedRoute>
+                <Inicio />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/user/:userId"
+            element={
+              <AdminRoute>
+                <AdminUserDashboard />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/historico"
+            element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/treino/:letra"
+            element={
+              <ProtectedRoute>
+                <Training />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gerenciar-treinos"
+            element={
+              <ProtectedRoute>
+                <WorkoutTemplates />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+        </AnimatePresence>
+      </TransitionContext.Provider>
+      <div
+        style={{
+          display: isPublicRoute ? "none" : "block",
+          position: "relative",
+          zIndex: 40
+        }}
       >
         <BottomNav />
-      </motion.div>
+      </div>
     </div>
   );
 };
