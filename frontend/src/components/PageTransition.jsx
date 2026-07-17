@@ -94,6 +94,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
       custom={custom}
       variants={variants}
       transition={{ type: "tween", ease: "easeInOut" }}
+      style={{ backgroundColor: 'var(--bg-gestao)' }}
       className={"w-full min-h-screen top-0 left-0 " + positionClass + " " + bgClass}
     >
       {children}
