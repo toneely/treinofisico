@@ -42,20 +42,20 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
         return {
           x: '100%',
           zIndex: 60,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
         };
       }
       if (type === 'fromDeep') {
         return {
           x: 0,
           zIndex: 10,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
         };
       }
       return {
         x: dir === 1 ? '100%' : '-100%',
         zIndex: 10,
-        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+        transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
       };
     },
     animate: () => ({
@@ -68,20 +68,20 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
         return {
           x: 0,
           zIndex: 10,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
         };
       }
       if (type === 'fromDeep') {
         return {
           x: '100%',
           zIndex: 60,
-          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+          transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
         };
       }
       return {
         x: dir === 1 ? '-100%' : '100%',
         zIndex: 10,
-        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+        transition: { type: "tween", ease: "easeInOut", duration: 0.8 }
       };
     }
   };
