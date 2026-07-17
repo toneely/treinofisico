@@ -18,7 +18,7 @@ import { useDynamicTitle } from "./utils/dynamicTitle";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, useIsPresent, motion } from "framer-motion";
 import BottomNav from './components/BottomNav';
-import { getRouteLevel, getTabLevel, TransitionContext } from './components/PageTransition';
+import { getRouteLevel, getTabLevel } from './components/PageTransition';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -157,86 +157,84 @@ const AppContent = () => {
     >
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
-        <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
-        <Routes location={location} key={location.pathname}>
-          <Route
-            path="/"
-            element={
-              <PublicOnlyRoute>
-                <LandingPage />
-              </PublicOnlyRoute>
-            }
-          />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfUse />} />
-          <Route
-            path="/login"
-            element={
-              <PublicOnlyRoute>
-                <Login />
-              </PublicOnlyRoute>
-            }
-          />
-          <Route
-            path="/app"
-            element={
-              <ProtectedRoute>
-                <Inicio />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
-                <Admin />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/user/:userId"
-            element={
-              <AdminRoute>
-                <AdminUserDashboard />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/historico"
-            element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/treino/:letra"
-            element={
-              <ProtectedRoute>
-                <Training />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/perfil"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gerenciar-treinos"
-            element={
-              <ProtectedRoute>
-                <WorkoutTemplates />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-        </AnimatePresence>
-      </TransitionContext.Provider>
+      <AnimatePresence initial={false} custom={{ type: transitionType, dir: direction }}>
+      <Routes location={location} key={location.pathname}>
+        <Route
+          path="/"
+          element={
+            <PublicOnlyRoute>
+              <LandingPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfUse />} />
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/app"
+          element={
+            <ProtectedRoute>
+              <Inicio />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/user/:userId"
+          element={
+            <AdminRoute>
+              <AdminUserDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/historico"
+          element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/treino/:letra"
+          element={
+            <ProtectedRoute>
+              <Training />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/gerenciar-treinos"
+          element={
+            <ProtectedRoute>
+              <WorkoutTemplates />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+      </AnimatePresence>
       <div
         style={{
           display: isPublicRoute ? "none" : "block",
