@@ -241,7 +241,7 @@ const AppContent = () => {
         style={{
           display: isPublicRoute ? "none" : "block",
           position: "relative",
-          zIndex: 40
+          zIndex: 70
         }}
       >
         <BottomNav />
