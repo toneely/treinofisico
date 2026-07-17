@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, createContext, useContext, useRef } from "react";
+import { motion, usePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
 let globalPrevLevel = 1;
@@ -11,42 +11,90 @@ export const getRouteLevel = (pathname) => {
   return 4;
 };
 
+export const getTabLevel = (pathname) => {
+  if (pathname === '/app') return 1;
+  if (pathname.startsWith('/historico')) return 2;
+  if (pathname.startsWith('/perfil')) return 3;
+  return null;
+};
+
+export const TransitionContext = createContext(null);
+
 const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const location = useLocation();
-  const [config] = useState(() => {
-    const currentLevel = getRouteLevel(location.pathname);
-    const prevLevel = globalPrevLevel;
-    // Calculo aritmetico de direcao usando Math.sign sem usar sinais de comparacao
-    const diff = currentLevel - prevLevel;
-    const direction = diff === 0 ? 1 : Math.sign(diff);
-    globalPrevLevel = currentLevel;
-    return {
-      level: currentLevel,
-      direction,
-      isOverlay: currentLevel === 4 || prevLevel === 4
-    };
-  });
+  const isDeep = getTabLevel(location.pathname) === null;
+  const positionClass = isDeep ? 'fixed' : 'absolute';
 
-  const variants = config.isOverlay ? {
-    initial: { x: "100%", zIndex: 50 },
-    animate: { x: 0, zIndex: 50 },
-    exit: { x: "100%", zIndex: 50 }
-  } : {
-    initial: { x: config.direction === 1 ? "100%" : "-100%", zIndex: 10 },
-    animate: { x: 0, zIndex: 10 },
-    exit: { x: config.direction === 1 ? "-100%" : "100%", zIndex: 10 }
+  const contextCustom = useContext(TransitionContext);
+  const [isPresent] = usePresence();
+  const latestCustomRef = useRef(contextCustom);
+
+  if (isPresent && contextCustom) {
+    latestCustomRef.current = contextCustom;
+  }
+
+  const custom = isPresent ? contextCustom : latestCustomRef.current;
+
+  const variants = {
+    initial: (custom) => {
+      const { type = 'tab', dir = 1 } = custom || {};
+      if (type === 'toDeep') {
+        return {
+          x: '100%',
+          zIndex: 60,
+          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+        };
+      }
+      if (type === 'fromDeep') {
+        return {
+          x: 0,
+          zIndex: 10,
+          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+        };
+      }
+      return {
+        x: dir === 1 ? '100%' : '-100%',
+        zIndex: 10,
+        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+      };
+    },
+    animate: () => ({
+      x: 0,
+      zIndex: isDeep ? 60 : 10
+    }),
+    exit: (custom) => {
+      const { type = 'tab', dir = 1 } = custom || {};
+      if (type === 'toDeep') {
+        return {
+          x: 0,
+          zIndex: 10,
+          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+        };
+      }
+      if (type === 'fromDeep') {
+        return {
+          x: '100%',
+          zIndex: 60,
+          transition: { type: "tween", ease: "easeInOut", duration: 0.4 }
+        };
+      }
+      return {
+        x: dir === 1 ? '-100%' : '100%',
+        zIndex: 10,
+        transition: { type: "tween", ease: "easeInOut", duration: 0.3 }
+      };
+    }
   };
-
-  const duration = config.isOverlay ? 0.8 : 0.3;
 
   return (
     <motion.div
       initial="initial"
       animate="animate"
       exit="exit"
+      custom={custom}
       variants={variants}
-      transition={{ type: "tween", ease: "easeInOut", duration: duration }}
-      className={"w-full min-h-screen absolute top-0 left-0 " + bgClass}
+      transition={{ type: "tween", ease: "easeInOut" }}
+      className={"w-full min-h-screen top-0 left-0 " + positionClass + " " + bgClass}
     >
       {children}
     </motion.div>
