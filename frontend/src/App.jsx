@@ -112,22 +112,35 @@ const AppContent = () => {
   const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
   const prevPathRef = useRef(location.pathname);
-  const prevTab = getTabLevel(prevPathRef.current);
-  const currentTab = getTabLevel(location.pathname);
+  const lastTransitionTypeRef = useRef('tab');
+  const lastDirectionRef = useRef(1);
 
-  let transitionType = 'tab';
-  let direction = 1;
+  const prevPath = prevPathRef.current;
+  const currentPath = location.pathname;
 
-  if (prevTab !== null && currentTab !== null) {
-    direction = Math.sign(currentTab - prevTab);
-    transitionType = 'tab';
-  } else if (currentTab === null && prevTab !== null) {
-    transitionType = 'toDeep';
-  } else if (currentTab !== null && prevTab === null) {
-    transitionType = 'fromDeep';
-  } else {
-    transitionType = 'deepToDeep';
-    direction = 1;
+  let transitionType = lastTransitionTypeRef.current;
+  let direction = lastDirectionRef.current;
+
+  if (currentPath !== prevPath) {
+    const prevTab = getTabLevel(prevPath);
+    const currentTab = getTabLevel(currentPath);
+
+    if (prevTab !== null && currentTab !== null) {
+      direction = Math.sign(currentTab - prevTab);
+      transitionType = 'tab';
+    } else if (currentTab === null && prevTab !== null) {
+      transitionType = 'toDeep';
+      direction = 1;
+    } else if (currentTab !== null && prevTab === null) {
+      transitionType = 'fromDeep';
+      direction = 1;
+    } else {
+      transitionType = 'deepToDeep';
+      direction = 1;
+    }
+
+    lastTransitionTypeRef.current = transitionType;
+    lastDirectionRef.current = direction;
   }
 
   useEffect(() => {
