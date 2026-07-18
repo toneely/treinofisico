@@ -60,8 +60,6 @@ const PublicOnlyRoute = ({ children }) => {
     }
   }, [user, loading, navigate, isPresent]);
 
-  if (loading && !user) return null;
-
   return children;
 };
 

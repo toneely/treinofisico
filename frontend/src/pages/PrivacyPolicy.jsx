@@ -51,16 +51,18 @@ const PrivacyPolicy = () => {
           {loading ? (
             <p>Carregando...</p>
           ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h2: ({node, ...props}) => <h2 className="text-2xl font-black text-white mt-10 mb-4" {...props} />,
-                p: ({node, ...props}) => <p className="mb-4" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-6 space-y-2 mb-4" {...props} />,
-              }}
-            >
-              {content}
-            </ReactMarkdown>
+            <div id="main-content">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h2: ({node, ...props}) => <h2 className="text-2xl font-black text-white mt-10 mb-4" {...props} />,
+                  p: ({node, ...props}) => <p className="mb-4" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc pl-6 space-y-2 mb-4" {...props} />,
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
           )}
 
           <p className="pt-10 text-sm text-slate-400">

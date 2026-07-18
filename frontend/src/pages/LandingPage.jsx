@@ -35,7 +35,7 @@ const LandingPage = () => {
         </div>
       </header>
 
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         {/* Hero Section */}
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
