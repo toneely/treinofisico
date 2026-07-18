@@ -29,7 +29,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useAppearance } from "../context/AppearanceContext";
@@ -1194,6 +1194,8 @@ const Training = () => {
   const audioContextRef = React.useRef(null);
   const scrollContainerRef = useRef(null);
   const initialScrollDone = useRef(false);
+  const location = useLocation();
+  const isFromHomeRef = useRef(!!location.state?.fromHome);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1630,18 +1632,47 @@ const Training = () => {
     return () => clearInterval(interval);
   }, [state.isTimerActive, state.activeRestTimers]);
 
+  const prevExerciseRef = useRef({
+    blockIndex: state.currentBlockIndex,
+    exerciseIndex: state.currentExerciseInBlock,
+  });
+
   useEffect(() => {
-    if (loading || state.blocos.length === 0 || initialScrollDone.current) return;
+    if (loading || state.blocos.length === 0) return;
 
-    const timer = setTimeout(() => {
-      const activeCard = document.getElementById("active-exercise");
-      if (activeCard) {
-        activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
+    if (!initialScrollDone.current) {
+      if (isFromHomeRef.current) {
+        // Did just open coming from home screen, so do not scroll to the active card.
+        // We keep scroll at the top. We just mark initialScrollDone as true so subsequent actions work.
         initialScrollDone.current = true;
+      } else {
+        const timer = setTimeout(() => {
+          const activeCard = document.getElementById("active-exercise");
+          if (activeCard) {
+            activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
+            initialScrollDone.current = true;
+          }
+        }, 100);
+        return () => clearTimeout(timer);
       }
-    }, 100);
+    } else {
+      // Subsequent changes in active/selected exercise
+      const currentBlockIdx = state.currentBlockIndex;
+      const currentExIdx = state.currentExerciseInBlock;
+      const prevBlockIdx = prevExerciseRef.current.blockIndex;
+      const prevExIdx = prevExerciseRef.current.exerciseIndex;
 
-    return () => clearTimeout(timer);
+      if (currentBlockIdx !== prevBlockIdx || currentExIdx !== prevExIdx) {
+        const timer = setTimeout(() => {
+          const activeCard = document.getElementById("active-exercise");
+          if (activeCard) {
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
+        return () => clearTimeout(timer);
+      }
+    }
   }, [
     loading,
     state.currentBlockIndex,
