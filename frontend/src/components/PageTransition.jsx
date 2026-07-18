@@ -60,7 +60,10 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
     },
     animate: () => ({
       x: 0,
-      zIndex: isDeep ? 60 : 10
+      zIndex: isDeep ? 60 : 10,
+      transition: isDeep
+        ? { type: "tween", ease: "easeInOut", duration: 0.8 }
+        : { type: "tween", ease: "easeInOut", duration: 0.3 }
     }),
     exit: (custom) => {
       const { type = 'tab', dir = 1 } = custom || {};
