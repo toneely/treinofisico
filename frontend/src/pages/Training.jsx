@@ -1196,6 +1196,7 @@ const Training = () => {
   const initialScrollDone = useRef(false);
   const location = useLocation();
   const isFromHomeRef = useRef(!!location.state?.fromHome);
+  const finishedRef = useRef(false);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1506,6 +1507,8 @@ const Training = () => {
       });
 
       if (historyData.length === 0) {
+        localStorage.removeItem("active_training_session");
+        finishedRef.current = true;
         showToast("Nenhum exercício registrado.", "info");
         navigate("/app");
         return;
@@ -1518,6 +1521,7 @@ const Training = () => {
         throw error;
       } else {
         localStorage.removeItem("active_training_session");
+        finishedRef.current = true;
         showToast("Treino concluído!", "success");
         if (!isPremium) {
           setShowInterstitial(true);
@@ -1562,6 +1566,7 @@ const Training = () => {
   }, [showSaveAsModal, fetchWorkoutDetails]);
 
   useEffect(() => {
+    if (finishedRef.current) return;
     if (!loading && state.blocos.length > 0) {
       localStorage.setItem(
         "active_training_session",
@@ -1572,6 +1577,7 @@ const Training = () => {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
+      if (finishedRef.current) return;
       if (document.visibilityState === "hidden" && state.blocos.length > 0) {
         localStorage.setItem(
           "active_training_session",
@@ -1815,20 +1821,7 @@ const Training = () => {
   };
 
   const handleGoBack = () => {
-    const hasProgress = Object.values(state.exerciseTimes).some(times => times.length > 0);
-    if (!hasProgress) {
-      localStorage.removeItem("active_training_session");
-      navigate("/app");
-    } else {
-      setConfirmationModal({
-        isOpen: true,
-        title: "Sair do Treino?",
-        message: "Seu progresso atual será salvo para continuar depois.",
-        confirmText: "Sair e Salvar",
-        variant: "info",
-        onConfirm: () => navigate("/app")
-      });
-    }
+    navigate("/app");
   };
 
   const promptFinishWorkout = () => {
