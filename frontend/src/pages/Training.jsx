@@ -29,7 +29,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useAppearance } from "../context/AppearanceContext";
@@ -1194,6 +1194,9 @@ const Training = () => {
   const audioContextRef = React.useRef(null);
   const scrollContainerRef = useRef(null);
   const initialScrollDone = useRef(false);
+  const location = useLocation();
+  const isFromHomeRef = useRef(!!location.state?.fromHome);
+  const finishedRef = useRef(false);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1504,6 +1507,8 @@ const Training = () => {
       });
 
       if (historyData.length === 0) {
+        localStorage.removeItem("active_training_session");
+        finishedRef.current = true;
         showToast("Nenhum exercício registrado.", "info");
         navigate("/app");
         return;
@@ -1516,6 +1521,7 @@ const Training = () => {
         throw error;
       } else {
         localStorage.removeItem("active_training_session");
+        finishedRef.current = true;
         showToast("Treino concluído!", "success");
         if (!isPremium) {
           setShowInterstitial(true);
@@ -1560,6 +1566,7 @@ const Training = () => {
   }, [showSaveAsModal, fetchWorkoutDetails]);
 
   useEffect(() => {
+    if (finishedRef.current) return;
     if (!loading && state.blocos.length > 0) {
       localStorage.setItem(
         "active_training_session",
@@ -1570,6 +1577,7 @@ const Training = () => {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
+      if (finishedRef.current) return;
       if (document.visibilityState === "hidden" && state.blocos.length > 0) {
         localStorage.setItem(
           "active_training_session",
@@ -1630,23 +1638,58 @@ const Training = () => {
     return () => clearInterval(interval);
   }, [state.isTimerActive, state.activeRestTimers]);
 
+  const prevExerciseRef = useRef({
+    blockIndex: state.currentBlockIndex,
+    exerciseIndex: state.currentExerciseInBlock,
+  });
+
   useEffect(() => {
-    if (loading || state.blocos.length === 0 || initialScrollDone.current) return;
+    if (loading || state.blocos.length === 0) return;
 
-    const timer = setTimeout(() => {
-      const activeCard = document.getElementById("active-exercise");
-      if (activeCard) {
-        activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
+    if (!initialScrollDone.current) {
+      if (isFromHomeRef.current) {
+        // Did just open coming from home screen, so do not scroll to the active card.
+        // We keep scroll at the top. We just mark initialScrollDone as true so subsequent actions work.
         initialScrollDone.current = true;
+      } else {
+        const timer = setTimeout(() => {
+          const activeCard = document.getElementById("active-exercise");
+          if (activeCard) {
+            activeCard.scrollIntoView({ behavior: 'instant', block: 'center' });
+            initialScrollDone.current = true;
+          }
+        }, 100);
+        return () => clearTimeout(timer);
       }
-    }, 100);
+    } else {
+      // Subsequent changes in active/selected exercise (only in guided mode)
+      const currentBlockIdx = state.currentBlockIndex;
+      const currentExIdx = state.currentExerciseInBlock;
+      const prevBlockIdx = prevExerciseRef.current.blockIndex;
+      const prevExIdx = prevExerciseRef.current.exerciseIndex;
 
-    return () => clearTimeout(timer);
+      if (currentBlockIdx !== prevBlockIdx || currentExIdx !== prevExIdx) {
+        if (state.trainingMode === "guided") {
+          const timer = setTimeout(() => {
+            const activeCard = document.getElementById("active-exercise");
+            if (activeCard) {
+              activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+          prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
+          return () => clearTimeout(timer);
+        } else {
+          // Just update ref so we don't scroll when switching modes or other actions
+          prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
+        }
+      }
+    }
   }, [
     loading,
     state.currentBlockIndex,
     state.currentExerciseInBlock,
     state.blocos.length,
+    state.trainingMode,
   ]);
 
   // Click-outside and Scroll-to-close logic
@@ -1778,20 +1821,7 @@ const Training = () => {
   };
 
   const handleGoBack = () => {
-    const hasProgress = Object.values(state.exerciseTimes).some(times => times.length > 0);
-    if (!hasProgress) {
-      localStorage.removeItem("active_training_session");
-      navigate("/app");
-    } else {
-      setConfirmationModal({
-        isOpen: true,
-        title: "Sair do Treino?",
-        message: "Seu progresso atual será salvo para continuar depois.",
-        confirmText: "Sair e Salvar",
-        variant: "info",
-        onConfirm: () => navigate("/app")
-      });
-    }
+    navigate("/app");
   };
 
   const promptFinishWorkout = () => {

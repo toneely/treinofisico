@@ -235,7 +235,7 @@ const Inicio = () => {
   };
 
   const startTraining = (letra) => {
-    navigate(`/treino/${letra}`);
+    navigate(`/treino/${letra}`, { state: { fromHome: true } });
   };
 
   const recordActivity = async () => {
@@ -325,7 +325,7 @@ const Inicio = () => {
             <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
               <button
                 onClick={() =>
-                  navigate(`/treino/${savedTraining.letra}?resume=true`)
+                  navigate(`/treino/${savedTraining.letra}?resume=true`, { state: { fromHome: true } })
                 }
                 className="w-full p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all"
                 style={{
