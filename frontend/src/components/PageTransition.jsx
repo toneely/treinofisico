@@ -1,5 +1,5 @@
 import React, { useState, createContext, useContext, useRef } from "react";
-import { motion, usePresence } from "framer-motion";
+import { motion, useIsPresent } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
 let globalPrevLevel = 1;
@@ -26,7 +26,7 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
   const positionClass = isDeep ? 'fixed' : 'absolute';
 
   const contextCustom = useContext(TransitionContext);
-  const [isPresent] = usePresence();
+  const isPresent = useIsPresent();
   const latestCustomRef = useRef(contextCustom);
 
   if (isPresent && contextCustom) {
@@ -60,7 +60,10 @@ const PageTransition = ({ children, bgClass = "bg-slate-50" }) => {
     },
     animate: () => ({
       x: 0,
-      zIndex: isDeep ? 60 : 10
+      zIndex: isDeep ? 60 : 10,
+      transition: isDeep
+        ? { type: "tween", ease: "easeInOut", duration: 0.8 }
+        : { type: "tween", ease: "easeInOut", duration: 0.3 }
     }),
     exit: (custom) => {
       const { type = 'tab', dir = 1 } = custom || {};
