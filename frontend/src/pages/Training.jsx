@@ -1656,21 +1656,26 @@ const Training = () => {
         return () => clearTimeout(timer);
       }
     } else {
-      // Subsequent changes in active/selected exercise
+      // Subsequent changes in active/selected exercise (only in guided mode)
       const currentBlockIdx = state.currentBlockIndex;
       const currentExIdx = state.currentExerciseInBlock;
       const prevBlockIdx = prevExerciseRef.current.blockIndex;
       const prevExIdx = prevExerciseRef.current.exerciseIndex;
 
       if (currentBlockIdx !== prevBlockIdx || currentExIdx !== prevExIdx) {
-        const timer = setTimeout(() => {
-          const activeCard = document.getElementById("active-exercise");
-          if (activeCard) {
-            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-        prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
-        return () => clearTimeout(timer);
+        if (state.trainingMode === "guided") {
+          const timer = setTimeout(() => {
+            const activeCard = document.getElementById("active-exercise");
+            if (activeCard) {
+              activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+          prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
+          return () => clearTimeout(timer);
+        } else {
+          // Just update ref so we don't scroll when switching modes or other actions
+          prevExerciseRef.current = { blockIndex: currentBlockIdx, exerciseIndex: currentExIdx };
+        }
       }
     }
   }, [
@@ -1678,6 +1683,7 @@ const Training = () => {
     state.currentBlockIndex,
     state.currentExerciseInBlock,
     state.blocos.length,
+    state.trainingMode,
   ]);
 
   // Click-outside and Scroll-to-close logic
