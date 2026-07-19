@@ -12,7 +12,6 @@ import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import WorkoutTemplates from './pages/WorkoutTemplates';
-import Demo from './pages/Demo';
 import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
@@ -104,11 +103,11 @@ const AdminRoute = ({ children }) => {
 
 const AppContent = () => {
   useDynamicTitle();
-  const { isGracePeriod } = useAuth();
+  const { isGracePeriod, profile } = useAuth();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
   const currentLevel = getRouteLevel(location.pathname);
-  const isPublicRoute = ["/", "/login", "/privacy", "/terms", "/demo"].includes(location.pathname);
+  const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
 
   const prevPathRef = useRef(location.pathname);
   const lastTransitionTypeRef = useRef('tab');
@@ -167,6 +166,11 @@ const AppContent = () => {
         paddingTop: "0px",
       }}
     >
+      {profile?.is_demo && (
+        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2.5 uppercase tracking-[0.15em] sticky top-0 z-[100] shadow-md animate-pulse">
+          Modo Demonstração - Dados de exemplo
+        </div>
+      )}
       <PWAInstallBanner />
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
@@ -182,7 +186,6 @@ const AppContent = () => {
           />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
-          <Route path="/demo" element={<Demo />} />
           <Route
             path="/login"
             element={

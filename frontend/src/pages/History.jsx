@@ -26,25 +26,22 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
 
-const History = ({ isDemo = false }) => {
+const History = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user: authUser, isPremium } = useAuth();
-  const isPremiumUser = isDemo ? false : isPremium;
+  const { user: authUser, isPremium, profile } = useAuth();
+  const isPremiumUser = isPremium;
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState(() => {
-    if (isDemo) return [];
     return appCache.history?.history || [];
   });
   const [extraActivities, setExtraActivities] = useState(() => {
-    if (isDemo) return [];
     return appCache.history?.extraActivities || [];
   });
   const [workoutsMetadata, setWorkoutsMetadata] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [loading, setLoading] = useState(() => {
-    if (isDemo) return false;
     return !appCache.history;
   });
   const [userData, setUserData] = useState(null);
@@ -88,85 +85,29 @@ const History = ({ isDemo = false }) => {
   };
 
   const fetchWorkoutsMetadata = useCallback(async () => {
-    if (isDemo) {
-      setWorkoutsMetadata([{ letra: "A" }, { letra: "B" }, { letra: "C" }]);
-      return;
-    }
     const { data } = await supabase.from("treinos").select("letra");
     setWorkoutsMetadata(data || []);
-  }, [isDemo]);
-
-  const { profile } = useAuth();
+  }, []);
 
   const fetchUser = useCallback(async () => {
-    if (isDemo) {
-      setUserData({ nome: "Usuário Exemplo", id: "demo-user" });
-      return;
-    }
     setUserData(
       profile || (authUser ? {
         id: authUser.id,
         nome: authUser.email,
       } : null),
     );
-  }, [authUser?.id, profile?.id, isDemo]);
+  }, [authUser?.id, profile?.id]);
 
   const fetchExercises = useCallback(async () => {
-    if (isDemo) {
-      setExercises([
-        { id: "ex1", nome: "Supino Reto" },
-        { id: "ex2", nome: "Puxada Alta" }
-      ]);
-      return;
-    }
     const { data } = await supabase
       .from("exercicios")
       .select("*")
       .order("nome");
     setExercises(data || []);
-  }, [isDemo]);
+  }, []);
 
   const fetchHistory = useCallback(async () => {
-    if (isDemo) {
-      const mockLoads = [
-        {
-          id: "demo-h1",
-          user_id: "demo-user",
-          exercicio_id: "ex1",
-          carga: [60, 60, 65],
-          repeticoes: [12, 10, 8],
-          series_executadas: 3,
-          tempo_total_segundos: 120,
-          letra_treino: "A",
-          data_treino: new Date().toISOString(), // Today
-          exercicios: { id: "ex1", nome: "Supino Reto", alvo_principal: "Peito" }
-        },
-        {
-          id: "demo-h2",
-          user_id: "demo-user",
-          exercicio_id: "ex2",
-          carga: [15, 15, 15],
-          repeticoes: [15, 15, 15],
-          series_executadas: 3,
-          tempo_total_segundos: 150,
-          letra_treino: "B",
-          data_treino: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-          exercicios: { id: "ex2", nome: "Puxada Alta", alvo_principal: "Costas" }
-        }
-      ];
-      const mockExtras = [
-        {
-          id: "demo-extra1",
-          user_id: "demo-user",
-          nome_atividade: "Corrida de Rua",
-          data: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() // Yesterday
-        }
-      ];
-      setHistory(mockLoads);
-      setExtraActivities(mockExtras);
-      setLoading(false);
-      return;
-    }
+    if (!authUser?.id) return;
     if (!appCache.history) {
       setLoading(true);
     }
@@ -209,7 +150,7 @@ const History = ({ isDemo = false }) => {
     setExtraActivities(extras || []);
     appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
     setLoading(false);
-  }, [authUser?.id, currentDate, showToast, isDemo]);
+  }, [authUser?.id, currentDate, showToast]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -312,6 +253,10 @@ const History = ({ isDemo = false }) => {
     );
 
   const handleDeleteWorkout = (letra, date) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Treino?",
@@ -333,6 +278,10 @@ const History = ({ isDemo = false }) => {
   };
 
   const handleDeleteExercise = (id) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Registro?",
@@ -353,6 +302,10 @@ const History = ({ isDemo = false }) => {
   };
 
   const handleDeleteExtra = (id) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Atividade?",
@@ -374,6 +327,10 @@ const History = ({ isDemo = false }) => {
 
   const handleAddWorkoutRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const cargaVal =
       typeof formData.carga === "string" && formData.carga.includes(",")
         ? formData.carga.split(",").map((v) => parseFloat(v.trim()))
@@ -411,6 +368,10 @@ const History = ({ isDemo = false }) => {
 
   const handleUpdateRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     let error;
     if (isEditing.type === "workout") {
       const cargaVal =
@@ -460,6 +421,10 @@ const History = ({ isDemo = false }) => {
     val,
     part = "all",
   ) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const updatedFields = {};
     let value;
 
@@ -530,6 +495,10 @@ const History = ({ isDemo = false }) => {
 
   const handleAddExtraRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const { error } = await supabase.from("registro_atividades").insert([
       {
         user_id: authUser.id,

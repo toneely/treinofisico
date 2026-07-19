@@ -1161,15 +1161,14 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
   );
 };
 
-const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
+const Training = () => {
   const { showToast } = useToast();
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, profile } = useAuth();
   const { settings } = useAppearance();
-  const { letra: routeLetra } = useParams();
-  const letra = isDemo ? (propLetra || "A") : routeLetra;
+  const { letra } = useParams();
   const navigate = useNavigate();
   const isFreeTraining = letra === "LIVRE";
-  const isPremiumUser = isDemo ? false : isPremium;
+  const isPremiumUser = isPremium;
 
   const [loading, setLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -1231,59 +1230,6 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
   const fetchData = useCallback(async () => {
-    if (isDemo) {
-      setLoading(true);
-      setIsTimeout(false);
-      const mockBlocos = [
-        [
-          {
-            id: "demo-b1-e1",
-            numero_bloco: 1,
-            ordem_execucao: 1,
-            series_alvo: 3,
-            reps_alvo: "10",
-            exercicio_id: "ex1",
-            sessionId: "demo-b1-e1-sess",
-            exercicios: {
-              id: "ex1",
-              nome: "Supino Reto",
-              alvo_principal: "Peito",
-            }
-          },
-          {
-            id: "demo-b1-e2",
-            numero_bloco: 1,
-            ordem_execucao: 2,
-            series_alvo: 3,
-            reps_alvo: "10",
-            exercicio_id: "ex2",
-            sessionId: "demo-b1-e2-sess",
-            exercicios: {
-              id: "ex2",
-              nome: "Voador",
-              alvo_principal: "Peito",
-            }
-          }
-        ]
-      ];
-      dispatch({
-        type: "INIT_SESSION",
-        payload: {
-          letra: letra || "A",
-          blocos: mockBlocos,
-          originalBlocos: mockBlocos,
-          cargas: {},
-          repsFeitas: {},
-          exerciseTimes: {},
-          restTimes: {},
-          exerciseLoads: {},
-          exerciseReps: {},
-        },
-      });
-      setLoading(false);
-      return;
-    }
-
     if (!user?.id) {
       console.warn("FetchData cancelado: User ID ausente.");
       return;
@@ -1508,7 +1454,7 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
       const workoutTimestamp = new Date().toISOString();
       let displayLetra = letra;
 
-      if (isDemo) {
+      if (profile?.is_demo) {
         // Build mock historyData from state
         state.originalBlocos.forEach((block) => {
           block.forEach((ex) => {
@@ -1519,7 +1465,7 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
             const exReps = state.exerciseReps[sessionId] || [];
 
             historyData.push({
-              user_id: "demo-user",
+              user_id: user.id,
               exercicio_id: ex.exercicio_id,
               carga: exLoads.length > 0 ? exLoads : [60],
               repeticoes: exReps.length > 0 ? exReps : [12],
@@ -2174,6 +2120,11 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
 
 
   const handleSaveAs = async () => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      setShowSaveAsModal(false);
+      return;
+    }
     if (!saveAsData.letra) {
       showToast("Por favor, informe a letra do treino.", "info");
       return;
@@ -2283,11 +2234,7 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
   };
 
   const handleGoBack = () => {
-    if (isDemo && onGoBack) {
-      onGoBack();
-    } else {
-      navigate("/app");
-    }
+    navigate("/app");
   };
 
   const promptFinishWorkout = () => {
@@ -2620,11 +2567,7 @@ const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
               <button
                 onClick={() => {
                   dispatch({ type: "CLEAR_SESSION" });
-                  if (isDemo && onGoBack) {
-                    onGoBack();
-                  } else {
-                    navigate("/app");
-                  }
+                  navigate("/app");
                 }}
                 className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
               >

@@ -1,10 +1,35 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { CheckCircle2, Dumbbell, Trophy, Users, ShieldCheck, Zap } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, Dumbbell, Trophy, Users, ShieldCheck, Zap, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 const LandingPage = () => {
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [loadingDemo, setLoadingDemo] = useState(false);
+
+  const handleDemoLogin = async (e) => {
+    e.preventDefault();
+    if (loadingDemo) return;
+    setLoadingDemo(true);
+    showToast("Acessando modo demonstração...", "info");
+    try {
+      const { error } = await signIn("demo@treinofisico.app", "prosperidadefinanceira7");
+      if (error) {
+        showToast("Erro ao entrar no modo demonstração: " + error.message, "error");
+      } else {
+        showToast("Bem-vindo ao modo demonstração!", "success");
+        navigate("/app");
+      }
+    } catch (err) {
+      showToast("Falha ao autenticar demo.", "error");
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
   return (
     <div
       className="flex flex-col min-h-screen"
@@ -27,12 +52,14 @@ const LandingPage = () => {
             <span className="text-lg sm:text-xl font-black text-white tracking-tight truncate">Treino Físico</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              to="/demo"
-              className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all whitespace-nowrap"
+            <button
+              onClick={handleDemoLogin}
+              disabled={loadingDemo}
+              className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all whitespace-nowrap flex items-center gap-2"
             >
+              {loadingDemo && <Loader2 className="animate-spin" size={14} />}
               Experimentar sem Cadastro
-            </Link>
+            </button>
             <Link
               to={user ? "/app" : "/login"}
               className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
@@ -62,12 +89,14 @@ const LandingPage = () => {
               >
                 {user ? "Continuar Treinando" : "Começar Agora Gratuitamente"}
               </Link>
-              <Link
-                to="/demo"
-                className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105 bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              <button
+                onClick={handleDemoLogin}
+                disabled={loadingDemo}
+                className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105 bg-white/10 text-white border border-white/20 hover:bg-white/20 flex items-center justify-center gap-2"
               >
+                {loadingDemo && <Loader2 className="animate-spin" size={18} />}
                 Experimentar sem Cadastro
-              </Link>
+              </button>
             </div>
           </div>
         </section>
