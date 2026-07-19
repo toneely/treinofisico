@@ -12,6 +12,7 @@ import Training from './pages/Training';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import WorkoutTemplates from './pages/WorkoutTemplates';
+import Demo from './pages/Demo';
 import GracePeriodBanner from './components/ui/GracePeriodBanner';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import { useDynamicTitle } from "./utils/dynamicTitle";
@@ -107,7 +108,7 @@ const AppContent = () => {
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
   const currentLevel = getRouteLevel(location.pathname);
-  const isPublicRoute = ["/", "/login", "/privacy", "/terms"].includes(location.pathname);
+  const isPublicRoute = ["/", "/login", "/privacy", "/terms", "/demo"].includes(location.pathname);
 
   const prevPathRef = useRef(location.pathname);
   const lastTransitionTypeRef = useRef('tab');
@@ -181,6 +182,7 @@ const AppContent = () => {
           />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/demo" element={<Demo />} />
           <Route
             path="/login"
             element={

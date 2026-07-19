@@ -32,8 +32,9 @@ import { useAppearance } from "../context/AppearanceContext";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
 
-const Profile = () => {
-  const { user, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
+const Profile = ({ isDemo = false }) => {
+  const { user: authUser, profile, refreshProfile, signOut, isPremium, loading } = useAuth();
+  const user = isDemo ? { id: "demo-user", email: "exemplo@treinofisico.com" } : authUser;
   const { showToast } = useToast();
   const { settings, updateAppearance } = useAppearance();
   const navigate = useNavigate();
@@ -61,13 +62,15 @@ const Profile = () => {
   const cameraInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    nome: "",
-    foco_treino: "",
-    atividade_alternativa: "",
+    nome: isDemo ? "Usuário Exemplo" : "",
+    foco_treino: isDemo ? "Hipertrofia" : "",
+    atividade_alternativa: isDemo ? "Corrida de Rua" : "",
     avatar_url: null,
     testador_pagamento: false,
     status_assinatura: "free",
   });
+
+  const isPremiumUser = isDemo ? false : isPremium;
 
   const [passwordData, setPasswordData] = useState({
     newPassword: "",
@@ -79,6 +82,7 @@ const Profile = () => {
   });
 
   useEffect(() => {
+    if (isDemo) return;
     async function fetchSettings() {
       const { data, error } = await supabase.from('config_app').select('*').single();
       if (data) {
@@ -87,9 +91,10 @@ const Profile = () => {
       }
     }
     fetchSettings();
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
+    if (isDemo) return;
     if (profile) {
       const timer = setTimeout(() => {
         setFormData({
@@ -103,7 +108,7 @@ const Profile = () => {
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [profile?.id]);
+  }, [profile?.id, isDemo]);
 
   // Initialize Mercado Pago V2 with Public Key from Netlify/Vite Env
   useEffect(() => {
@@ -129,6 +134,15 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    if (isDemo) {
+      setSaving(true);
+      setTimeout(() => {
+        setSaving(false);
+        showToast("Perfil atualizado (modo demonstração)!", "success");
+      }, 500);
+      return;
+    }
+
     if (!user?.id) {
       showToast("Erro: Usuário não identificado.", "error");
       return;
@@ -191,6 +205,11 @@ const Profile = () => {
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
+    if (isDemo) {
+      showToast("Crie uma conta para poder alterar sua senha!", "info");
+      navigate("/login");
+      return;
+    }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       showToast("As senhas não coincidem", "error");
       return;
@@ -228,6 +247,11 @@ const Profile = () => {
   };
 
   async function handlePaymentInitiation(paymentType) {
+    if (isDemo) {
+      showToast("Crie uma conta para poder assinar o plano premium!", "info");
+      navigate("/login");
+      return;
+    }
     if (paymentType === 'card_recurring' || paymentType === 'card_one_time') {
       setShowCardModal(paymentType);
       return;
@@ -896,7 +920,7 @@ const Profile = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremiumUser} />
 
           </>
         )}

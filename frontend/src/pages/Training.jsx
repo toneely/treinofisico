@@ -1161,13 +1161,15 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
   );
 };
 
-const Training = () => {
+const Training = ({ isDemo = false, onGoBack, letra: propLetra }) => {
   const { showToast } = useToast();
   const { user, isPremium } = useAuth();
   const { settings } = useAppearance();
-  const { letra } = useParams();
+  const { letra: routeLetra } = useParams();
+  const letra = isDemo ? (propLetra || "A") : routeLetra;
   const navigate = useNavigate();
   const isFreeTraining = letra === "LIVRE";
+  const isPremiumUser = isDemo ? false : isPremium;
 
   const [loading, setLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -1229,6 +1231,59 @@ const Training = () => {
   const currentBlock = state.blocos[state.currentBlockIndex] || [];
 
   const fetchData = useCallback(async () => {
+    if (isDemo) {
+      setLoading(true);
+      setIsTimeout(false);
+      const mockBlocos = [
+        [
+          {
+            id: "demo-b1-e1",
+            numero_bloco: 1,
+            ordem_execucao: 1,
+            series_alvo: 3,
+            reps_alvo: "10",
+            exercicio_id: "ex1",
+            sessionId: "demo-b1-e1-sess",
+            exercicios: {
+              id: "ex1",
+              nome: "Supino Reto",
+              alvo_principal: "Peito",
+            }
+          },
+          {
+            id: "demo-b1-e2",
+            numero_bloco: 1,
+            ordem_execucao: 2,
+            series_alvo: 3,
+            reps_alvo: "10",
+            exercicio_id: "ex2",
+            sessionId: "demo-b1-e2-sess",
+            exercicios: {
+              id: "ex2",
+              nome: "Voador",
+              alvo_principal: "Peito",
+            }
+          }
+        ]
+      ];
+      dispatch({
+        type: "INIT_SESSION",
+        payload: {
+          letra: letra || "A",
+          blocos: mockBlocos,
+          originalBlocos: mockBlocos,
+          cargas: {},
+          repsFeitas: {},
+          exerciseTimes: {},
+          restTimes: {},
+          exerciseLoads: {},
+          exerciseReps: {},
+        },
+      });
+      setLoading(false);
+      return;
+    }
+
     if (!user?.id) {
       console.warn("FetchData cancelado: User ID ausente.");
       return;
@@ -1452,6 +1507,148 @@ const Training = () => {
       const historyData = [];
       const workoutTimestamp = new Date().toISOString();
       let displayLetra = letra;
+
+      if (isDemo) {
+        // Build mock historyData from state
+        state.originalBlocos.forEach((block) => {
+          block.forEach((ex) => {
+            const sessionId = ex.sessionId;
+            const execTimes = state.exerciseTimes[sessionId] || [];
+            const rests = state.restTimes[sessionId] || [];
+            const exLoads = state.exerciseLoads[sessionId] || [];
+            const exReps = state.exerciseReps[sessionId] || [];
+
+            historyData.push({
+              user_id: "demo-user",
+              exercicio_id: ex.exercicio_id,
+              carga: exLoads.length > 0 ? exLoads : [60],
+              repeticoes: exReps.length > 0 ? exReps : [12],
+              series_executadas: Math.max(execTimes.length, exLoads.length, exReps.length, 1),
+              tempo_total_segundos: 120,
+              tempo_execucao_segundos: execTimes.length > 0 ? execTimes : [60],
+              tempo_descanso_segundos: rests.length > 0 ? rests : [60],
+              letra_treino: displayLetra,
+              data_treino: workoutTimestamp,
+              sessao_treino_id: state.sessaoTreinoId,
+            });
+          });
+        });
+
+        localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        finishedRef.current = true;
+        showToast("Treino concluído (modo demonstração)!", "success");
+
+        // Calculate immediate metrics 1 to 8:
+        let totalSeconds = 0;
+        historyData.forEach(h => {
+          totalSeconds += Number(h.tempo_total_segundos) || 0;
+        });
+        const durationMin = Math.floor(totalSeconds / 60);
+        const durationSec = totalSeconds % 60;
+        const formattedDuration = `${durationMin} min${durationSec > 0 ? ` ${durationSec}s` : ""}`;
+        const exerciseCount = historyData.length;
+        const totalSets = historyData.reduce((acc, h) => acc + (Number(h.series_executadas) || 0), 0);
+
+        let totalReps = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          repsArr.forEach(r => {
+            totalReps += (Number(r) || 0);
+          });
+        });
+
+        let totalVolume = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          repsArr.forEach((r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            totalVolume += (rep * ld);
+          });
+        });
+
+        let totalExecSec = 0;
+        let totalRestSec = 0;
+        historyData.forEach(h => {
+          const execs = Array.isArray(h.tempo_execucao_segundos) ? h.tempo_execucao_segundos : (h.tempo_execucao_segundos ? [h.tempo_execucao_segundos] : []);
+          const rests = Array.isArray(h.tempo_descanso_segundos) ? h.tempo_descanso_segundos : (h.tempo_descanso_segundos ? [h.tempo_descanso_segundos] : []);
+          totalExecSec += execs.reduce((sum, s) => sum + (Number(s) || 0), 0);
+          totalRestSec += rests.reduce((sum, s) => sum + (Number(s) || 0), 0);
+        });
+
+        let maxLoad = 0;
+        historyData.forEach(h => {
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          loadsArr.forEach(l => {
+            const loadVal = Number(l) || 0;
+            if (loadVal > maxLoad) {
+              maxLoad = loadVal;
+            }
+          });
+        });
+
+        let maxExerciseVolume = 0;
+        let maxVolumeExerciseName = "";
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          const exerciseVolume = repsArr.reduce((sum, r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            return sum + (rep * ld);
+          }, 0);
+
+          let name = "Supino Reto";
+          if (h.exercicio_id === "ex2") name = "Voador";
+
+          if (exerciseVolume > maxExerciseVolume) {
+            maxExerciseVolume = exerciseVolume;
+            maxVolumeExerciseName = name;
+          }
+        });
+
+        setSummaryData({
+          duration: formattedDuration || "15 min",
+          exerciseCount,
+          totalSets,
+          totalReps,
+          totalVolume,
+          totalExecSec,
+          totalRestSec,
+          maxLoad,
+          maxVolumeExerciseName,
+          maxExerciseVolume,
+          loadingAsync: true,
+          personalRecords: [],
+          volumeComparison: null,
+          weeklyDaysCount: 3,
+          streak: 4
+        });
+        setShowSummary(true);
+
+        setTimeout(() => {
+          setSummaryData(prev => ({
+            ...prev,
+            loadingAsync: false,
+            personalRecords: [
+              { name: "Supino Reto", prevMax: 50, todayMax: maxLoad || 60 }
+            ],
+            volumeComparison: {
+              prevVolume: 550,
+              todayVolume: totalVolume,
+              percentDiff: "31"
+            },
+            weeklyDaysCount: 3,
+            streak: 4
+          }));
+        }, 1000);
+
+        finishedRef.current = true;
+        setSavingSession(false);
+        return;
+      }
 
       if (letra === "LIVRE") {
         const { data: userData, error: userError } = await supabase
@@ -2086,7 +2283,11 @@ const Training = () => {
   };
 
   const handleGoBack = () => {
-    navigate("/app");
+    if (isDemo && onGoBack) {
+      onGoBack();
+    } else {
+      navigate("/app");
+    }
   };
 
   const promptFinishWorkout = () => {
@@ -2241,8 +2442,8 @@ const Training = () => {
           )}
         </div>
       ) : showSummary && summaryData ? (
-        <div className="min-h-screen w-full bg-[#0a0f1d] text-white flex flex-col justify-between p-6 overflow-y-auto resilient-bottom-spacing select-none">
-          <div className="w-full max-w-md mx-auto space-y-6">
+        <div className="fixed inset-0 w-full bg-[#0a0f1d] text-white flex flex-col p-6 overflow-y-auto select-none z-[120]">
+          <div className="w-full max-w-md mx-auto space-y-6 flex-grow pb-12">
             {/* Header */}
             <div className="flex flex-col items-center text-center pt-4 space-y-2">
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2 shadow-lg shadow-emerald-500/10">
@@ -2411,7 +2612,7 @@ const Training = () => {
 
             {/* Banner de Anúncio maior na tela de resumo */}
             <div className="w-full flex justify-center py-2">
-              <AdBanner isPremium={isPremium} variant="inline" />
+              <AdBanner isPremium={isPremiumUser} variant="inline" />
             </div>
 
             {/* CTA Button */}
@@ -2419,7 +2620,11 @@ const Training = () => {
               <button
                 onClick={() => {
                   dispatch({ type: "CLEAR_SESSION" });
-                  navigate("/app");
+                  if (isDemo && onGoBack) {
+                    onGoBack();
+                  } else {
+                    navigate("/app");
+                  }
                 }}
                 className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
               >

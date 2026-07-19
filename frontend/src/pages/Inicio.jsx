@@ -73,14 +73,23 @@ const WorkoutCard = ({ title, subtitle, icon, onClick, variant }) => {
   );
 };
 
-const Inicio = () => {
+const Inicio = ({ isDemo = false, onStartTraining }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, profile, isPremium } = useAuth();
+
+  const mockWorkouts = [
+    { id: "demo-a", letra: "A", nome: "Peito e Tríceps", subtitulo: "Foco em hipertrofia", ordem_exibicao: 1 },
+    { id: "demo-b", letra: "B", nome: "Costas e Bíceps", subtitulo: "Foco em força", ordem_exibicao: 2 },
+    { id: "demo-c", letra: "C", nome: "Pernas e Ombros", subtitulo: "Completo de membros inferiores", ordem_exibicao: 3 },
+  ];
+
   const [workouts, setWorkouts] = useState(() => {
+    if (isDemo) return mockWorkouts;
     return appCache.inicio?.workouts || [];
   });
   const [loading, setLoading] = useState(() => {
+    if (isDemo) return false;
     return !appCache.inicio;
   });
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -89,13 +98,15 @@ const Inicio = () => {
   const [activeTab, setActiveTab] = useState("treinos");
 
   useEffect(() => {
+    if (isDemo) return;
     if (authUser?.id) {
       fetchWorkouts();
       checkSavedTraining();
     }
-  }, [authUser?.id]);
+  }, [authUser?.id, isDemo]);
 
   useEffect(() => {
+    if (isDemo) return;
     if (!authUser?.id) return;
     if (appCache.workoutTemplates) return;
 
@@ -235,10 +246,23 @@ const Inicio = () => {
   };
 
   const startTraining = (letra) => {
-    navigate(`/treino/${letra}`, { state: { fromHome: true } });
+    if (isDemo && onStartTraining) {
+      onStartTraining(letra);
+    } else {
+      navigate(`/treino/${letra}`, { state: { fromHome: true } });
+    }
   };
 
   const recordActivity = async () => {
+    if (isDemo) {
+      setIsRecording(true);
+      setTimeout(() => {
+        setIsRecording(false);
+        showToast(`${atividadeAlt} registrada com sucesso (modo demonstração)!`, "success");
+        setShowActivityModal(false);
+      }, 500);
+      return;
+    }
     setIsRecording(true);
     const { error } = await supabase.from("registro_atividades").insert([
       {
@@ -257,13 +281,14 @@ const Inicio = () => {
   };
 
   // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
-  const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
-  const atividadeAlt = profile?.atividade_alternativa;
+  const displayName = isDemo ? "Usuário Exemplo" : (profile?.nome || authUser?.email?.split("@")[0] || "Atleta");
+  const atividadeAlt = isDemo ? "Corrida de Rua" : profile?.atividade_alternativa;
+  const isPremiumUser = isDemo ? false : isPremium;
 
   return (
     <PageTransition>
       <div
-        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremiumUser ? "resilient-bottom-spacing-nav" : "pb-24"}`}
       >
         <header className="mb-8">
         <div className="flex items-center gap-2.5 mb-6">
@@ -471,7 +496,7 @@ const Inicio = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremiumUser} />
       </div>
     </PageTransition>
   );
