@@ -47,6 +47,10 @@ const BodyEvolution = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const [signedThumbUrls, setSignedThumbUrls] = useState({});
+  const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
+  const [mediaUrlError, setMediaUrlError] = useState(false);
+
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -93,8 +97,71 @@ const BodyEvolution = () => {
 
     if (data) {
       setPhotos(data);
+
+      const thumbUrlsMap = {};
+      await Promise.all(
+        data.map(async (photo) => {
+          const path = photo.url_miniatura;
+          if (!path) return;
+          if (path.startsWith("http")) {
+            thumbUrlsMap[photo.id] = path;
+            return;
+          }
+          try {
+            const { data: res, error } = await supabase.storage
+              .from("fotos_evolucao")
+              .createSignedUrl(path, 3600);
+            if (!error && res?.signedUrl) {
+              thumbUrlsMap[photo.id] = res.signedUrl;
+            } else {
+              console.error("Erro ao gerar URL assinada:", error);
+              thumbUrlsMap[photo.id] = "error";
+            }
+          } catch (err) {
+            console.error("Falha ao gerar URL assinada:", err);
+            thumbUrlsMap[photo.id] = "error";
+          }
+        })
+      );
+      setSignedThumbUrls(thumbUrlsMap);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedPhoto) {
+      setSelectedMediaUrl(null);
+      setMediaUrlError(false);
+      return;
+    }
+
+    const path = selectedPhoto.url_foto_media;
+    if (!path) return;
+    if (path.startsWith("http")) {
+      setSelectedMediaUrl(path);
+      setMediaUrlError(false);
+      return;
+    }
+
+    const fetchLargeUrl = async () => {
+      try {
+        const { data, error } = await supabase.storage
+          .from("fotos_evolucao")
+          .createSignedUrl(path, 3600);
+        if (!error && data?.signedUrl) {
+          setSelectedMediaUrl(data.signedUrl);
+          setMediaUrlError(false);
+        } else {
+          console.error("Erro na imagem cheia:", error);
+          setMediaUrlError(true);
+        }
+      } catch (err) {
+        console.error("Falha na imagem cheia:", err);
+        setMediaUrlError(true);
+      }
+    };
+
+    fetchLargeUrl();
+  }, [selectedPhoto]);
 
   const handleUpdatePhoto = async () => {
     if (!selectedPhoto || !user) return;
@@ -129,6 +196,8 @@ const BodyEvolution = () => {
     try {
       // Step A: Extract relative paths
       const getPathFromUrl = (url) => {
+        if (!url) return null;
+        if (!url.startsWith("http")) return url; // Already a relative path!
         const parts = url.split("fotos_evolucao/");
         return parts.length > 1 ? parts[1] : null;
       };
@@ -257,16 +326,12 @@ const BodyEvolution = () => {
       if (uploadMedia.error) throw uploadMedia.error;
       if (uploadThumb.error) throw uploadThumb.error;
 
-      // 3. Get Public URLs
-      const urlMedia = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameMedia).data.publicUrl;
-      const urlThumb = supabase.storage.from("fotos_evolucao").getPublicUrl(fileNameThumb).data.publicUrl;
-
-      // 4. Save to DB (ensuring timezone safe date)
+      // 3. Save to DB with direct relative paths (ensuring timezone safe date)
       const { error: dbError } = await supabase.from("fotos_progresso").insert([
         {
           user_id: user.id,
-          url_foto_media: urlMedia,
-          url_miniatura: urlThumb,
+          url_foto_media: fileNameMedia,
+          url_miniatura: fileNameThumb,
           anotacao: photoData.anotacao,
           data_foto: new Date(photoData.data_foto + "T00:00:00").toISOString(),
         },
@@ -374,7 +439,7 @@ const BodyEvolution = () => {
                           style={{ height: "130px" }}
                         >
                           <img
-                            src={photo.url_miniatura}
+                            src={(signedThumbUrls[photo.id] && signedThumbUrls[photo.id] !== "error") ? signedThumbUrls[photo.id] : photo.url_miniatura}
                             alt={photo.data_foto}
                             className="h-full w-auto object-contain bg-slate-100"
                           />
@@ -674,7 +739,7 @@ const BodyEvolution = () => {
           {/* Image Area - Flexible */}
           <main className="flex-1 min-h-0 bg-black/5 flex items-center justify-center p-4">
             <img
-              src={selectedPhoto.url_foto_media}
+              src={selectedMediaUrl || selectedPhoto.url_foto_media}
               alt="Foto de progresso"
               className="w-full h-full object-contain drop-shadow-lg"
             />
