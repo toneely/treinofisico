@@ -25,6 +25,7 @@ import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
+import { getDemoOffset, shiftDemoDate } from "../utils/demoDateShift";
 
 const History = () => {
   const navigate = useNavigate();
@@ -125,32 +126,57 @@ const History = () => {
       59,
     ).toISOString();
 
-    const { data: loads, error: errorLoads } = await supabase
+    let query = supabase
       .from("historico_cargas")
       .select("*, exercicios(*)")
       .eq("user_id", authUser.id)
-      .gte("data_treino", startOfMonth)
-      .lte("data_treino", endOfMonth)
       .order("data_treino", { ascending: false });
 
-    const { data: extras, error: errorExtras } = await supabase
+    if (!profile?.is_demo) {
+      query = query.gte("data_treino", startOfMonth).lte("data_treino", endOfMonth);
+    }
+
+    const { data: fetchedData, error: errorLoads } = await query;
+    const data = fetchedData || [];
+
+    const user = authUser;
+    const offset = await getDemoOffset(user.id, profile?.is_demo);
+    const adjustedData = data.map(function(item) {
+      return {
+        ...item,
+        data_treino: shiftDemoDate(item.data_treino, offset)
+      };
+    });
+
+    let queryExtras = supabase
       .from("registro_atividades")
       .select("*")
       .eq("user_id", authUser.id)
-      .gte("data", startOfMonth)
-      .lte("data", endOfMonth)
       .order("data", { ascending: false });
+
+    if (!profile?.is_demo) {
+      queryExtras = queryExtras.gte("data", startOfMonth).lte("data", endOfMonth);
+    }
+
+    const { data: extras, error: errorExtras } = await queryExtras;
+
+    const adjustedExtras = (extras || []).map(function(item) {
+      return {
+        ...item,
+        data: shiftDemoDate(item.data, offset)
+      };
+    });
 
     if (errorLoads)
       showToast("Erro ao buscar cargas: " + errorLoads.message, "error");
     if (errorExtras)
       showToast("Erro ao buscar atividades: " + errorExtras.message, "error");
 
-    setHistory(loads || []);
-    setExtraActivities(extras || []);
-    appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
+    setHistory(adjustedData || []);
+    setExtraActivities(adjustedExtras || []);
+    appCache.history = { ...appCache.history, history: adjustedData || [], extraActivities: adjustedExtras || [] };
     setLoading(false);
-  }, [authUser?.id, currentDate, showToast]);
+  }, [authUser?.id, profile?.is_demo, currentDate, showToast]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -182,12 +208,17 @@ const History = () => {
 
   const getDayActivities = (day) => {
     if (!day) return [];
-    const workouts = history.filter(
-      (h) => new Date(h.data_treino).getDate() === day,
-    );
-    const extras = extraActivities.filter(
-      (e) => new Date(e.data).getDate() === day,
-    );
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const workouts = history.filter((h) => {
+      const d = new Date(h.data_treino);
+      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    const extras = extraActivities.filter((e) => {
+      const d = new Date(e.data);
+      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
 
     const groupedWorkouts = workouts.reduce((acc, curr) => {
       const timeKey = new Date(curr.data_treino).toLocaleTimeString([], {
