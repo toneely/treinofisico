@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { getDemoOffset, shiftDemoDate } from "../utils/demoDateShift";
+import { getDemoOffset, getPhotoDemoOffset, shiftDemoDate } from "../utils/demoDateShift";
 import {
   Scale,
   Ruler,
@@ -104,7 +104,7 @@ const BodyEvolution = () => {
       .eq("user_id", user.id)
       .order("data_foto", { ascending: true });
 
-    const offset = await getDemoOffset(user.id, profile?.is_demo);
+    const offset = await getPhotoDemoOffset(user.id, profile?.is_demo);
     const adjustedPhotos = (data || []).map(function(item) {
       return {
         ...item,

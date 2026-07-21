@@ -208,12 +208,17 @@ const History = () => {
 
   const getDayActivities = (day) => {
     if (!day) return [];
-    const workouts = history.filter(
-      (h) => new Date(h.data_treino).getDate() === day,
-    );
-    const extras = extraActivities.filter(
-      (e) => new Date(e.data).getDate() === day,
-    );
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const workouts = history.filter((h) => {
+      const d = new Date(h.data_treino);
+      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    const extras = extraActivities.filter((e) => {
+      const d = new Date(e.data);
+      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
 
     const groupedWorkouts = workouts.reduce((acc, curr) => {
       const timeKey = new Date(curr.data_treino).toLocaleTimeString([], {
