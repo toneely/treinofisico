@@ -165,12 +165,12 @@ const AppContent = () => {
           ? "var(--text-on-treino)"
           : "var(--text-on-gestao)",
         paddingTop: "0px",
-        '--demo-offset': profile?.is_demo && !isPublicRoute ? '48px' : '0px',
-        '--app-height': profile?.is_demo && !isPublicRoute ? 'calc(100dvh - 48px)' : '100dvh',
+        '--demo-offset': profile?.is_demo && !isPublicRoute ? '40px' : '0px',
+        '--app-height': profile?.is_demo && !isPublicRoute ? 'calc(100dvh - 40px)' : '100dvh',
       }}
     >
       {profile?.is_demo && !isPublicRoute && (
-        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2 px-4 uppercase tracking-[0.15em] fixed top-0 left-0 w-full z-[150] shadow-md flex items-center justify-center gap-3 flex-wrap">
+        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2 px-4 uppercase tracking-[0.15em] fixed top-0 left-0 w-full z-[150] shadow-md flex items-center justify-center gap-3 h-10">
           <span className="animate-pulse">Modo Demonstração</span>
           <button
             onClick={async () => { await signOut(); navigate("/login"); }}
@@ -182,7 +182,7 @@ const AppContent = () => {
       )}
       {!profile?.is_demo && <PWAInstallBanner />}
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <div className="relative w-full" style={{ marginTop: profile?.is_demo && !isPublicRoute ? '48px' : '0px' }}>
+      <div className="relative w-full">
         <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
           <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
           <Routes location={location} key={location.pathname}>
