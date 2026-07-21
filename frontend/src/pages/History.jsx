@@ -126,14 +126,17 @@ const History = () => {
       59,
     ).toISOString();
 
-    const { data: fetchedData, error: errorLoads } = await supabase
+    let query = supabase
       .from("historico_cargas")
       .select("*, exercicios(*)")
       .eq("user_id", authUser.id)
-      .gte("data_treino", startOfMonth)
-      .lte("data_treino", endOfMonth)
       .order("data_treino", { ascending: false });
 
+    if (!profile?.is_demo) {
+      query = query.gte("data_treino", startOfMonth).lte("data_treino", endOfMonth);
+    }
+
+    const { data: fetchedData, error: errorLoads } = await query;
     const data = fetchedData || [];
 
     const user = authUser;
@@ -145,13 +148,24 @@ const History = () => {
       };
     });
 
-    const { data: extras, error: errorExtras } = await supabase
+    let queryExtras = supabase
       .from("registro_atividades")
       .select("*")
       .eq("user_id", authUser.id)
-      .gte("data", startOfMonth)
-      .lte("data", endOfMonth)
       .order("data", { ascending: false });
+
+    if (!profile?.is_demo) {
+      queryExtras = queryExtras.gte("data", startOfMonth).lte("data", endOfMonth);
+    }
+
+    const { data: extras, error: errorExtras } = await queryExtras;
+
+    const adjustedExtras = (extras || []).map(function(item) {
+      return {
+        ...item,
+        data: shiftDemoDate(item.data, offset)
+      };
+    });
 
     if (errorLoads)
       showToast("Erro ao buscar cargas: " + errorLoads.message, "error");
@@ -159,8 +173,8 @@ const History = () => {
       showToast("Erro ao buscar atividades: " + errorExtras.message, "error");
 
     setHistory(adjustedData || []);
-    setExtraActivities(extras || []);
-    appCache.history = { ...appCache.history, history: adjustedData || [], extraActivities: extras || [] };
+    setExtraActivities(adjustedExtras || []);
+    appCache.history = { ...appCache.history, history: adjustedData || [], extraActivities: adjustedExtras || [] };
     setLoading(false);
   }, [authUser?.id, profile?.is_demo, currentDate, showToast]);
 
