@@ -12,7 +12,7 @@ import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
 
 const WorkoutTemplates = () => {
-  const { user: authUser, isPremium } = useAuth();
+  const { user: authUser, isPremium, profile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("my_workouts"); // "my_workouts" | "explore"
@@ -143,6 +143,10 @@ const WorkoutTemplates = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      return;
+    }
     if (!formData.letra || !formData.nome) return;
 
     setSaving(true);
@@ -192,6 +196,10 @@ const WorkoutTemplates = () => {
   };
 
   const handleDuplicate = async (workout) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      return;
+    }
     setSaving(true);
     try {
       const usedLetras = workouts.map(w => w.letra);
@@ -248,6 +256,10 @@ const WorkoutTemplates = () => {
   };
 
   const handleDelete = async (id) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
@@ -268,6 +280,10 @@ const WorkoutTemplates = () => {
   };
 
   const handleReorder = async (index, direction) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      return;
+    }
     const newWorkouts = [...workouts];
     const targetIndex = index + direction;
 
@@ -323,6 +339,10 @@ const WorkoutTemplates = () => {
   };
 
   const handleImportProgram = async (program) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      return;
+    }
     setSaving(true);
     try {
       // 1. Fetch training templates for this program

@@ -1,10 +1,35 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { CheckCircle2, Dumbbell, Trophy, Users, ShieldCheck, Zap } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, Dumbbell, Trophy, Users, ShieldCheck, Zap, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 const LandingPage = () => {
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [loadingDemo, setLoadingDemo] = useState(false);
+
+  const handleDemoLogin = async (e) => {
+    e.preventDefault();
+    if (loadingDemo) return;
+    setLoadingDemo(true);
+    showToast("Acessando modo demonstração...", "info");
+    try {
+      const { error } = await signIn("demo@treinofisico.app", "prosperidadefinanceira7");
+      if (error) {
+        showToast("Erro ao entrar no modo demonstração: " + error.message, "error");
+      } else {
+        showToast("Bem-vindo ao modo demonstração!", "success");
+        navigate("/app");
+      }
+    } catch (err) {
+      showToast("Falha ao autenticar demo.", "error");
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
   return (
     <div
       className="flex flex-col min-h-screen"
@@ -26,12 +51,22 @@ const LandingPage = () => {
             </div>
             <span className="text-lg sm:text-xl font-black text-white tracking-tight truncate">Treino Físico</span>
           </div>
-          <Link
-            to={user ? "/app" : "/login"}
-            className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
-          >
-            {user ? "Ir para o Painel" : "Entrar / Cadastrar"}
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={handleDemoLogin}
+              disabled={loadingDemo}
+              className="hidden sm:flex px-3 py-2 sm:px-4 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all whitespace-nowrap items-center gap-2"
+            >
+              {loadingDemo && <Loader2 className="animate-spin" size={14} />}
+              Modo Demonstração
+            </button>
+            <Link
+              to="/login"
+              className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
+            >
+              Entrar / Cadastrar
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -47,12 +82,20 @@ const LandingPage = () => {
               Acompanhe sua evolução, personalize suas rotinas e alcance seus objetivos físicos com a plataforma mais completa de musculação e calistenia.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Link
-                to={user ? "/app" : "/login"}
-                className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105"
+              <button
+                onClick={handleDemoLogin}
+                disabled={loadingDemo}
+                className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center justify-center gap-2"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--text-on-primary)" }}
               >
-                {user ? "Continuar Treinando" : "Começar Agora Gratuitamente"}
+                {loadingDemo && <Loader2 className="animate-spin" size={18} />}
+                Modo Demonstração
+              </button>
+              <Link
+                to="/login"
+                className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105 bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              >
+                Entrar / Cadastrar
               </Link>
             </div>
           </div>

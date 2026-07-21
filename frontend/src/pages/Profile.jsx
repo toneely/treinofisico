@@ -69,6 +69,8 @@ const Profile = () => {
     status_assinatura: "free",
   });
 
+  const isPremiumUser = isPremium;
+
   const [passwordData, setPasswordData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -129,6 +131,11 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para personalizar seu perfil!", "info");
+      return;
+    }
+
     if (!user?.id) {
       showToast("Erro: Usuário não identificado.", "error");
       return;
@@ -191,6 +198,10 @@ const Profile = () => {
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para alterar sua senha!", "info");
+      return;
+    }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       showToast("As senhas não coincidem", "error");
       return;
@@ -228,6 +239,11 @@ const Profile = () => {
   };
 
   async function handlePaymentInitiation(paymentType) {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para assinar o plano premium!", "info");
+      navigate("/login");
+      return;
+    }
     if (paymentType === 'card_recurring' || paymentType === 'card_one_time') {
       setShowCardModal(paymentType);
       return;
@@ -426,6 +442,11 @@ const Profile = () => {
             </h3>
           </div>
           <div className="p-8 space-y-6">
+            {profile?.is_demo && (
+              <p className="text-xs text-amber-600 font-bold mb-2">
+                * As alterações de perfil estão desabilitadas no modo de demonstração.
+              </p>
+            )}
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                 Nome de Exibição
@@ -476,12 +497,12 @@ const Profile = () => {
             </div>
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
-              style={{
+              disabled={saving || profile?.is_demo}
+              className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 ${profile?.is_demo ? "opacity-50 cursor-not-allowed bg-slate-400 shadow-none" : "bg-orange-500 hover:bg-orange-600 shadow-orange-500/20"}`}
+              style={!profile?.is_demo ? {
                 backgroundColor: "var(--color-primary)",
                 color: "var(--text-on-primary)",
-              }}
+              } : undefined}
             >
               {saving ? (
                 <Loader2 className="animate-spin" />
@@ -672,6 +693,11 @@ const Profile = () => {
             </h3>
           </div>
           <form onSubmit={handleUpdatePassword} className="p-8 space-y-6">
+            {profile?.is_demo && (
+              <p className="text-xs text-amber-600 font-bold mb-2">
+                * A alteração de senha está desabilitada no modo de demonstração.
+              </p>
+            )}
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                 Nova Senha
@@ -702,12 +728,12 @@ const Profile = () => {
             </div>
             <button
               type="submit"
-              disabled={updatingPassword}
-              className="w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2"
-              style={{
+              disabled={updatingPassword || profile?.is_demo}
+              className={`w-full py-4 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 mt-2 ${profile?.is_demo ? "opacity-50 cursor-not-allowed bg-slate-400 shadow-none text-slate-600" : ""}`}
+              style={!profile?.is_demo ? {
                 backgroundColor: "var(--color-secondary)",
                 color: "var(--text-on-secondary)",
-              }}
+              } : undefined}
             >
               {updatingPassword ? (
                 <Loader2 className="animate-spin" />
@@ -896,7 +922,7 @@ const Profile = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremiumUser} />
 
           </>
         )}

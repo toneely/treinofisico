@@ -29,7 +29,8 @@ import { appCache } from "../utils/cache";
 const History = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user: authUser, isPremium } = useAuth();
+  const { user: authUser, isPremium, profile } = useAuth();
+  const isPremiumUser = isPremium;
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState(() => {
@@ -88,14 +89,12 @@ const History = () => {
     setWorkoutsMetadata(data || []);
   }, []);
 
-  const { profile } = useAuth();
-
   const fetchUser = useCallback(async () => {
     setUserData(
-      profile || {
+      profile || (authUser ? {
         id: authUser.id,
         nome: authUser.email,
-      },
+      } : null),
     );
   }, [authUser?.id, profile?.id]);
 
@@ -108,6 +107,7 @@ const History = () => {
   }, []);
 
   const fetchHistory = useCallback(async () => {
+    if (!authUser?.id) return;
     if (!appCache.history) {
       setLoading(true);
     }
@@ -253,6 +253,10 @@ const History = () => {
     );
 
   const handleDeleteWorkout = (letra, date) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Treino?",
@@ -274,6 +278,10 @@ const History = () => {
   };
 
   const handleDeleteExercise = (id) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Registro?",
@@ -294,6 +302,10 @@ const History = () => {
   };
 
   const handleDeleteExtra = (id) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     setConfirmationModal({
       isOpen: true,
       title: "Excluir Atividade?",
@@ -315,6 +327,10 @@ const History = () => {
 
   const handleAddWorkoutRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const cargaVal =
       typeof formData.carga === "string" && formData.carga.includes(",")
         ? formData.carga.split(",").map((v) => parseFloat(v.trim()))
@@ -352,6 +368,10 @@ const History = () => {
 
   const handleUpdateRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     let error;
     if (isEditing.type === "workout") {
       const cargaVal =
@@ -401,6 +421,10 @@ const History = () => {
     val,
     part = "all",
   ) => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const updatedFields = {};
     let value;
 
@@ -471,6 +495,10 @@ const History = () => {
 
   const handleAddExtraRecord = async (e) => {
     e.preventDefault();
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seu histórico!", "info");
+      return;
+    }
     const { error } = await supabase.from("registro_atividades").insert([
       {
         user_id: authUser.id,
@@ -1322,7 +1350,7 @@ const History = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremiumUser} />
 
       <AdInterstitial
         show={showInterstitial}

@@ -77,6 +77,7 @@ const Inicio = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: authUser, profile, isPremium } = useAuth();
+
   const [workouts, setWorkouts] = useState(() => {
     return appCache.inicio?.workouts || [];
   });
@@ -144,7 +145,12 @@ const Inicio = () => {
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
       try {
-        setSavedTraining(JSON.parse(saved));
+        const parsedSession = JSON.parse(saved);
+        if (parsedSession.user_id === authUser.id) {
+          setSavedTraining(parsedSession);
+        } else {
+          localStorage.removeItem("active_training_session");
+        }
       } catch (error) {
         localStorage.removeItem("active_training_session");
       }
@@ -239,6 +245,11 @@ const Inicio = () => {
   };
 
   const recordActivity = async () => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para registrar suas atividades!", "info");
+      setShowActivityModal(false);
+      return;
+    }
     setIsRecording(true);
     const { error } = await supabase.from("registro_atividades").insert([
       {
@@ -259,11 +270,12 @@ const Inicio = () => {
   // Display Name Priority: public.usuarios (nome) > Email prefix > 'Atleta'
   const displayName = profile?.nome || authUser?.email?.split("@")[0] || "Atleta";
   const atividadeAlt = profile?.atividade_alternativa;
+  const isPremiumUser = isPremium;
 
   return (
     <PageTransition>
       <div
-        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremium ? "resilient-bottom-spacing-nav" : "pb-24"}`}
+        className={`p-6 max-w-md mx-auto min-h-screen flex flex-col ${!isPremiumUser ? "resilient-bottom-spacing-nav" : "pb-24"}`}
       >
         <header className="mb-8">
         <div className="flex items-center gap-2.5 mb-6">
@@ -471,7 +483,7 @@ const Inicio = () => {
         </div>
       )}
 
-      <AdBanner isPremium={isPremium} />
+      <AdBanner isPremium={isPremiumUser} />
       </div>
     </PageTransition>
   );

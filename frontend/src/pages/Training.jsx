@@ -38,6 +38,7 @@ import ExerciseSelector from "../components/ExerciseSelector";
 import ConfirmationModal from "../components/ConfirmationModal";
 import LoadingScreen from "../components/LoadingScreen";
 import AdInterstitial from "../components/ui/AdInterstitial";
+import AdBanner from "../components/ui/AdBanner";
 
 // --- State Machine Helpers ---
 const formatTime = (seconds) => {
@@ -1090,6 +1091,9 @@ function trainingReducer(state, action) {
         status: "IDLE",
       };
 
+    case "CLEAR_SESSION":
+      return initialState;
+
     default:
       return state;
   }
@@ -1159,11 +1163,12 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
 
 const Training = () => {
   const { showToast } = useToast();
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, profile } = useAuth();
   const { settings } = useAppearance();
   const { letra } = useParams();
   const navigate = useNavigate();
   const isFreeTraining = letra === "LIVRE";
+  const isPremiumUser = isPremium;
 
   const [loading, setLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -1179,6 +1184,8 @@ const Training = () => {
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [saveAsData, setSaveAsData] = useState({ letra: "", nome: "", subtitulo: "" });
   const [showInterstitial, setShowInterstitial] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
   const [lastExecutionTimes, setLastExecutionTimes] = useState({});
   const [metronomeActive, setMetronomeActive] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -1447,6 +1454,148 @@ const Training = () => {
       const workoutTimestamp = new Date().toISOString();
       let displayLetra = letra;
 
+      if (profile?.is_demo) {
+        // Build mock historyData from state
+        state.originalBlocos.forEach((block) => {
+          block.forEach((ex) => {
+            const sessionId = ex.sessionId;
+            const execTimes = state.exerciseTimes[sessionId] || [];
+            const rests = state.restTimes[sessionId] || [];
+            const exLoads = state.exerciseLoads[sessionId] || [];
+            const exReps = state.exerciseReps[sessionId] || [];
+
+            historyData.push({
+              user_id: user.id,
+              exercicio_id: ex.exercicio_id,
+              carga: exLoads.length > 0 ? exLoads : [60],
+              repeticoes: exReps.length > 0 ? exReps : [12],
+              series_executadas: Math.max(execTimes.length, exLoads.length, exReps.length, 1),
+              tempo_total_segundos: 120,
+              tempo_execucao_segundos: execTimes.length > 0 ? execTimes : [60],
+              tempo_descanso_segundos: rests.length > 0 ? rests : [60],
+              letra_treino: displayLetra,
+              data_treino: workoutTimestamp,
+              sessao_treino_id: state.sessaoTreinoId,
+            });
+          });
+        });
+
+        localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
+        finishedRef.current = true;
+        showToast("Treino concluído (modo demonstração)!", "success");
+
+        // Calculate immediate metrics 1 to 8:
+        let totalSeconds = 0;
+        historyData.forEach(h => {
+          totalSeconds += Number(h.tempo_total_segundos) || 0;
+        });
+        const durationMin = Math.floor(totalSeconds / 60);
+        const durationSec = totalSeconds % 60;
+        const formattedDuration = `${durationMin} min${durationSec > 0 ? ` ${durationSec}s` : ""}`;
+        const exerciseCount = historyData.length;
+        const totalSets = historyData.reduce((acc, h) => acc + (Number(h.series_executadas) || 0), 0);
+
+        let totalReps = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          repsArr.forEach(r => {
+            totalReps += (Number(r) || 0);
+          });
+        });
+
+        let totalVolume = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          repsArr.forEach((r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            totalVolume += (rep * ld);
+          });
+        });
+
+        let totalExecSec = 0;
+        let totalRestSec = 0;
+        historyData.forEach(h => {
+          const execs = Array.isArray(h.tempo_execucao_segundos) ? h.tempo_execucao_segundos : (h.tempo_execucao_segundos ? [h.tempo_execucao_segundos] : []);
+          const rests = Array.isArray(h.tempo_descanso_segundos) ? h.tempo_descanso_segundos : (h.tempo_descanso_segundos ? [h.tempo_descanso_segundos] : []);
+          totalExecSec += execs.reduce((sum, s) => sum + (Number(s) || 0), 0);
+          totalRestSec += rests.reduce((sum, s) => sum + (Number(s) || 0), 0);
+        });
+
+        let maxLoad = 0;
+        historyData.forEach(h => {
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          loadsArr.forEach(l => {
+            const loadVal = Number(l) || 0;
+            if (loadVal > maxLoad) {
+              maxLoad = loadVal;
+            }
+          });
+        });
+
+        let maxExerciseVolume = 0;
+        let maxVolumeExerciseName = "";
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          const exerciseVolume = repsArr.reduce((sum, r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            return sum + (rep * ld);
+          }, 0);
+
+          let name = "Supino Reto";
+          if (h.exercicio_id === "ex2") name = "Voador";
+
+          if (exerciseVolume > maxExerciseVolume) {
+            maxExerciseVolume = exerciseVolume;
+            maxVolumeExerciseName = name;
+          }
+        });
+
+        setSummaryData({
+          duration: formattedDuration || "15 min",
+          exerciseCount,
+          totalSets,
+          totalReps,
+          totalVolume,
+          totalExecSec,
+          totalRestSec,
+          maxLoad,
+          maxVolumeExerciseName,
+          maxExerciseVolume,
+          loadingAsync: true,
+          personalRecords: [],
+          volumeComparison: null,
+          weeklyDaysCount: 3,
+          streak: 4
+        });
+        setShowSummary(true);
+
+        setTimeout(() => {
+          setSummaryData(prev => ({
+            ...prev,
+            loadingAsync: false,
+            personalRecords: [
+              { name: "Supino Reto", prevMax: 50, todayMax: maxLoad || 60 }
+            ],
+            volumeComparison: {
+              prevVolume: 550,
+              todayVolume: totalVolume,
+              percentDiff: "31"
+            },
+            weeklyDaysCount: 3,
+            streak: 4
+          }));
+        }, 1000);
+
+        finishedRef.current = true;
+        setSavingSession(false);
+        return;
+      }
+
       if (letra === "LIVRE") {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
@@ -1521,13 +1670,270 @@ const Training = () => {
         throw error;
       } else {
         localStorage.removeItem("active_training_session");
+        localStorage.removeItem("treino_em_andamento");
         finishedRef.current = true;
         showToast("Treino concluído!", "success");
-        if (!isPremium) {
-          setShowInterstitial(true);
-        } else {
-          navigate("/app");
-        }
+
+        // 1. Duracao total do treino
+        let totalSeconds = 0;
+        historyData.forEach(h => {
+          totalSeconds += Number(h.tempo_total_segundos) || 0;
+        });
+        const durationMin = Math.floor(totalSeconds / 60);
+        const durationSec = totalSeconds % 60;
+        const formattedDuration = `${durationMin} min${durationSec > 0 ? ` ${durationSec}s` : ""}`;
+
+        // 2. Quantidade de exercicios realizados
+        const exerciseCount = historyData.length;
+
+        // 3. Total de series executadas
+        const totalSets = historyData.reduce((acc, h) => acc + (Number(h.series_executadas) || 0), 0);
+
+        // 4. Total de repeticoes
+        let totalReps = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          repsArr.forEach(r => {
+            totalReps += (Number(r) || 0);
+          });
+        });
+
+        // 5. Volume total de treino
+        let totalVolume = 0;
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          repsArr.forEach((r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            totalVolume += (rep * ld);
+          });
+        });
+
+        // 6. Tempo total de execucao versus tempo total de descanso
+        let totalExecSec = 0;
+        let totalRestSec = 0;
+        historyData.forEach(h => {
+          const execs = Array.isArray(h.tempo_execucao_segundos) ? h.tempo_execucao_segundos : (h.tempo_execucao_segundos ? [h.tempo_execucao_segundos] : []);
+          const rests = Array.isArray(h.tempo_descanso_segundos) ? h.tempo_descanso_segundos : (h.tempo_descanso_segundos ? [h.tempo_descanso_segundos] : []);
+          totalExecSec += execs.reduce((sum, s) => sum + (Number(s) || 0), 0);
+          totalRestSec += rests.reduce((sum, s) => sum + (Number(s) || 0), 0);
+        });
+
+        // 7. Carga maxima levantada no treino
+        let maxLoad = 0;
+        historyData.forEach(h => {
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          loadsArr.forEach(l => {
+            const loadVal = Number(l) || 0;
+            if (loadVal > maxLoad) {
+              maxLoad = loadVal;
+            }
+          });
+        });
+
+        // 8. Exercicio com maior volume
+        let maxExerciseVolume = 0;
+        let maxVolumeExerciseName = "";
+        historyData.forEach(h => {
+          const repsArr = Array.isArray(h.repeticoes) ? h.repeticoes : (h.repeticoes ? [h.repeticoes] : []);
+          const loadsArr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+          const exerciseVolume = repsArr.reduce((sum, r, idx) => {
+            const rep = Number(r) || 0;
+            const ld = Number(loadsArr[idx]) || 0;
+            return sum + (rep * ld);
+          }, 0);
+
+          let name = "Exercício";
+          state.originalBlocos.forEach(block => {
+            const match = block.find(ex => ex.exercicio_id === h.exercicio_id);
+            if (match && match.exercicios?.nome) {
+              name = match.exercicios.nome;
+            }
+          });
+
+          if (exerciseVolume > maxExerciseVolume) {
+            maxExerciseVolume = exerciseVolume;
+            maxVolumeExerciseName = name;
+          }
+        });
+
+        setSummaryData({
+          duration: formattedDuration,
+          exerciseCount,
+          totalSets,
+          totalReps,
+          totalVolume,
+          totalExecSec,
+          totalRestSec,
+          maxLoad,
+          maxVolumeExerciseName,
+          maxExerciseVolume,
+          loadingAsync: true,
+          personalRecords: [],
+          volumeComparison: null,
+          weeklyDaysCount: 1,
+          streak: 1
+        });
+        setShowSummary(true);
+
+        // Fetch metrics 9 to 12 asynchronously
+        const fetchAsyncSummaryMetrics = async () => {
+          try {
+            const exerciseIds = historyData.map(h => h.exercicio_id);
+
+            // 9. Recorde pessoal
+            const { data: prevLoads } = await supabase
+              .from("historico_cargas")
+              .select("exercicio_id, carga")
+              .eq("user_id", user.id)
+              .in("exercicio_id", exerciseIds)
+              .lt("data_treino", workoutTimestamp);
+
+            const maxPrevLoads = {};
+            if (prevLoads) {
+              prevLoads.forEach(row => {
+                const arr = Array.isArray(row.carga) ? row.carga : (row.carga ? [row.carga] : []);
+                arr.forEach(val => {
+                  const num = Number(val) || 0;
+                  if (!maxPrevLoads[row.exercicio_id] || num > maxPrevLoads[row.exercicio_id]) {
+                    maxPrevLoads[row.exercicio_id] = num;
+                  }
+                });
+              });
+            }
+
+            const todayMaxLoads = {};
+            historyData.forEach(h => {
+              const arr = Array.isArray(h.carga) ? h.carga : (h.carga ? [h.carga] : []);
+              arr.forEach(val => {
+                const num = Number(val) || 0;
+                if (!todayMaxLoads[h.exercicio_id] || num > todayMaxLoads[h.exercicio_id]) {
+                  todayMaxLoads[h.exercicio_id] = num;
+                }
+              });
+            });
+
+            const personalRecords = [];
+            historyData.forEach(h => {
+              const prevMax = maxPrevLoads[h.exercicio_id];
+              const todayMax = todayMaxLoads[h.exercicio_id] || 0;
+              if (prevMax !== undefined && todayMax > prevMax) {
+                let name = "Exercício";
+                state.originalBlocos.forEach(block => {
+                  const match = block.find(ex => ex.exercicio_id === h.exercicio_id);
+                  if (match && match.exercicios?.nome) {
+                    name = match.exercicios.nome;
+                  }
+                });
+                personalRecords.push({
+                  name,
+                  prevMax,
+                  todayMax
+                });
+              }
+            });
+
+            // 10. Comparacao de volume com o treino anterior de mesma letra
+            const { data: lastWorkoutWithLetter } = await supabase
+              .from("historico_cargas")
+              .select("sessao_treino_id, data_treino, carga, repeticoes")
+              .eq("user_id", user.id)
+              .eq("letra_treino", displayLetra)
+              .lt("data_treino", workoutTimestamp)
+              .order("data_treino", { ascending: false });
+
+            let volumeComparison = null;
+            if (lastWorkoutWithLetter && lastWorkoutWithLetter.length > 0) {
+              const lastSessionId = lastWorkoutWithLetter[0].sessao_treino_id;
+              const lastSessionRows = lastWorkoutWithLetter.filter(r => r.sessao_treino_id === lastSessionId);
+
+              let prevVolume = 0;
+              lastSessionRows.forEach(row => {
+                const reps = Array.isArray(row.repeticoes) ? row.repeticoes : (row.repeticoes ? [row.repeticoes] : []);
+                const loads = Array.isArray(row.carga) ? row.carga : (row.carga ? [row.carga] : []);
+                reps.forEach((r, idx) => {
+                  const rep = Number(r) || 0;
+                  const ld = Number(loads[idx]) || 0;
+                  prevVolume += (rep * ld);
+                });
+              });
+
+              if (prevVolume > 0) {
+                const percentDiff = ((totalVolume - prevVolume) / prevVolume) * 100;
+                volumeComparison = {
+                  prevVolume,
+                  todayVolume: totalVolume,
+                  percentDiff: percentDiff.toFixed(0)
+                };
+              }
+            }
+
+            // 11. Frequencia semanal
+            const sevenDaysAgo = new Date(new Date(workoutTimestamp).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: weeklyLoads } = await supabase
+              .from("historico_cargas")
+              .select("data_treino")
+              .eq("user_id", user.id)
+              .gte("data_treino", sevenDaysAgo);
+
+            let weeklyDaysCount = 1;
+            if (weeklyLoads) {
+              const distinctDays = new Set(weeklyLoads.map(r => r.data_treino ? r.data_treino.split("T")[0] : null).filter(Boolean));
+              distinctDays.add(workoutTimestamp.split("T")[0]);
+              weeklyDaysCount = distinctDays.size;
+            }
+
+            // 12. Sequencia de dias consecutivos treinando (streak)
+            const thirtyDaysAgo = new Date(new Date(workoutTimestamp).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: streakLoads } = await supabase
+              .from("historico_cargas")
+              .select("data_treino")
+              .eq("user_id", user.id)
+              .gte("data_treino", thirtyDaysAgo)
+              .order("data_treino", { ascending: false });
+
+            let streak = 1;
+            if (streakLoads) {
+              const distinctDatesSet = new Set(streakLoads.map(r => r.data_treino ? r.data_treino.split("T")[0] : null).filter(Boolean));
+              const todayStr = workoutTimestamp.split("T")[0];
+              distinctDatesSet.add(todayStr);
+
+              let currentCheck = new Date(todayStr);
+              let count = 0;
+              while (true) {
+                const year = currentCheck.getFullYear();
+                const month = String(currentCheck.getMonth() + 1).padStart(2, "0");
+                const day = String(currentCheck.getDate()).padStart(2, "0");
+                const checkStr = `${year}-${month}-${day}`;
+                if (distinctDatesSet.has(checkStr)) {
+                  count++;
+                  currentCheck.setDate(currentCheck.getDate() - 1);
+                } else {
+                  break;
+                }
+              }
+              streak = count;
+            }
+
+            setSummaryData(prev => ({
+              ...prev,
+              loadingAsync: false,
+              personalRecords,
+              volumeComparison,
+              weeklyDaysCount,
+              streak
+            }));
+          } catch (err) {
+            console.error("Erro ao carregar dados adicionais:", err);
+            setSummaryData(prev => ({
+              ...prev,
+              loadingAsync: false
+            }));
+          }
+        };
+
+        fetchAsyncSummaryMetrics();
       }
     } catch (error) {
       console.error("Erro ao salvar treino:", error);
@@ -1566,22 +1972,22 @@ const Training = () => {
   }, [showSaveAsModal, fetchWorkoutDetails]);
 
   useEffect(() => {
-    if (finishedRef.current) return;
+    if (showSummary || finishedRef.current) return;
     if (!loading && state.blocos.length > 0) {
       localStorage.setItem(
         "active_training_session",
-        JSON.stringify({ ...state, letra }),
+        JSON.stringify({ ...state, letra, user_id: user.id }),
       );
     }
-  }, [state, loading, letra]);
+  }, [state, loading, letra, showSummary]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (finishedRef.current) return;
+      if (showSummary || finishedRef.current) return;
       if (document.visibilityState === "hidden" && state.blocos.length > 0) {
         localStorage.setItem(
           "active_training_session",
-          JSON.stringify({ ...state, letra }),
+          JSON.stringify({ ...state, letra, user_id: user.id }),
         );
       }
     };
@@ -1590,9 +1996,10 @@ const Training = () => {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [state, letra]);
+  }, [state, letra, showSummary]);
 
   useEffect(() => {
+    if (showSummary) return;
     let metronomeInterval = null;
     if (metronomeActive) {
       if (!audioContextRef.current) {
@@ -1628,6 +2035,7 @@ const Training = () => {
   }, [metronomeActive, bpm]);
 
   useEffect(() => {
+    if (showSummary) return;
     const hasActiveTimers =
       state.isTimerActive || Object.keys(state.activeRestTimers).length > 0;
     if (!hasActiveTimers) return;
@@ -1636,7 +2044,7 @@ const Training = () => {
       dispatch({ type: "TICK" });
     }, 1000);
     return () => clearInterval(interval);
-  }, [state.isTimerActive, state.activeRestTimers]);
+  }, [state.isTimerActive, state.activeRestTimers, showSummary]);
 
   const prevExerciseRef = useRef({
     blockIndex: state.currentBlockIndex,
@@ -1712,6 +2120,11 @@ const Training = () => {
 
 
   const handleSaveAs = async () => {
+    if (profile?.is_demo) {
+      showToast("Esta é uma conta de demonstração. Crie uma conta real para gerenciar seus treinos!", "info");
+      setShowSaveAsModal(false);
+      return;
+    }
     if (!saveAsData.letra) {
       showToast("Por favor, informe a letra do treino.", "info");
       return;
@@ -1974,6 +2387,194 @@ const Training = () => {
               )}
             </div>
           )}
+        </div>
+      ) : showSummary && summaryData ? (
+        <div className="fixed inset-0 w-full bg-[#0a0f1d] text-white flex flex-col p-6 overflow-y-auto select-none z-[120]">
+          <div className="w-full max-w-md mx-auto space-y-6 flex-grow pb-12">
+            {/* Header */}
+            <div className="flex flex-col items-center text-center pt-4 space-y-2">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2 shadow-lg shadow-emerald-500/10">
+                <CheckCircle2 size={36} />
+              </div>
+              <h1 className="text-3xl font-black uppercase tracking-tight text-white">
+                Treino Concluído!
+              </h1>
+              <p className="text-slate-400 text-xs px-4">
+                Excelente trabalho! Veja abaixo os números da sua sessão de hoje.
+              </p>
+            </div>
+
+            {/* Grid de Métricas Principais (1 a 8) */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Duração */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <Clock size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Duração</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.duration}</span>
+              </div>
+
+              {/* Exercícios */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <Dumbbell size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Exercícios</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.exerciseCount}</span>
+              </div>
+
+              {/* Séries */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <Layers size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Séries</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.totalSets}</span>
+              </div>
+
+              {/* Repetições */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <RotateCcw size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Repetições</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.totalReps}</span>
+              </div>
+
+              {/* Volume */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <Flame size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Volume Total</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.totalVolume} kg</span>
+              </div>
+
+              {/* Carga Máxima */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                  <ArrowUp size={16} className="text-slate-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Carga Máxima</span>
+                </div>
+                <span className="text-lg font-black text-white">{summaryData.maxLoad} kg</span>
+              </div>
+            </div>
+
+            {/* Exercício com Maior Volume e Proporção Exec/Desc */}
+            <div className="space-y-3">
+              {summaryData.maxVolumeExerciseName && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                    Exercício de Maior Volume
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-sm font-bold text-white line-clamp-1">{summaryData.maxVolumeExerciseName}</span>
+                    <span className="text-xs font-black text-emerald-400 ml-2 shrink-0">{summaryData.maxExerciseVolume} kg</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
+                  Execução vs Descanso
+                </div>
+                <div className="flex justify-between text-xs font-bold text-slate-300">
+                  <div>Execução: <span className="text-white">{Math.floor(summaryData.totalExecSec / 60)}m {summaryData.totalExecSec % 60}s</span></div>
+                  <div className="border-r border-white/10 mx-2" />
+                  <div>Descanso: <span className="text-white">{Math.floor(summaryData.totalRestSec / 60)}m {summaryData.totalRestSec % 60}s</span></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Seção de Métricas de Histórico (9 a 12) */}
+            <div className="border-t border-white/5 pt-4 space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Conquistas e Histórico
+              </h3>
+
+              {summaryData.loadingAsync ? (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-center gap-3 text-xs text-slate-400 min-h-[60px]">
+                  <Loader2 size={16} className="animate-spin text-slate-400" />
+                  <span>Analisando histórico e recordes pessoais...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Frequência Semanal */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                      Frequência Semanal
+                    </div>
+                    <span className="text-sm font-black text-white">
+                      📅 {summaryData.weeklyDaysCount} {summaryData.weeklyDaysCount === 1 ? "dia" : "dias"} / 7
+                    </span>
+                  </div>
+
+                  {/* Streak */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                      Sequência (Streak)
+                    </div>
+                    <span className="text-sm font-black text-white">
+                      🔥 {summaryData.streak} {summaryData.streak === 1 ? "dia" : "dias"}
+                    </span>
+                  </div>
+
+                  {/* Comparação de Volume */}
+                  {summaryData.volumeComparison && (
+                    <div className="col-span-2 bg-white/5 border border-white/10 rounded-2xl p-4">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                        Comparação de Volume
+                      </div>
+                      <div className="text-sm font-bold text-white">
+                        Volume{" "}
+                        <span className={Number(summaryData.volumeComparison.percentDiff) >= 0 ? "text-emerald-400 font-black" : "text-amber-400 font-black"}>
+                          {Number(summaryData.volumeComparison.percentDiff) >= 0 ? "+" : ""}
+                          {summaryData.volumeComparison.percentDiff}%
+                        </span>{" "}
+                        em relação ao último treino {letra !== "LIVRE" ? letra : ""}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recordes Pessoais */}
+                  {summaryData.personalRecords && summaryData.personalRecords.length > 0 && (
+                    <div className="col-span-2 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-2">
+                      <div className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">
+                        ⭐️ Novos Recordes Pessoais!
+                      </div>
+                      <div className="space-y-1">
+                        {summaryData.personalRecords.map((rec, idx) => (
+                          <div key={idx} className="text-xs font-bold text-slate-200">
+                            Novo recorde no <span className="text-white">{rec.name}</span>:{" "}
+                            <span className="text-emerald-400 font-black">{rec.todayMax} kg</span> (anterior: {rec.prevMax} kg)
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Banner de Anúncio maior na tela de resumo */}
+            <div className="w-full flex justify-center py-2">
+              <AdBanner isPremium={isPremiumUser} variant="inline" />
+            </div>
+
+            {/* CTA Button */}
+            <div className="pt-2 pb-6">
+              <button
+                onClick={() => {
+                  dispatch({ type: "CLEAR_SESSION" });
+                  navigate("/app");
+                }}
+                className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+              >
+                Concluir e Voltar
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div
