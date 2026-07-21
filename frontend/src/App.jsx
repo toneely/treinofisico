@@ -50,15 +50,15 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const PublicOnlyRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const navigate = useNavigate();
   const isPresent = useIsPresent();
 
   useEffect(() => {
-    if (!loading && user && isPresent) {
+    if (!loading && user && isPresent && !profile?.is_demo) {
       navigate("/app", { replace: true });
     }
-  }, [user, loading, navigate, isPresent]);
+  }, [user, loading, navigate, isPresent, profile]);
 
   return children;
 };
