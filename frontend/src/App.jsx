@@ -171,7 +171,7 @@ const AppContent = () => {
           Modo Demonstração - Dados de exemplo
         </div>
       )}
-      <PWAInstallBanner />
+      {!profile?.is_demo && <PWAInstallBanner />}
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
       <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
         <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
