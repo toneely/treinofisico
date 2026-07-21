@@ -104,6 +104,7 @@ const AdminRoute = ({ children }) => {
 const AppContent = () => {
   useDynamicTitle();
   const { isGracePeriod, profile } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
   const currentLevel = getRouteLevel(location.pathname);
@@ -167,8 +168,14 @@ const AppContent = () => {
       }}
     >
       {profile?.is_demo && !isPublicRoute && (
-        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2.5 uppercase tracking-[0.15em] sticky top-0 z-[100] shadow-md animate-pulse">
-          Modo Demonstração - Dados de exemplo
+        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2 px-4 uppercase tracking-[0.15em] sticky top-0 z-[100] shadow-md flex items-center justify-center gap-3 flex-wrap">
+          <span className="animate-pulse">Modo Demonstração</span>
+          <button
+            onClick={() => navigate("/login")}
+            className="bg-slate-950 text-white hover:bg-slate-900 active:scale-95 transition-all px-2.5 py-1 rounded-md text-[9px] font-black tracking-normal uppercase shadow-sm"
+          >
+            Cadastrar
+          </button>
         </div>
       )}
       {!profile?.is_demo && <PWAInstallBanner />}

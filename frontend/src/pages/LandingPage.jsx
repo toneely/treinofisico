@@ -55,7 +55,7 @@ const LandingPage = () => {
             <button
               onClick={handleDemoLogin}
               disabled={loadingDemo}
-              className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all whitespace-nowrap flex items-center gap-2"
+              className="hidden sm:flex px-3 py-2 sm:px-4 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all whitespace-nowrap items-center gap-2"
             >
               {loadingDemo && <Loader2 className="animate-spin" size={14} />}
               Experimentar sem Cadastro
