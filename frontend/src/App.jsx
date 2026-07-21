@@ -166,7 +166,7 @@ const AppContent = () => {
         paddingTop: "0px",
       }}
     >
-      {profile?.is_demo && (
+      {profile?.is_demo && !isPublicRoute && (
         <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2.5 uppercase tracking-[0.15em] sticky top-0 z-[100] shadow-md animate-pulse">
           Modo Demonstração - Dados de exemplo
         </div>
