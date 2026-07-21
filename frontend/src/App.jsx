@@ -103,7 +103,7 @@ const AdminRoute = ({ children }) => {
 
 const AppContent = () => {
   useDynamicTitle();
-  const { isGracePeriod, profile } = useAuth();
+  const { isGracePeriod, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isTrainingRoute = location.pathname.startsWith("/treino");
@@ -168,98 +168,100 @@ const AppContent = () => {
       }}
     >
       {profile?.is_demo && !isPublicRoute && (
-        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2 px-4 uppercase tracking-[0.15em] sticky top-0 z-[100] shadow-md flex items-center justify-center gap-3 flex-wrap">
+        <div className="bg-amber-500 text-slate-950 font-black text-center text-[10px] py-2 px-4 uppercase tracking-[0.15em] fixed top-0 left-0 w-full z-[150] shadow-md flex items-center justify-center gap-3 flex-wrap">
           <span className="animate-pulse">Modo Demonstração</span>
           <button
-            onClick={() => navigate("/login")}
+            onClick={async () => { await signOut(); navigate("/login"); }}
             className="bg-slate-950 text-white hover:bg-slate-900 active:scale-95 transition-all px-2.5 py-1 rounded-md text-[9px] font-black tracking-normal uppercase shadow-sm"
           >
-            Cadastrar
+            Entrar / Cadastrar
           </button>
         </div>
       )}
       {!profile?.is_demo && <PWAInstallBanner />}
       {/* {isGracePeriod && !isTrainingRoute && <GracePeriodBanner />} */}
-      <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
-        <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
-        <Routes location={location} key={location.pathname}>
-          <Route
-            path="/"
-            element={
-              <PublicOnlyRoute>
-                <LandingPage />
-              </PublicOnlyRoute>
-            }
-          />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfUse />} />
-          <Route
-            path="/login"
-            element={
-              <PublicOnlyRoute>
-                <Login />
-              </PublicOnlyRoute>
-            }
-          />
-          <Route
-            path="/app"
-            element={
-              <ProtectedRoute>
-                <Inicio />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
-                <Admin />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/user/:userId"
-            element={
-              <AdminRoute>
-                <AdminUserDashboard />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/historico"
-            element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/treino/:letra"
-            element={
-              <ProtectedRoute>
-                <Training />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/perfil"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gerenciar-treinos"
-            element={
-              <ProtectedRoute>
-                <WorkoutTemplates />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-        </AnimatePresence>
-      </TransitionContext.Provider>
+      <div className="relative w-full" style={{ marginTop: profile?.is_demo && !isPublicRoute ? '48px' : '0px' }}>
+        <TransitionContext.Provider value={{ type: transitionType, dir: direction }}>
+          <AnimatePresence mode="popLayout" initial={false} custom={{ type: transitionType, dir: direction }}>
+          <Routes location={location} key={location.pathname}>
+            <Route
+              path="/"
+              element={
+                <PublicOnlyRoute>
+                  <LandingPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfUse />} />
+            <Route
+              path="/login"
+              element={
+                <PublicOnlyRoute>
+                  <Login />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute>
+                  <Inicio />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <Admin />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/user/:userId"
+              element={
+                <AdminRoute>
+                  <AdminUserDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/historico"
+              element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/treino/:letra"
+              element={
+                <ProtectedRoute>
+                  <Training />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/perfil"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gerenciar-treinos"
+              element={
+                <ProtectedRoute>
+                  <WorkoutTemplates />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+          </AnimatePresence>
+        </TransitionContext.Provider>
+      </div>
       <div
         style={{
           display: isPublicRoute ? "none" : "block",

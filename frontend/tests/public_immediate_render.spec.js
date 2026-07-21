@@ -8,8 +8,8 @@ test('Verify public landing page renders immediately and completely without acti
   const heading = page.locator('h1', { hasText: 'Transforme seu corpo com' });
   await expect(heading).toBeVisible({ timeout: 5000 });
 
-  // Verify the "Entrar / Cadastrar" link or button is visible
-  const enterLink = page.locator('text=Entrar / Cadastrar');
+  // Verify the "Entrar / Cadastrar" link or button is visible (first instance)
+  const enterLink = page.locator('text=Entrar / Cadastrar').first();
   await expect(enterLink).toBeVisible();
 
   // Ensure there is no active loading screen or "Carregando..." text currently blockading the public view
