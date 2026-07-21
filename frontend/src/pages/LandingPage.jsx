@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
 const LandingPage = () => {
-  const { user, signIn } = useAuth();
+  const { user, profile, signIn, signOut } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -60,12 +60,21 @@ const LandingPage = () => {
               {loadingDemo && <Loader2 className="animate-spin" size={14} />}
               Modo Demonstração
             </button>
-            <Link
-              to="/login"
+            <button
+              onClick={async () => {
+                if (user && profile?.is_demo) {
+                  await signOut();
+                  navigate("/login");
+                } else if (user && !profile?.is_demo) {
+                  navigate("/app");
+                } else {
+                  navigate("/login");
+                }
+              }}
               className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white/5 backdrop-blur-sm text-white text-sm sm:text-base font-bold rounded-xl border border-white/20 hover:bg-white/10 transition-all whitespace-nowrap"
             >
-              Entrar / Cadastrar
-            </Link>
+              {user && !profile?.is_demo ? "Ir para o Painel" : "Entrar / Cadastrar"}
+            </button>
           </div>
         </div>
       </header>
@@ -91,12 +100,21 @@ const LandingPage = () => {
                 {loadingDemo && <Loader2 className="animate-spin" size={18} />}
                 Modo Demonstração
               </button>
-              <Link
-                to="/login"
+              <button
+                onClick={async () => {
+                  if (user && profile?.is_demo) {
+                    await signOut();
+                    navigate("/login");
+                  } else if (user && !profile?.is_demo) {
+                    navigate("/app");
+                  } else {
+                    navigate("/login");
+                  }
+                }}
                 className="px-8 py-4 text-lg font-black rounded-2xl shadow-2xl transition-all hover:scale-105 bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
-                Entrar / Cadastrar
-              </Link>
+                {user && !profile?.is_demo ? "Ir para o Painel" : "Entrar / Cadastrar"}
+              </button>
             </div>
           </div>
         </section>
