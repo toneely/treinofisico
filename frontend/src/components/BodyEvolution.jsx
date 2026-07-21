@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { getDemoOffset, shiftDemoDate } from "../utils/demoDateShift";
 import {
   Scale,
   Ruler,
@@ -30,7 +31,7 @@ import "swiper/css/effect-coverflow";
 import "swiper/css/pagination";
 
 const BodyEvolution = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { showToast } = useToast();
   const [measurementTypes, setMeasurementTypes] = useState([]);
   const [history, setHistory] = useState([]);
@@ -80,12 +81,20 @@ const BodyEvolution = () => {
       .eq("user_id", user.id)
       .order("data_medida", { ascending: true });
 
+    const offset = await getDemoOffset(user.id, profile?.is_demo);
+    const adjustedMeasures = (measures || []).map(function(item) {
+      return {
+        ...item,
+        data_medida: shiftDemoDate(item.data_medida, offset)
+      };
+    });
+
     setMeasurementTypes(
       (types || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)),
     );
-    setHistory(measures || []);
+    setHistory(adjustedMeasures || []);
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, profile?.is_demo]);
 
   const fetchPhotos = useCallback(async () => {
     if (!user?.id) return;
@@ -95,12 +104,20 @@ const BodyEvolution = () => {
       .eq("user_id", user.id)
       .order("data_foto", { ascending: true });
 
+    const offset = await getDemoOffset(user.id, profile?.is_demo);
+    const adjustedPhotos = (data || []).map(function(item) {
+      return {
+        ...item,
+        data_foto: shiftDemoDate(item.data_foto, offset)
+      };
+    });
+
     if (data) {
-      setPhotos(data);
+      setPhotos(adjustedPhotos);
 
       const thumbUrlsMap = {};
       await Promise.all(
-        data.map(async (photo) => {
+        adjustedPhotos.map(async function(photo) {
           const path = photo.url_miniatura;
           if (!path) return;
           if (path.startsWith("http")) {
@@ -125,7 +142,7 @@ const BodyEvolution = () => {
       );
       setSignedThumbUrls(thumbUrlsMap);
     }
-  }, [user?.id]);
+  }, [user?.id, profile?.is_demo]);
 
   useEffect(() => {
     if (!selectedPhoto) {

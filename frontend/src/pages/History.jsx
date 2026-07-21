@@ -25,6 +25,7 @@ import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
+import { getDemoOffset, shiftDemoDate } from "../utils/demoDateShift";
 
 const History = () => {
   const navigate = useNavigate();
@@ -125,13 +126,24 @@ const History = () => {
       59,
     ).toISOString();
 
-    const { data: loads, error: errorLoads } = await supabase
+    const { data: fetchedData, error: errorLoads } = await supabase
       .from("historico_cargas")
       .select("*, exercicios(*)")
       .eq("user_id", authUser.id)
       .gte("data_treino", startOfMonth)
       .lte("data_treino", endOfMonth)
       .order("data_treino", { ascending: false });
+
+    const data = fetchedData || [];
+
+    const user = authUser;
+    const offset = await getDemoOffset(user.id, profile?.is_demo);
+    const adjustedData = data.map(function(item) {
+      return {
+        ...item,
+        data_treino: shiftDemoDate(item.data_treino, offset)
+      };
+    });
 
     const { data: extras, error: errorExtras } = await supabase
       .from("registro_atividades")
@@ -146,11 +158,11 @@ const History = () => {
     if (errorExtras)
       showToast("Erro ao buscar atividades: " + errorExtras.message, "error");
 
-    setHistory(loads || []);
+    setHistory(adjustedData || []);
     setExtraActivities(extras || []);
-    appCache.history = { ...appCache.history, history: loads || [], extraActivities: extras || [] };
+    appCache.history = { ...appCache.history, history: adjustedData || [], extraActivities: extras || [] };
     setLoading(false);
-  }, [authUser?.id, currentDate, showToast]);
+  }, [authUser?.id, profile?.is_demo, currentDate, showToast]);
 
   useEffect(() => {
     const t = setTimeout(() => {
