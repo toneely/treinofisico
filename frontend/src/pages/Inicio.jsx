@@ -145,7 +145,12 @@ const Inicio = () => {
     const saved = localStorage.getItem("active_training_session");
     if (saved) {
       try {
-        setSavedTraining(JSON.parse(saved));
+        const parsedSession = JSON.parse(saved);
+        if (parsedSession.user_id === authUser.id) {
+          setSavedTraining(parsedSession);
+        } else {
+          localStorage.removeItem("active_training_session");
+        }
       } catch (error) {
         localStorage.removeItem("active_training_session");
       }

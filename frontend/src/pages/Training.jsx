@@ -1976,7 +1976,7 @@ const Training = () => {
     if (!loading && state.blocos.length > 0) {
       localStorage.setItem(
         "active_training_session",
-        JSON.stringify({ ...state, letra }),
+        JSON.stringify({ ...state, letra, user_id: user.id }),
       );
     }
   }, [state, loading, letra, showSummary]);
@@ -1987,7 +1987,7 @@ const Training = () => {
       if (document.visibilityState === "hidden" && state.blocos.length > 0) {
         localStorage.setItem(
           "active_training_session",
-          JSON.stringify({ ...state, letra }),
+          JSON.stringify({ ...state, letra, user_id: user.id }),
         );
       }
     };
