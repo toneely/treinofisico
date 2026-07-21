@@ -2578,10 +2578,11 @@ const Training = () => {
         </div>
       ) : (
         <div
-          className="h-[100dvh] flex flex-col transition-colors duration-700 text-white overflow-hidden"
+          className="flex flex-col transition-colors duration-700 text-white overflow-hidden"
           style={{
             color: metronomeActive ? "var(--text-on-secondary)" : "inherit",
             backgroundColor: "var(--bg-treino)",
+            height: 'var(--app-height, 100dvh)',
           }}
         >
         <header className="flex justify-between items-center py-3 px-6 max-w-md mx-auto w-full">

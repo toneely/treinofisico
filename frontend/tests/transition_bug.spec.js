@@ -36,7 +36,7 @@ test.describe('Navegação BottomNav e Page Transitions', () => {
 
     // Garantir que a página anterior foi perfeitamente unmontada do DOM
     const wrappersCount = await page.evaluate(() => {
-      return document.querySelectorAll('div.w-full.min-h-screen.top-0.left-0').length;
+      return document.querySelectorAll('div.w-full.left-0').length;
     });
     expect(wrappersCount).toBe(1);
 
@@ -63,7 +63,7 @@ test.describe('Navegação BottomNav e Page Transitions', () => {
 
     // Garantir que a página anterior foi perfeitamente unmontada do DOM
     const wrappersCount = await page.evaluate(() => {
-      return document.querySelectorAll('div.w-full.min-h-screen.top-0.left-0').length;
+      return document.querySelectorAll('div.w-full.left-0').length;
     });
     expect(wrappersCount).toBe(1);
 

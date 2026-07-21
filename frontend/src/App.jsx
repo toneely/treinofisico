@@ -165,6 +165,8 @@ const AppContent = () => {
           ? "var(--text-on-treino)"
           : "var(--text-on-gestao)",
         paddingTop: "0px",
+        '--demo-offset': profile?.is_demo && !isPublicRoute ? '48px' : '0px',
+        '--app-height': profile?.is_demo && !isPublicRoute ? 'calc(100dvh - 48px)' : '100dvh',
       }}
     >
       {profile?.is_demo && !isPublicRoute && (
