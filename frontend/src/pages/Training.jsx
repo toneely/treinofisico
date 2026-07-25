@@ -1449,6 +1449,7 @@ const Training = () => {
 
   const finishWorkout = useCallback(async () => {
     setSavingSession(true);
+    setShowInterstitial(false); // Garante que o intersticial não seja exibido no salvamento
     try {
       const historyData = [];
       const workoutTimestamp = new Date().toISOString();
@@ -2250,6 +2251,7 @@ const Training = () => {
 
   useEffect(() => {
     if (state.status === "COMPLETED") {
+      setShowInterstitial(false); // Limpa manipuladores de anúncios para evitar chamadas acidentais no encerramento do treino
       if (!state.isCatchupPhase) {
         const pendingExercises = [];
         state.originalBlocos.forEach((block) => {
