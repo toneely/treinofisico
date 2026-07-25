@@ -21,7 +21,6 @@ import { exportHistoryToPDF } from "../utils/pdfExport";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import AdBanner from "../components/ui/AdBanner";
-import AdInterstitial from "../components/ui/AdInterstitial";
 import ConfirmationModal from "../components/ConfirmationModal";
 import PageTransition from "../components/PageTransition";
 import { appCache } from "../utils/cache";
@@ -63,7 +62,6 @@ const History = () => {
   const [showAddForm, setShowAddForm] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [formData, setFormData] = useState({});
-  const [showInterstitial, setShowInterstitial] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     title: "",
@@ -605,9 +603,6 @@ const History = () => {
       exportHistoryToPDF(userData, data);
       setShowExportModal(false);
       showToast("PDF gerado com sucesso!", "success");
-      if (!isPremium) {
-        setShowInterstitial(true);
-      }
     } catch (err) {
       showToast("Erro ao exportar PDF: " + err.message, "error");
     } finally {
@@ -1382,12 +1377,6 @@ const History = () => {
       )}
 
       <AdBanner isPremium={isPremiumUser} />
-
-      <AdInterstitial
-        show={showInterstitial}
-        onClose={() => navigate("/app")}
-        isPremium={isPremium}
-      />
 
       <ConfirmationModal
         isOpen={confirmationModal.isOpen}
