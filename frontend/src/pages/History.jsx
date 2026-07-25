@@ -577,17 +577,33 @@ const History = () => {
   const handleGenerateFilteredPDF = async () => {
     setIsExporting(true);
     try {
+      const offset = await getDemoOffset(authUser?.id, profile?.is_demo);
+
+      let startDateQueryVal = exportFilters.startDate ? `${exportFilters.startDate}T00:00:00` : null;
+      let endDateQueryVal = exportFilters.endDate ? `${exportFilters.endDate}T23:59:59` : null;
+
+      if (offset && offset !== 0) {
+        if (startDateQueryVal) {
+          const startMs = new Date(startDateQueryVal).getTime();
+          startDateQueryVal = new Date(startMs - offset).toISOString();
+        }
+        if (endDateQueryVal) {
+          const endMs = new Date(endDateQueryVal).getTime();
+          endDateQueryVal = new Date(endMs - offset).toISOString();
+        }
+      }
+
       let query = supabase
         .from("historico_cargas")
         .select("*, exercicios(*)")
         .eq("user_id", authUser.id)
         .order("data_treino", { ascending: false });
 
-      if (exportFilters.startDate) {
-        query = query.gte("data_treino", `${exportFilters.startDate}T00:00:00`);
+      if (startDateQueryVal) {
+        query = query.gte("data_treino", startDateQueryVal);
       }
-      if (exportFilters.endDate) {
-        query = query.lte("data_treino", `${exportFilters.endDate}T23:59:59`);
+      if (endDateQueryVal) {
+        query = query.lte("data_treino", endDateQueryVal);
       }
       if (exportFilters.workoutType !== "all") {
         query = query.eq("letra_treino", exportFilters.workoutType);
@@ -600,7 +616,14 @@ const History = () => {
         return;
       }
 
-      exportHistoryToPDF(userData, data);
+      const adjustedData = data.map(function(item) {
+        return {
+          ...item,
+          data_treino: shiftDemoDate(item.data_treino, offset)
+        };
+      });
+
+      exportHistoryToPDF(userData, adjustedData);
       setShowExportModal(false);
       showToast("PDF gerado com sucesso!", "success");
     } catch (err) {
