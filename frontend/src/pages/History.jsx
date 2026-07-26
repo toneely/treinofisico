@@ -584,11 +584,11 @@ const History = () => {
 
       if (offset && offset !== 0) {
         if (startDateQueryVal) {
-          const startMs = new Date(startDateQueryVal).getTime();
+          const startMs = new Date(startDateQueryVal + "Z").getTime();
           startDateQueryVal = new Date(startMs - offset).toISOString();
         }
         if (endDateQueryVal) {
-          const endMs = new Date(endDateQueryVal).getTime();
+          const endMs = new Date(endDateQueryVal + "Z").getTime();
           endDateQueryVal = new Date(endMs - offset).toISOString();
         }
       }
