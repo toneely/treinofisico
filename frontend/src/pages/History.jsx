@@ -623,7 +623,26 @@ const History = () => {
         };
       });
 
-      exportHistoryToPDF(userData, adjustedData);
+      // Buscar também histórico de medidas corporais e tipos de medidas
+      const { data: medidasData, error: medidasError } = await supabase
+        .from("historico_medidas")
+        .select("*")
+        .eq("user_id", authUser.id);
+      if (medidasError) throw medidasError;
+
+      const { data: tiposData, error: tiposError } = await supabase
+        .from("tipos_medida")
+        .select("*");
+      if (tiposError) throw tiposError;
+
+      const adjustedMedidas = (medidasData || []).map(function(item) {
+        return {
+          ...item,
+          data_medida: shiftDemoDate(item.data_medida, offset)
+        };
+      });
+
+      await exportHistoryToPDF(userData, adjustedData, adjustedMedidas, tiposData || []);
       setShowExportModal(false);
       showToast("PDF gerado com sucesso!", "success");
     } catch (err) {

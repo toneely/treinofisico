@@ -1,19 +1,41 @@
 import { jsPDF } from "jspdf";
 
-export const exportHistoryToPDF = (userData, history) => {
+const loadLogoAsBase64 = async () => {
+  try {
+    const response = await fetch("/logo-app.png");
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Failed to load logo image", error);
+    return null;
+  }
+};
+
+export const exportHistoryToPDF = async (userData, history, medidasHistory = [], tiposMedida = []) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Cores
-  const primary = "#4F46E5";
+  // Cores harmonizadas com o laranja de identidade real do app (#E67E22)
+  const primary = "#E67E22";
   const secondary = "#64748B";
   const light = "#F8FAFC";
   const dark = "#1E293B";
-  const workoutHeaderBg = "#E0E7FF";
+  const workoutHeaderBg = "#FFEFE6";
 
   // Cabeçalho
   doc.setFillColor(dark);
   doc.rect(0, 0, pageWidth, 40, "F");
+
+  // Carregar e adicionar o logo de forma assíncrona
+  const logoBase64 = await loadLogoAsBase64();
+  if (logoBase64) {
+    doc.addImage(logoBase64, "PNG", pageWidth - 35, 7, 25, 25);
+  }
 
   doc.setTextColor("#FFFFFF");
   doc.setFontSize(22);
@@ -45,10 +67,12 @@ export const exportHistoryToPDF = (userData, history) => {
   doc.text(`Foco de Treino: ${userData?.foco_treino}`, 20, 75);
   doc.text(`Atividade Alt.: ${userData?.atividade_alternativa}`, 20, 80);
 
-  // Seção de Medidas Corporais (Condicional)
+  // Seção de Medidas Corporais (Condicional do perfil)
   let currentY = 100;
   const hasMedidas =
-    userData?.medidas && Object.values(userData.medidas).some((v) => v > 0);
+    userData?.medidas && Object.values(userData.medidas).some(function(v) {
+      return v > 0;
+    });
 
   if (hasMedidas) {
     doc.setFontSize(14);
@@ -62,12 +86,15 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setTextColor(secondary);
     doc.setFont("helvetica", "normal");
 
-    const entries = Object.entries(userData.medidas).filter(([_, v]) => v > 0);
+    const entries = Object.entries(userData.medidas).filter(function(pair) {
+      return pair[1] > 0;
+    });
     const midPoint = Math.ceil(entries.length / 2);
 
     entries.forEach(([key, val], idx) => {
-      const x = idx < midPoint ? 20 : 110;
-      const y = currentY + (idx < midPoint ? idx : idx - midPoint) * 6;
+      const isLeft = idx < midPoint;
+      const x = isLeft ? 20 : 110;
+      const y = currentY + (isLeft ? idx : idx - midPoint) * 6;
       doc.text(`${key.replace(/_/g, " ").toUpperCase()}: ${val} cm`, x, y);
     });
 
@@ -97,6 +124,93 @@ export const exportHistoryToPDF = (userData, history) => {
     return new Date(b.items[0].data_treino) - new Date(a.items[0].data_treino);
   });
 
+  // PARTE 2: Preparação e cálculo cronológico das medidas para intercalar nos treinos
+  const tiposMap = {};
+  tiposMedida.forEach(function(t) {
+    tiposMap[t.id] = t;
+  });
+
+  const sortedMedidas = [...medidasHistory].sort(function(a, b) {
+    return new Date(a.data_medida) - new Date(b.data_medida);
+  });
+
+  // Obter datas únicas das sessões de treino em ordem cronológica crescente (antigo para recente)
+  const uniqueDates = Array.from(new Set(sortedGroups.map(function(g) {
+    return g.date;
+  })));
+
+  const dateToTimestamp = {};
+  sortedGroups.forEach(function(g) {
+    const ts = new Date(g.items[0].data_treino).getTime();
+    if (!dateToTimestamp[g.date] || ts > dateToTimestamp[g.date]) {
+      dateToTimestamp[g.date] = ts;
+    }
+  });
+
+  const sortedUniqueDates = uniqueDates.sort(function(a, b) {
+    return dateToTimestamp[a] - dateToTimestamp[b];
+  });
+
+  const blocksByDate = {};
+  let lastDisplayedState = null;
+
+  sortedUniqueDates.forEach(function(dateStr, idx) {
+    const refTimestamp = dateToTimestamp[dateStr];
+    const limitDate = new Date(refTimestamp);
+    limitDate.setHours(23, 59, 59, 999);
+
+    const currentState = {};
+    sortedMedidas.forEach(function(med) {
+      if (new Date(med.data_medida) <= limitDate) {
+        currentState[med.tipo_medida_id] = med.valor;
+      }
+    });
+
+    const hasAnyMeasurement = Object.keys(currentState).length > 0;
+    if (!hasAnyMeasurement) {
+      blocksByDate[dateStr] = null;
+      return;
+    }
+
+    const isFirstTrainingDay = (idx === 0);
+
+    if (isFirstTrainingDay) {
+      blocksByDate[dateStr] = {
+        state: currentState,
+        highlights: {}
+      };
+      lastDisplayedState = currentState;
+    } else {
+      let hasChanges = false;
+      const highlights = {};
+
+      const allIds = new Set([
+        ...Object.keys(currentState),
+        ...(lastDisplayedState ? Object.keys(lastDisplayedState) : [])
+      ]);
+
+      allIds.forEach(function(id) {
+        const prevVal = lastDisplayedState ? lastDisplayedState[id] : undefined;
+        const currVal = currentState[id];
+
+        if (currVal !== undefined && currVal !== prevVal) {
+          hasChanges = true;
+          highlights[id] = true;
+        }
+      });
+
+      if (hasChanges) {
+        blocksByDate[dateStr] = {
+          state: currentState,
+          highlights: highlights
+        };
+        lastDisplayedState = currentState;
+      } else {
+        blocksByDate[dateStr] = null;
+      }
+    }
+  });
+
   const drawTableHeader = (y) => {
     doc.setFillColor(light);
     doc.rect(20, y, pageWidth - 40, 8, "F");
@@ -117,7 +231,78 @@ export const exportHistoryToPDF = (userData, history) => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const printedDates = new Set();
+
   sortedGroups.forEach((group) => {
+    const dateStr = group.date;
+
+    // Se houver bloco de evolução para esta data e ainda não foi impresso
+    if (blocksByDate[dateStr] && !printedDates.has(dateStr)) {
+      printedDates.add(dateStr);
+
+      const block = blocksByDate[dateStr];
+      const currentState = block.state;
+      const highlights = block.highlights;
+
+      const entries = Object.entries(currentState).map(function([typeId, val]) {
+        const typeInfo = tiposMap[typeId] || { nome: "Medida", unidade: "cm" };
+        return {
+          id: typeId,
+          nome: typeInfo.nome,
+          unidade: typeInfo.unidade,
+          valor: val
+        };
+      });
+
+      if (entries.length > 0) {
+        const midPoint = Math.ceil(entries.length / 2);
+        const blockHeight = 10 + midPoint * 6 + 6;
+
+        if (currentY + blockHeight > 275) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        // Fundo suave do bloco de evolução
+        doc.setFillColor("#FFF9F2");
+        doc.rect(20, currentY, pageWidth - 40, blockHeight - 2, "F");
+
+        // Borda de acento laranja na esquerda
+        doc.setFillColor(primary);
+        doc.rect(20, currentY, 1.5, blockHeight - 2, "F");
+
+        // Título do Bloco de Evolução
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(primary);
+        doc.text("REGISTRO DE MEDIDAS CORPORAIS", 25, currentY + 5);
+
+        // Exibir medidas em duas colunas
+        const textY = currentY + 11;
+        entries.forEach(function(item, idx) {
+          const isLeft = idx < midPoint;
+          const x = isLeft ? 25 : 115;
+          const y = textY + (isLeft ? idx : idx - midPoint) * 6;
+
+          const isHighlighted = !!highlights[item.id];
+          const label = `${item.nome.replace(/_/g, " ").toUpperCase()}: `;
+          const valueStr = `${item.valor} ${item.unidade}`;
+
+          doc.setFontSize(8);
+          if (isHighlighted) {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(primary);
+          } else {
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(secondary);
+          }
+          doc.text(`${label}${valueStr}`, x, y);
+        });
+
+        currentY += blockHeight + 2;
+      }
+    }
+
     // Verificar espaço para o cabeçalho do grupo + pelo menos um item
     if (currentY > 250) {
       doc.addPage();
@@ -222,7 +407,7 @@ export const exportHistoryToPDF = (userData, history) => {
     doc.setFontSize(8);
     doc.setTextColor(secondary);
     doc.text(
-      `Página ${i} de ${pageCount} - SmartTraining System`,
+      `Página ${i} de ${pageCount} - Treino Fisico`,
       pageWidth / 2,
       290,
       { align: "center" },
