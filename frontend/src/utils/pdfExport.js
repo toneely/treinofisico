@@ -407,7 +407,7 @@ export const exportHistoryToPDF = async (userData, history, medidasHistory = [],
     doc.setFontSize(8);
     doc.setTextColor(secondary);
     doc.text(
-      `Página ${i} de ${pageCount} - Treino Fisico`,
+      `Página ${i} de ${pageCount} - Treino Físico`,
       pageWidth / 2,
       290,
       { align: "center" },
