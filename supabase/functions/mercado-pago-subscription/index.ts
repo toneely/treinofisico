@@ -123,10 +123,12 @@ serve(async function (req) {
     } else if (paymentType === "pix_one_time") {
       endpoint = "https://api.mercadopago.com/v1/payments";
       body = {
-        transaction_amount: numericAmount,
-        description: "Plano Premium - Pix",
+        transaction_amount: Number(transaction_amount),
+        description: "Assinatura Treino Físico Premium",
         payment_method_id: "pix",
-        payer: { email: email },
+        payer: {
+          email: email
+        },
         external_reference: external_reference
       };
     } else if (paymentType === "card_one_time" || paymentType === "card_recurring") {
@@ -144,37 +146,46 @@ serve(async function (req) {
 
     console.log("Enviando para MP:", endpoint);
 
-    const mpResponse = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + accessToken,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": crypto.randomUUID()
-      },
-      body: JSON.stringify(body),
-    });
+    try {
+      const mpResponse = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + accessToken,
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": crypto.randomUUID()
+        },
+        body: JSON.stringify(body),
+      });
 
-    const data = await mpResponse.json();
-    console.log("Resposta do MP:", JSON.stringify(data));
+      const data = await mpResponse.json();
+      console.log("Resposta do MP:", JSON.stringify(data));
 
-    if (!mpResponse.ok) {
-      const errorMsg = data.message || data.cause?.[0]?.description || JSON.stringify(data);
-      return new Response(JSON.stringify({ error: `Erro no Mercado Pago: ${errorMsg}`, details: data }), {
+      if (!mpResponse.ok) {
+        // Retorna o JSON exato de erro do Mercado Pago para o frontend com status 400
+        return new Response(JSON.stringify(data), {
+          headers: responseHeaders,
+          status: 400,
+        });
+      }
+
+      return new Response(JSON.stringify({
+        id: data.id,
+        status: data.status,
+        init_point: data.init_point,
+        qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
+        qr_code: data.point_of_interaction?.transaction_data?.qr_code
+      }), {
+        headers: responseHeaders,
+        status: 200,
+      });
+
+    } catch (fetchErr) {
+      console.error("Erro na chamada do MP:", fetchErr.message);
+      return new Response(JSON.stringify({ error: `Erro na chamada do MP: ${fetchErr.message}` }), {
         headers: responseHeaders,
         status: 400,
       });
     }
-
-    return new Response(JSON.stringify({
-      id: data.id,
-      status: data.status,
-      init_point: data.init_point,
-      qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
-      qr_code: data.point_of_interaction?.transaction_data?.qr_code
-    }), {
-      headers: responseHeaders,
-      status: 200,
-    });
 
   } catch (err) {
     console.error("Erro Critico na Function:", err.message);
