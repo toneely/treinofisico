@@ -118,12 +118,19 @@ serve(async function (req) {
       };
     } else if (paymentType === "pix_one_time") {
       endpoint = "https://api.mercadopago.com/v1/payments";
+      const dummyEmail = `test_payer_${Date.now()}@testuser.com`;
       body = {
         transaction_amount: Number(transaction_amount),
         description: "Assinatura Treino Físico Premium",
         payment_method_id: "pix",
         payer: {
-          email: email
+          email: dummyEmail,
+          first_name: "Testador",
+          last_name: "Treino Fisico",
+          identification: {
+            type: "CPF",
+            number: "19119119100"
+          }
         },
         external_reference: external_reference
       };
