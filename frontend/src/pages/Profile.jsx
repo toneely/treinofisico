@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import AdBanner from "../components/ui/AdBanner";
 import {
   ChevronLeft,
@@ -249,6 +250,21 @@ const Profile = () => {
       return;
     }
 
+    // Validação robusta de campos obrigatórios no Frontend antes de chamar a Edge Function
+    if (!user?.id) {
+      showToast("Erro de validação: ID de usuário não encontrado. Por favor, faça login novamente.", "error");
+      return;
+    }
+    if (!user?.email || !user.email.includes("@")) {
+      showToast("Erro de validação: E-mail do usuário inválido ou ausente.", "error");
+      return;
+    }
+    const amount = Number(appSettings?.subscription_price);
+    if (!appSettings?.subscription_price || isNaN(amount) || amount <= 0) {
+      showToast("Erro de validação: Valor da transação inválido.", "error");
+      return;
+    }
+
     setCreatingPayment(paymentType);
     try {
       const { data, error } = await supabase.functions.invoke('mercado-pago-subscription', {
@@ -256,11 +272,21 @@ const Profile = () => {
           paymentType,
           external_reference: user.id,
           email: user.email,
-          transaction_amount: appSettings.subscription_price
+          transaction_amount: amount
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const errContext = await error.context.json();
+            throw new Error(errContext.error || error.message);
+          } catch (jsonErr) {
+            throw new Error(error.message);
+          }
+        }
+        throw error;
+      }
 
       if (data?.init_point) {
         showToast("Redirecionando para o Mercado Pago...", "info");
@@ -277,12 +303,27 @@ const Profile = () => {
     } finally {
       setCreatingPayment(null);
     }
-  };
+  }
 
   const handleProcessCardPayment = async (e) => {
     e.preventDefault();
     if (!mpRef.current) {
       showToast("SDK do Mercado Pago não inicializado.", "error");
+      return;
+    }
+
+    // Validação robusta de campos obrigatórios no Frontend antes de chamar a Edge Function
+    if (!user?.id) {
+      showToast("Erro de validação: ID de usuário não encontrado. Por favor, faça login novamente.", "error");
+      return;
+    }
+    if (!user?.email || !user.email.includes("@")) {
+      showToast("Erro de validação: E-mail do usuário inválido ou ausente.", "error");
+      return;
+    }
+    const amount = Number(appSettings?.subscription_price);
+    if (!appSettings?.subscription_price || isNaN(amount) || amount <= 0) {
+      showToast("Erro de validação: Valor da transação inválido.", "error");
       return;
     }
 
@@ -320,18 +361,28 @@ const Profile = () => {
           token: cardToken,
           payment_method_id: paymentMethodId,
           installments: 1,
-          transaction_amount: appSettings.subscription_price
+          transaction_amount: amount
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const errContext = await error.context.json();
+            throw new Error(errContext.error || error.message);
+          } catch (jsonErr) {
+            throw new Error(error.message);
+          }
+        }
+        throw error;
+      }
 
-      if (data.status === 'approved') {
+      if (data?.status === 'approved') {
         showToast("Pagamento aprovado!", "success");
         setShowCardModal(false);
         await refreshProfile();
       } else {
-        showToast(`Status: ${data.status}`, "info");
+        showToast(`Status: ${data?.status || 'desconhecido'}`, "info");
       }
     } catch (e) {
       console.error("Erro no checkout transparente:", e);
