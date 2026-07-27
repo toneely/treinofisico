@@ -6,17 +6,13 @@ const MP_CHECKOUT_TOKEN = Deno.env.get("MERCADO_PAGO_CHECKOUT_TOKEN") || Deno.en
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const responseHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
   "Content-Type": "application/json"
 };
 
 serve(async function (req) {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -26,7 +22,7 @@ serve(async function (req) {
     } catch (e) {
       console.error("Erro ao ler JSON da requisição:", e.message);
       return new Response(JSON.stringify({ error: "Payload JSON inválido" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
@@ -39,10 +35,10 @@ serve(async function (req) {
     const email = reqBody.email;
     const transaction_amount = reqBody.transaction_amount;
 
-    // Validação robusta de campos vazios ou nulos
+    // Validação de campos vazios ou nulos
     if (!paymentType) {
       return new Response(JSON.stringify({ error: "Campo paymentType ausente ou vazio" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
@@ -50,28 +46,28 @@ serve(async function (req) {
     const allowedPaymentTypes = ["native_subscription", "pix_one_time", "card_one_time", "card_recurring"];
     if (!allowedPaymentTypes.includes(paymentType)) {
       return new Response(JSON.stringify({ error: `Tipo de pagamento inválido: ${paymentType}` }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
 
     if (!external_reference) {
       return new Response(JSON.stringify({ error: "Campo external_reference ausente ou vazio" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Campo email ausente ou vazio" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
 
     if (transaction_amount === undefined || transaction_amount === null) {
       return new Response(JSON.stringify({ error: "Campo transaction_amount ausente ou vazio" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
@@ -79,7 +75,7 @@ serve(async function (req) {
     const numericAmount = Number(transaction_amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
       return new Response(JSON.stringify({ error: "Campo transaction_amount deve ser um valor numérico válido maior que zero" }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
@@ -88,13 +84,13 @@ serve(async function (req) {
     if (paymentType === "card_one_time" || paymentType === "card_recurring") {
       if (!reqBody.token) {
         return new Response(JSON.stringify({ error: "Campo token ausente ou vazio para pagamento com cartão" }), {
-          headers: responseHeaders,
+          headers: corsHeaders,
           status: 400,
         });
       }
       if (!reqBody.payment_method_id) {
         return new Response(JSON.stringify({ error: "Campo payment_method_id ausente ou vazio para pagamento com cartão" }), {
-          headers: responseHeaders,
+          headers: corsHeaders,
           status: 400,
         });
       }
@@ -161,9 +157,8 @@ serve(async function (req) {
       console.log("Resposta do MP:", JSON.stringify(data));
 
       if (!mpResponse.ok) {
-        // Retorna o JSON exato de erro do Mercado Pago para o frontend com status 400
         return new Response(JSON.stringify(data), {
-          headers: responseHeaders,
+          headers: corsHeaders,
           status: 400,
         });
       }
@@ -175,22 +170,23 @@ serve(async function (req) {
         qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64,
         qr_code: data.point_of_interaction?.transaction_data?.qr_code
       }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 200,
       });
 
     } catch (fetchErr) {
       console.error("Erro na chamada do MP:", fetchErr.message);
       return new Response(JSON.stringify({ error: `Erro na chamada do MP: ${fetchErr.message}` }), {
-        headers: responseHeaders,
+        headers: corsHeaders,
         status: 400,
       });
     }
 
   } catch (err) {
-    console.error("Erro Critico na Function:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: responseHeaders,
+    // Imprime o erro no console interno da função conforme solicitado
+    console.error("Erro na função:", err);
+    return new Response(JSON.stringify({ error: err.message, details: err }), {
+      headers: corsHeaders,
       status: 400,
     });
   }
