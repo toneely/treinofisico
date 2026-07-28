@@ -1128,12 +1128,12 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
   if (isDone) return children;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className={`relative rounded-2xl ${isEnabled ? "" : "overflow-hidden"}`}>
       {/* Background Actions */}
       {isEnabled && (
         <motion.div
           style={{ background }}
-          className="absolute inset-0 flex items-center justify-between px-6"
+          className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl overflow-hidden"
         >
           <motion.div style={{ opacity: opacityRight }} className="flex items-center gap-2 text-white font-bold">
             <CheckCircle2 size={24} />
