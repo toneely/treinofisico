@@ -741,23 +741,40 @@ function trainingReducer(state, action) {
       const currentActiveS = state.activeSeriesMap[sessionId] || 1;
       const editedSNum = sessionIdx + 1;
 
+      let nextState = { ...state };
+
+      if (state.trainingMode === "manual") {
+        const nextExerciseTimes = { ...state.exerciseTimes };
+        const times = [...(nextExerciseTimes[sessionId] || [])];
+        for (let i = 0; i <= sessionIdx; i++) {
+          if (times[i] === undefined || times[i] === null) {
+            times[i] = 0;
+          }
+        }
+        nextExerciseTimes[sessionId] = times;
+        nextState = {
+          ...nextState,
+          exerciseTimes: nextExerciseTimes,
+        };
+      }
+
       if (editedSNum > currentActiveS) {
         const currentEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
         const isTargetExFocused = currentEx?.sessionId === sessionId;
 
-        let nextState = {
-          ...state,
-          activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: editedSNum },
-          currentSerie: isTargetExFocused ? editedSNum : state.currentSerie,
+        nextState = {
+          ...nextState,
+          activeSeriesMap: { ...nextState.activeSeriesMap, [sessionId]: editedSNum },
+          currentSerie: isTargetExFocused ? editedSNum : nextState.currentSerie,
           status: "IDLE",
           isTimerActive: false,
           timer: 0,
-          skippedExercises: state.skippedExercises.filter(s => s.sessionId !== sessionId)
+          skippedExercises: nextState.skippedExercises.filter(s => s.sessionId !== sessionId)
         };
 
         return ensureExecutionData(nextState, sessionId, editedSNum);
       }
-      return state;
+      return nextState;
     }
 
     case "DISMISS_REST": {
