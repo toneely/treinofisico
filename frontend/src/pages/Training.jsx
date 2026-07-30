@@ -1117,7 +1117,7 @@ function trainingReducer(state, action) {
 }
 
 
-const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled }) => {
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled, style }) => {
   const x = useMotionValue(0);
   const background = useTransform(
     x,
@@ -1142,10 +1142,16 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
     }
   };
 
-  if (isDone) return children;
+  if (isDone) {
+    return (
+      <div style={style}>
+        {children}
+      </div>
+    );
+  }
 
   return (
-    <div className={`relative rounded-2xl ${isEnabled ? "" : "overflow-hidden"}`}>
+    <div className={`relative rounded-2xl ${isEnabled ? "" : "overflow-hidden"}`} style={style}>
       {/* Background Actions */}
       {isEnabled && (
         <motion.div
@@ -2768,6 +2774,9 @@ const Training = () => {
                         onSwipeRight={() => dispatch({ type: "COMPLETE_EXERCISE_MANUAL", payload: { sessionId } })}
                         onSwipeLeft={() => dispatch({ type: "SKIP_EXERCISE", payload: { sessionId } })}
                         isEnabled={state.trainingMode === "manual"}
+                        style={{
+                          zIndex: state.trainingMode === "manual" && openMenuExId === sessionId ? 50 : undefined
+                        }}
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
