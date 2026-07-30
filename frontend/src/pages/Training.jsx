@@ -741,23 +741,40 @@ function trainingReducer(state, action) {
       const currentActiveS = state.activeSeriesMap[sessionId] || 1;
       const editedSNum = sessionIdx + 1;
 
+      let nextState = { ...state };
+
+      if (state.trainingMode === "manual") {
+        const nextExerciseTimes = { ...state.exerciseTimes };
+        const times = [...(nextExerciseTimes[sessionId] || [])];
+        for (let i = 0; i <= sessionIdx; i++) {
+          if (times[i] === undefined || times[i] === null) {
+            times[i] = 0;
+          }
+        }
+        nextExerciseTimes[sessionId] = times;
+        nextState = {
+          ...nextState,
+          exerciseTimes: nextExerciseTimes,
+        };
+      }
+
       if (editedSNum > currentActiveS) {
         const currentEx = state.blocos[state.currentBlockIndex]?.[state.currentExerciseInBlock];
         const isTargetExFocused = currentEx?.sessionId === sessionId;
 
-        let nextState = {
-          ...state,
-          activeSeriesMap: { ...state.activeSeriesMap, [sessionId]: editedSNum },
-          currentSerie: isTargetExFocused ? editedSNum : state.currentSerie,
+        nextState = {
+          ...nextState,
+          activeSeriesMap: { ...nextState.activeSeriesMap, [sessionId]: editedSNum },
+          currentSerie: isTargetExFocused ? editedSNum : nextState.currentSerie,
           status: "IDLE",
           isTimerActive: false,
           timer: 0,
-          skippedExercises: state.skippedExercises.filter(s => s.sessionId !== sessionId)
+          skippedExercises: nextState.skippedExercises.filter(s => s.sessionId !== sessionId)
         };
 
         return ensureExecutionData(nextState, sessionId, editedSNum);
       }
-      return state;
+      return nextState;
     }
 
     case "DISMISS_REST": {
@@ -1100,7 +1117,7 @@ function trainingReducer(state, action) {
 }
 
 
-const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled }) => {
+const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, isDone, isEnabled, style }) => {
   const x = useMotionValue(0);
   const background = useTransform(
     x,
@@ -1125,15 +1142,21 @@ const SwipeableExerciseCard = ({ children, onSwipeRight, onSwipeLeft, isFirst, i
     }
   };
 
-  if (isDone) return children;
+  if (isDone) {
+    return (
+      <div style={style}>
+        {children}
+      </div>
+    );
+  }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className={`relative rounded-2xl ${isEnabled ? "" : "overflow-hidden"}`} style={style}>
       {/* Background Actions */}
       {isEnabled && (
         <motion.div
           style={{ background }}
-          className="absolute inset-0 flex items-center justify-between px-6"
+          className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl overflow-hidden"
         >
           <motion.div style={{ opacity: opacityRight }} className="flex items-center gap-2 text-white font-bold">
             <CheckCircle2 size={24} />
@@ -2751,6 +2774,9 @@ const Training = () => {
                         onSwipeRight={() => dispatch({ type: "COMPLETE_EXERCISE_MANUAL", payload: { sessionId } })}
                         onSwipeLeft={() => dispatch({ type: "SKIP_EXERCISE", payload: { sessionId } })}
                         isEnabled={state.trainingMode === "manual"}
+                        style={{
+                          zIndex: state.trainingMode === "manual" && openMenuExId === sessionId ? 50 : undefined
+                        }}
                       >
                       <div
                         id={isCurrent ? "active-exercise" : undefined}
