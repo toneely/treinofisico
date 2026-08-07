@@ -19,6 +19,12 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
         contentType: 'application/json',
         body: JSON.stringify([{ id: 'm1', nome: 'Musculação' }])
       });
+    } else if (url.includes('/exercicios')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'ex1_p', nome: 'Supino Reto', alvo_principal: 'Peito' }])
+      });
     } else if (url.includes('/usuarios')) {
       await route.fulfill({
         status: 200,
@@ -51,7 +57,6 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
   await page.waitForSelector('text=Carregando...', { state: 'detached', timeout: 20000 });
 
   // 1. Switch to Manual Mode
-  // Use a more robust selector for the Manual button
   await page.click('button:has-text("Manual")');
 
   // 2. Add an exercise
@@ -81,4 +86,90 @@ test('Verify Training V2 UX Enhancements', async ({ page }) => {
   // Switch back to first exercise and verify focus persistence
   await page.locator('p.font-bold', { hasText: 'Supino Reto' }).first().click();
   await expect(series2Container).toBeVisible();
+});
+
+test('Verify Exercise Selector Dynamic Opening Behavior', async ({ page }) => {
+  // Mock Supabase API calls
+  await page.route('**/rest/v1/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('/rpc/buscar_exercicios_unificados')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id_original: 'ex1', nome: 'Supino Reto', alvo_principal: 'Peito', fonte: 'pessoal', id_pessoal: 'ex1_p' },
+          { id_original: 'ex2', nome: 'Agachamento', alvo_principal: 'Pernas', fonte: 'pessoal', id_pessoal: 'ex2_p' }
+        ])
+      });
+    } else if (url.includes('/modalidades')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'm1', nome: 'Musculação' }])
+      });
+    } else if (url.includes('/exercicios')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'ex1_p', nome: 'Supino Reto', alvo_principal: 'Peito' }])
+      });
+    } else if (url.includes('/usuarios')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'mock-user-id', nome: 'Test User', testador_pagamento: true, status_assinatura: 'premium' }])
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    }
+  });
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('sb-fbdzbafzdmzcrteqhbto-auth-token', JSON.stringify({
+      access_token: 'mock-token',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: 'mock-refresh-token',
+      user: { id: 'mock-user-id', email: 'test@example.com' }
+    }));
+  });
+
+  await page.goto('http://localhost:4173/treino/LIVRE');
+
+  // Wait for loading to finish
+  await page.waitForSelector('text=Carregando...', { state: 'detached', timeout: 20000 });
+
+  // Switch to Manual Mode
+  await page.click('button:has-text("Manual")');
+
+  // 1. ADD MODE test: Click 'Adicionar Exercício'
+  await page.locator('button:has-text("Adicionar Exercício")').first().click();
+
+  // In ADD mode, since currentExerciseId is null, isOpen should be true.
+  // This means the list panel (with search input) should be immediately visible.
+  await expect(page.locator('input[placeholder="Pesquisar..."]')).toBeVisible();
+
+  // Add the exercise "Supino Reto"
+  await page.click('button:has-text("Musculação")');
+  await page.click('button:has-text("Supino Reto")');
+
+  // 2. REPLACE/ALTER MODE test: Click the menu button for the exercise, then 'Alterar Exercício'
+  // Click option button on exercise item to open dropdown menu
+  const card = page.locator('div', { hasText: 'Supino Reto' }).first();
+  await card.locator('button.p-2.rounded-lg.transition').click();
+
+  // Click 'Alterar Exercício'
+  await page.click('button:has-text("Alterar Exercício")');
+
+  // In REPLACE mode, since currentExerciseId exists, isOpen should be initialized to false.
+  // This means the list panel (search input) should NOT be immediately visible.
+  await expect(page.locator('input[placeholder="Pesquisar..."]')).not.toBeVisible();
+
+  // But the name "Supino Reto" should be selected/visible in the selector button
+  await expect(page.locator('button:has-text("Supino Reto")').first()).toBeVisible();
 });

@@ -3657,6 +3657,11 @@ const Training = () => {
               ) : (
                 <ExerciseSelector
                   context="training"
+                  currentExerciseId={
+                    selectorConfig.mode === 'replace'
+                      ? state.blocos?.[selectorConfig.bIdx]?.[selectorConfig.eIdx]?.exercicio_id || null
+                      : null
+                  }
                   onSelect={async (exerciseData) => {
                     setSelectorConfig(prev => ({ ...prev, isFetchingHistory: true }));
 
