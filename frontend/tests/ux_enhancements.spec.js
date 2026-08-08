@@ -173,3 +173,85 @@ test('Verify Exercise Selector Dynamic Opening Behavior', async ({ page }) => {
   // But the name "Supino Reto" should be selected/visible in the selector button
   await expect(page.locator('button:has-text("Supino Reto")').first()).toBeVisible();
 });
+
+test('Verify finishWorkout timeout and duplicate click protection', async ({ page }) => {
+  let requestCount = 0;
+  // Mock Supabase API calls to simulate hung connections
+  await page.route('**/rest/v1/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('/rpc/buscar_exercicios_unificados')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id_original: 'ex1', nome: 'Supino Reto', alvo_principal: 'Peito', fonte: 'pessoal', id_pessoal: 'ex1_p' }
+        ])
+      });
+    } else if (url.includes('/modalidades')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'm1', nome: 'Musculação' }])
+      });
+    } else if (url.includes('/exercicios')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'ex1_p', nome: 'Supino Reto', alvo_principal: 'Peito' }])
+      });
+    } else if (url.includes('/usuarios')) {
+      requestCount++;
+      // HANG the connection on '/usuarios' request to trigger our 10-second timeout!
+      await route.abort('timedout');
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    }
+  });
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('sb-fbdzbafzdmzcrteqhbto-auth-token', JSON.stringify({
+      access_token: 'mock-token',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: 'mock-refresh-token',
+      user: { id: 'mock-user-id', email: 'test@example.com' }
+    }));
+  });
+
+  await page.goto('http://localhost:4173/treino/LIVRE');
+
+  // Wait for loading to finish
+  await page.waitForSelector('text=Carregando...', { state: 'detached', timeout: 20000 });
+
+  // Switch to Manual Mode and add an exercise
+  await page.click('button:has-text("Manual")');
+  await page.locator('button:has-text("Adicionar Exercício")').first().click();
+  await page.waitForSelector('text=Musculação', { timeout: 10000 });
+  await page.click('button:has-text("Musculação")');
+  await page.click('button:has-text("Supino Reto")');
+
+  // Complete one series
+  const input = page.locator('input[type="number"]').first();
+  await input.fill('10');
+  await input.blur();
+
+  // Open Header Menu
+  await page.locator('header').locator('button').filter({ has: page.locator('svg') }).last().click();
+
+  // Click the end workout button (Finalizar Treino)
+  await page.click('button:has-text("Finalizar Treino")');
+  await page.click('button:has-text("Sim, Finalizar")');
+
+  // Since we aborted the request immediately with 'timedout' (or delayed), the Supabase API call will reject,
+  // causing the connection error catch block to execute, displaying the connection error toast and unlocking the UI!
+  await expect(page.locator('text=Erro de conexão com o servidor. Tente novamente.').or(page.locator('text=Erro ao salvar histórico'))).toBeVisible({ timeout: 15000 });
+
+  // And the button should be unlocked/available again
+  await page.locator('header').locator('button').filter({ has: page.locator('svg') }).last().click();
+  await expect(page.locator('button:has-text("Finalizar Treino")')).toBeVisible();
+});
