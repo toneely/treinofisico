@@ -13,7 +13,7 @@ const ExerciseSelector = ({
 }) => {
   const { user: authUser } = useAuth();
   const { showToast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(!currentExerciseId);
   const [searchTerm, setSearchTerm] = useState("");
   const [modalidades, setModalidades] = useState([]);
   const [selectedModality, setSelectedModality] = useState(null);
@@ -29,8 +29,11 @@ const ExerciseSelector = ({
   }, []);
 
   useEffect(() => {
+    setIsOpen(!currentExerciseId);
     if (currentExerciseId) {
       fetchCurrentExercise();
+    } else {
+      setSelectedEx(null);
     }
   }, [currentExerciseId]);
 

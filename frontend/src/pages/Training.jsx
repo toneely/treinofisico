@@ -1227,6 +1227,7 @@ const Training = () => {
   const location = useLocation();
   const isFromHomeRef = useRef(!!location.state?.fromHome);
   const finishedRef = useRef(false);
+  const isSavingRef = useRef(false);
 
   const [state, dispatch] = useReducer(trainingReducer, initialState);
 
@@ -1471,8 +1472,20 @@ const Training = () => {
   }, [user?.id, isFreeTraining, letra]);
 
   const finishWorkout = useCallback(async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setSavingSession(true);
     setShowInterstitial(false); // Garante que o intersticial não seja exibido no salvamento
+
+    const withTimeout = (promise, timeoutMs = 10000) => {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), timeoutMs)
+        ),
+      ]);
+    };
+
     try {
       const historyData = [];
       const workoutTimestamp = new Date().toISOString();
@@ -1621,11 +1634,14 @@ const Training = () => {
       }
 
       if (letra === "LIVRE") {
-        const { data: userData, error: userError } = await supabase
-          .from("usuarios")
-          .select("contador_treino_livre")
-          .eq("id", user.id)
-          .single();
+        const { data: userData, error: userError } = await withTimeout(
+          supabase
+            .from("usuarios")
+            .select("contador_treino_livre")
+            .eq("id", user.id)
+            .single(),
+          10000
+        );
 
         if (userError) throw userError;
 
@@ -1687,9 +1703,12 @@ const Training = () => {
         return;
       }
 
-      const { error } = await supabase
-        .from("historico_cargas")
-        .insert(historyData);
+      const { error } = await withTimeout(
+        supabase
+          .from("historico_cargas")
+          .insert(historyData),
+        10000
+      );
       if (error) {
         throw error;
       } else {
@@ -1961,7 +1980,12 @@ const Training = () => {
       }
     } catch (error) {
       console.error("Erro ao salvar treino:", error);
-      showToast("Erro ao salvar histórico: " + error.message, "error");
+      isSavingRef.current = false;
+      if (error.message === "timeout") {
+        showToast("Erro de conexão com o servidor. Tente novamente.", "error");
+      } else {
+        showToast("Erro ao salvar histórico: " + error.message, "error");
+      }
     } finally {
       setSavingSession(false);
     }
@@ -3657,6 +3681,11 @@ const Training = () => {
               ) : (
                 <ExerciseSelector
                   context="training"
+                  currentExerciseId={
+                    selectorConfig.mode === 'replace'
+                      ? state.blocos?.[selectorConfig.bIdx]?.[selectorConfig.eIdx]?.exercicio_id || null
+                      : null
+                  }
                   onSelect={async (exerciseData) => {
                     setSelectorConfig(prev => ({ ...prev, isFetchingHistory: true }));
 
