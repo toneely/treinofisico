@@ -32,7 +32,7 @@ const LandingPage = () => {
 
   return (
     <div
-      className="flex flex-col min-h-screen"
+      className="w-full flex flex-col min-h-screen overflow-hidden bg-[#0a0a0a]"
       style={{
         backgroundImage: "url('/assets/bg-landing.png')",
         backgroundSize: "cover",
@@ -300,7 +300,7 @@ const LandingPage = () => {
       </main>
 
       {/* Rodapé */}
-      <footer className="bg-black/40 backdrop-blur-md border-t border-white/10 py-12 px-6">
+      <footer className="bg-black/40 backdrop-blur-md border-t border-white/10 py-12 px-6 mb-0">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
