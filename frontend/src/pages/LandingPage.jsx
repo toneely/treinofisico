@@ -32,7 +32,7 @@ const LandingPage = () => {
 
   return (
     <div
-      className="flex flex-col min-h-screen"
+      className="w-full flex flex-col min-h-screen overflow-hidden bg-[#0a0a0a]"
       style={{
         backgroundImage: "url('/assets/bg-landing.png')",
         backgroundSize: "cover",
@@ -236,10 +236,71 @@ const LandingPage = () => {
             </div>
           </div>
         </section>
+
+        {/* Seção de FAQ */}
+        <section className="py-20 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">
+                Perguntas Frequentes sobre o Treino Físico
+              </h2>
+              <p className="text-slate-400 font-medium max-w-xl mx-auto">
+                Tire suas dúvidas sobre o funcionamento da plataforma, acompanhamento de cargas e benefícios para a sua saúde.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10">
+                <h3 className="text-xl font-black text-white mb-3">
+                  Como o acompanhamento de cargas ajuda na hipertrofia e evolução física?
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-medium">
+                  O princípio fundamental para o ganho de massa muscular é a sobrecarga progressiva. Para que os músculos continuem se desenvolvendo, é necessário aumentar gradualmente o estresse aplicado durante os exercícios, seja aumentando o peso, o número de repetições ou ajustando o tempo de descanso. O Treino Físico permite registrar com precisão cada série realizada, garantindo que você saiba exatamente quanto levantou no último treino e possa superar suas marcas com segurança.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10">
+                <h3 className="text-xl font-black text-white mb-3">
+                  Posso utilizar o aplicativo tanto para musculação quanto para calistenia?
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-medium">
+                  Sim. A plataforma foi desenvolvida para atender praticantes de diversas modalidades de exercício físico. Na musculação, você pode controlar o peso dos halteres, barras e máquinas. Na calistenia ou exercícios funcionais, você pode registrar as repetições com o peso do próprio corpo ou adicionar sobrecargas externas (como coletes de peso e caneleiras). O sistema é totalmente flexível para a sua rotina.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10">
+                <h3 className="text-xl font-black text-white mb-3">
+                  Por que é importante manter a frequência e a constância nos treinos?
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-medium">
+                  A regularidade é o fator mais determinante para alcançar resultados estéticos e de saúde a longo prazo. Treinar de forma consistente fortalece o sistema cardiovascular, melhora a densidade óssea, regula os níveis hormonais e reduz o estresse. Ao visualizar o seu histórico de frequência e a sua sequência de dias treinados dentro do aplicativo, você mantém a motivação em alta para não furar a rotina.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10">
+                <h3 className="text-xl font-black text-white mb-3">
+                  O aplicativo substitui o acompanhamento de um Personal Trainer?
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-medium">
+                  Não. O Treino Físico é uma ferramenta de gestão, organização e registro pessoal. Recomendamos sempre que a montagem da sua ficha de exercícios e a execução dos movimentos sejam orientadas por um profissional de Educação Física habilitado, garantindo a postura correta e prevenindo lesões.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10">
+                <h3 className="text-xl font-black text-white mb-3">
+                  Como funciona a versão gratuita e por que ela exibe anúncios?
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-medium">
+                  A versão gratuita do Treino Físico oferece acesso ilimitado ao registro de treinos e histórico de cargas. Para manter os servidores rodando e disponibilizar a plataforma sem custos de assinatura para todos os usuários, exibimos publicidades parceiras intermediadas pelo Google. Caso prefira uma experiência sem interrupções visuais, oferecemos o Plano Premium por um valor acessível.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Rodapé */}
-      <footer className="bg-black/40 backdrop-blur-md border-t border-white/10 py-12 px-6">
+      <footer className="bg-black/40 backdrop-blur-md border-t border-white/10 py-12 px-6 mb-0">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
